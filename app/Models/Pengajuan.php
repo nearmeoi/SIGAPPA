@@ -38,6 +38,7 @@ class Pengajuan extends Model
         'alamat_lengkap',
         'latitude',
         'longitude',
+        'lokasi_tambahan',
         'judul_kegiatan',
         'nama_pengusul',
         'email_pengusul',
@@ -59,11 +60,14 @@ class Pengajuan extends Model
         'is_tahun_saja',
         'status_pengajuan',
         'catatan_admin',
+        'catatan_direktur',
         'admin_read_at',
         'direktur_approved_at',
     ];
 
     const STATUS_DIPROSES = 'diproses';
+
+    const STATUS_DIAJUKAN = 'diajukan';
 
     const STATUS_DIREVISI = 'direvisi';
 
@@ -84,6 +88,7 @@ class Pengajuan extends Model
             'rab_items' => 'array',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
+            'lokasi_tambahan' => 'array',
             'tgl_mulai' => 'date',
             'tgl_selesai' => 'date',
             'is_tahun_saja' => 'boolean',
@@ -92,6 +97,12 @@ class Pengajuan extends Model
             'admin_read_at' => 'datetime',
             'direktur_approved_at' => 'datetime',
         ];
+    }
+
+    public function logs()
+    {
+        return $this->hasMany(PengajuanLog::class, 'id_pengajuan', 'id_pengajuan')
+            ->latest();
     }
 
     public function user()
@@ -117,12 +128,6 @@ class Pengajuan extends Model
     public function arsip()
     {
         return $this->hasMany(Arsip::class, 'id_pengajuan', 'id_pengajuan');
-    }
-
-    public function logs()
-    {
-        return $this->hasMany(PengajuanLog::class, 'id_pengajuan', 'id_pengajuan')
-                    ->latest();
     }
 
     public function testimoni()

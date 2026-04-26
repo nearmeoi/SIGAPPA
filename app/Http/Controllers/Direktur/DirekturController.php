@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Direktur;
 
 use App\Http\Controllers\Controller;
+use App\Models\Aktivitas;
 use App\Models\Pengajuan;
 use App\Models\PengajuanLog;
 use Illuminate\Http\Request;
@@ -13,79 +14,114 @@ class DirekturController extends Controller
 {
     public function index()
     {
-        $pending = Pengajuan::with(['user', 'jenisPkm'])
-            ->where('status_pengajuan', Pengajuan::STATUS_DIPROSES)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(fn ($p) => [
-                'id_pengajuan'          => $p->id_pengajuan,
-                'judul_kegiatan'        => $p->judul_kegiatan,
-                'nama_pengusul'         => $p->nama_pengusul ?? $p->user?->name,
-                'jenis_pkm'             => $p->jenisPkm?->nama_jenis ?? '-',
-                'warna_jenis'           => $p->jenisPkm?->warna_icon ?? '#64748b',
-                'created_at'            => $p->created_at?->format('d M Y'),
-                'direktur_approved_at'  => $p->direktur_approved_at?->format('d M Y, H:i'),
-            ]);
-
-        $stats = [
-            'total'    => $pending->count(),
-            'approved' => $pending->whereNotNull('direktur_approved_at')->count(),
-            'waiting'  => $pending->whereNull('direktur_approved_at')->count(),
-        ];
-
-        return Inertia::render('Direktur/Dashboard', [
-            'pengajuanList' => $pending->values(),
-            'stats'         => $stats,
-        ]);
+        return redirect()->route('admin.dashboard');
     }
 
-    public function approve(int $id)
+    public function show(int $id)
     {
-        $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIPROSES)->findOrFail($id);
+        return redirect()->route('admin.pengajuan.show', $id);
+    }
 
-        if ($pengajuan->direktur_approved_at) {
-            return redirect()->back()->with('info', 'Pengajuan sudah disetujui sebelumnya.');
-        }
+    /**
+     * Direktur menerima pengajuan (wajib catatan).
+     */
+    public function approve(Request $request, int $id)
+    {
+        $request->validate([
+            'catatan' => 'required|string|min:5|max:2000',
+        ], [
+            'catatan.required' => 'Catatan wajib diisi sebelum menerima pengajuan.',
+            'catatan.min' => 'Catatan minimal 5 karakter.',
+        ]);
 
-        DB::transaction(function () use ($pengajuan) {
+        $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIAJUKAN)->findOrFail($id);
+
+        DB::transaction(function () use ($pengajuan, $request) {
+            $pengajuan->status_pengajuan = Pengajuan::STATUS_DITERIMA;
+            $pengajuan->catatan_direktur = $request->catatan;
             $pengajuan->direktur_approved_at = now();
             $pengajuan->save();
 
+            // Buat aktivitas otomatis ketika diterima
+            Aktivitas::firstOrCreate(
+                ['id_pengajuan' => $pengajuan->id_pengajuan],
+                ['status_pelaksanaan' => 'belum_mulai'],
+            );
+
             PengajuanLog::create([
-                'id_pengajuan'       => $pengajuan->id_pengajuan,
-                'status_lama'        => null,
-                'status_baru'        => 'disetujui_direktur',
-                'catatan'            => 'Disetujui oleh Direktur',
+                'id_pengajuan' => $pengajuan->id_pengajuan,
+                'status_lama' => Pengajuan::STATUS_DIAJUKAN,
+                'status_baru' => Pengajuan::STATUS_DITERIMA,
+                'catatan' => $request->catatan,
                 'changed_by_user_id' => auth()->id(),
-                'changed_by_name'    => auth()->user()?->name,
+                'changed_by_name' => auth()->user()?->name,
             ]);
         });
 
-        return redirect()->back()->with('success', 'Pengajuan berhasil disetujui.');
+        return redirect()->route('admin.dashboard')->with('success', 'Pengajuan berhasil diterima.');
     }
 
-    public function decline(int $id)
+    /**
+     * Direktur menolak pengajuan (wajib catatan alasan).
+     */
+    public function decline(Request $request, int $id)
     {
-        $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIPROSES)->findOrFail($id);
+        $request->validate([
+            'catatan' => 'required|string|min:5|max:2000',
+        ], [
+            'catatan.required' => 'Catatan alasan penolakan wajib diisi.',
+            'catatan.min' => 'Catatan minimal 5 karakter.',
+        ]);
 
-        if (! $pengajuan->direktur_approved_at) {
-            return redirect()->back()->with('info', 'Pengajuan belum disetujui.');
-        }
+        $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIAJUKAN)->findOrFail($id);
 
-        DB::transaction(function () use ($pengajuan) {
-            $pengajuan->direktur_approved_at = null;
+        DB::transaction(function () use ($pengajuan, $request) {
+            $pengajuan->status_pengajuan = Pengajuan::STATUS_DITOLAK;
+            $pengajuan->catatan_direktur = $request->catatan;
             $pengajuan->save();
 
             PengajuanLog::create([
-                'id_pengajuan'       => $pengajuan->id_pengajuan,
-                'status_lama'        => null,
-                'status_baru'        => 'ditolak_direktur',
-                'catatan'            => 'Persetujuan ditarik oleh Direktur',
+                'id_pengajuan' => $pengajuan->id_pengajuan,
+                'status_lama' => Pengajuan::STATUS_DIAJUKAN,
+                'status_baru' => Pengajuan::STATUS_DITOLAK,
+                'catatan' => $request->catatan,
                 'changed_by_user_id' => auth()->id(),
-                'changed_by_name'    => auth()->user()?->name,
+                'changed_by_name' => auth()->user()?->name,
             ]);
         });
 
-        return redirect()->back()->with('success', 'Persetujuan pengajuan dibatalkan.');
+        return redirect()->route('admin.dashboard')->with('success', 'Pengajuan ditolak.');
+    }
+
+    /**
+     * Direktur meminta revisi (wajib catatan).
+     */
+    public function revise(Request $request, int $id)
+    {
+        $request->validate([
+            'catatan' => 'required|string|min:5|max:2000',
+        ], [
+            'catatan.required' => 'Catatan alasan revisi wajib diisi.',
+            'catatan.min' => 'Catatan minimal 5 karakter.',
+        ]);
+
+        $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIAJUKAN)->findOrFail($id);
+
+        DB::transaction(function () use ($pengajuan, $request) {
+            $pengajuan->status_pengajuan = Pengajuan::STATUS_DIREVISI;
+            $pengajuan->catatan_direktur = $request->catatan;
+            $pengajuan->save();
+
+            PengajuanLog::create([
+                'id_pengajuan' => $pengajuan->id_pengajuan,
+                'status_lama' => Pengajuan::STATUS_DIAJUKAN,
+                'status_baru' => Pengajuan::STATUS_DIREVISI,
+                'catatan' => $request->catatan,
+                'changed_by_user_id' => auth()->id(),
+                'changed_by_name' => auth()->user()?->name,
+            ]);
+        });
+
+        return redirect()->route('admin.dashboard')->with('success', 'Pengajuan dikembalikan untuk direvisi.');
     }
 }

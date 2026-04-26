@@ -37,6 +37,7 @@ interface NavItem {
     children?: { label: string; href: string; icon: React.ElementType }[];
     superadminOnly?: boolean;
     secretOnly?: boolean;
+    adminOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -46,6 +47,7 @@ const navItems: NavItem[] = [
     {
         label: 'Database',
         icon: Database,
+        adminOnly: true,
         children: [
             { label: 'Pegawai', href: '/admin/pegawai', icon: Users },
             { label: 'Users', href: '/admin/users', icon: User },
@@ -55,9 +57,10 @@ const navItems: NavItem[] = [
     { label: 'Arsip', href: '/admin/arsip', icon: Folder },
     { label: 'Testimoni', href: '/admin/testimoni', icon: MessageSquare },
     { label: 'Feedback', href: '/admin/evaluasi-sistem', icon: StarHalf },
-    { label: 'Atur Template', href: '/admin/templates', icon: FileText },
+    { label: 'Atur Template', href: '/admin/templates', icon: FileText, adminOnly: true },
     { label: 'Kontak', href: '/admin/kontak', icon: Phone },
     { label: 'Data Historis', href: '/admin/historis', icon: Database, superadminOnly: true },
+    { label: 'Portal Direktur', href: '/direktur/dashboard', icon: Layout, superadminOnly: true },
     { label: 'Pengaturan Situs', href: '/secret/settings', icon: Layout, secretOnly: true },
     { label: 'Kelola Halaman Developer', href: '/secret/appreciation', icon: User, secretOnly: true },
 ];
@@ -164,9 +167,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
 
             {/* ─── Sidebar ─── */}
             <aside
-                className={`w-68 flex flex-col flex-shrink-0 fixed top-0 left-0 h-screen z-50 lg:z-40 bg-poltekpar-navy border-r border-white/5 shadow-2xl transition-transform duration-300 ease-in-out ${
-                    sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-                }`}
+                className={`w-68 flex flex-col flex-shrink-0 fixed top-0 left-0 h-screen z-50 lg:z-40 bg-poltekpar-navy border-r border-white/5 shadow-2xl transition-transform duration-300 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                    }`}
                 style={{ overflowY: 'auto', overflowX: 'hidden' }}
             >
                 {/* Brand */}
@@ -177,7 +179,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                     </div>
                     <div className="flex flex-col">
                         <span className="text-[18px] font-extrabold text-white tracking-tight leading-none">{import.meta.env.VITE_APP_NAME || 'SIGAPPA'}</span>
-                        <span className="text-[9px] font-bold text-poltekpar-gold/80 uppercase tracking-widest mt-1">Geospasial & Pariwisata</span>
+                        <span className="text-[9px] font-bold text-poltekpar-gold/80 uppercase tracking-widest mt-1">
+                            {(props as any).auth?.user?.role === 'direktur' ? 'Portal Direktur' : 'Geospasial & Pariwisata'}
+                        </span>
                     </div>
                 </div>
 
@@ -192,6 +196,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                         const role = (props as any).auth?.user?.role;
                         if (i.superadminOnly && !['superadmin', 'secret_account'].includes(role)) return false;
                         if (i.secretOnly && role !== 'secret_account') return false;
+                        if (i.adminOnly && !['admin', 'superadmin', 'secret_account'].includes(role)) return false;
                         return true;
                     }).map((item) => {
                         const hasChildren = !!item.children;
@@ -206,8 +211,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                                     <button
                                         onClick={() => toggleDropdown(item.label)}
                                         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-[14px] font-bold transition-all duration-200 ${active
-                                                ? 'text-white bg-white/10'
-                                                : 'text-white/60 hover:text-white hover:bg-white/5'
+                                            ? 'text-white bg-white/10'
+                                            : 'text-white/60 hover:text-white hover:bg-white/5'
                                             }`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -227,8 +232,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                                                         href={child.href}
                                                         onClick={() => setSidebarOpen(false)}
                                                         className={`block px-4 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${childIsActive
-                                                                ? 'text-poltekpar-gold bg-white/5'
-                                                                : 'text-white/50 hover:text-white hover:bg-white/5'
+                                                            ? 'text-poltekpar-gold bg-white/5'
+                                                            : 'text-white/50 hover:text-white hover:bg-white/5'
                                                             }`}
                                                     >
                                                         {child.label}
@@ -247,8 +252,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                                 href={item.href || '#'}
                                 onClick={() => setSidebarOpen(false)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-bold transition-all duration-300 relative group ${active
-                                        ? 'bg-poltekpar-primary text-white shadow-lg shadow-poltekpar-primary/20 translate-x-1'
-                                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                                    ? 'bg-poltekpar-primary text-white shadow-lg shadow-poltekpar-primary/20 translate-x-1'
+                                    : 'text-white/60 hover:text-white hover:bg-white/5'
                                     }`}
                             >
                                 <Icon size={18} className={active ? 'text-white' : 'text-white/40 group-hover:text-white transition-colors'} />
@@ -322,7 +327,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                             <div>
                                 <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none">{title}</h1>
                                 <div className="mt-2 flex items-center gap-2 text-slate-400 text-[13px] font-bold uppercase tracking-widest">
-                                    <span>Admin</span>
+                                    <span>{(props as any).auth?.user?.role === 'direktur' ? 'Direktur' : 'Admin'}</span>
                                     <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                                     <span>{title}</span>
                                 </div>
@@ -338,14 +343,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
 
             {/* Global Toast Notifications */}
             <div id="notification-toast">
-            <Toast
-                show={toast.show}
-                type={toast.type}
-                title={toast.title}
-                message={toast.message}
-                onClose={closeToast}
-                duration={toast.type === 'info' ? 5000 : 3000}
-            />
+                <Toast
+                    show={toast.show}
+                    type={toast.type}
+                    title={toast.title}
+                    message={toast.message}
+                    onClose={closeToast}
+                    duration={toast.type === 'info' ? 5000 : 3000}
+                />
             </div>
 
             {/* Command Palette */}

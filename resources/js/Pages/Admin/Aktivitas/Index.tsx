@@ -218,25 +218,24 @@ Politeknik Pariwisata Makassar`;
     return (
         <AdminLayout title="">
             {/* Page Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-                <div>
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8">
+                <div className="shrink-0">
                     <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Aktivitas</h1>
                     <p className="text-[14px] text-zinc-500 mt-1">Pantau seluruh status pelaksanaan kegiatan PKM.</p>
                 </div>
 
                 {/* Toolbar */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 w-full">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full lg:w-auto lg:flex-1 lg:justify-end">
                     {/* Tabs */}
-                    <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full">
+                    <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full shrink-0">
                         {STATUS_OPTIONS.map(opt => (
                             <button
                                 key={opt.value}
                                 onClick={() => handleStatusChange(opt.value)}
-                                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap overflow-hidden ${
-                                    filterStatus === opt.value
+                                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${filterStatus === opt.value
                                         ? 'bg-white text-zinc-900 shadow-sm'
                                         : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
-                                }`}
+                                    }`}
                             >
                                 {opt.label}
                             </button>
@@ -308,7 +307,7 @@ Politeknik Pariwisata Makassar`;
                     </div>
                     <span className="font-bold">{selectedIds.length} item dipilih</span>
                     <span className="text-indigo-300">|</span>
-                    
+
                     <button
                         onClick={handleBulkDelete}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-md text-[12px] font-bold hover:bg-red-100 transition-colors"
@@ -417,18 +416,16 @@ Politeknik Pariwisata Makassar`;
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-right">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider border ${
-                                                normalizedStatus === 'selesai'
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider border ${normalizedStatus === 'selesai'
                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                                     : normalizedStatus === 'belum_mulai'
-                                                    ? 'bg-slate-100 text-slate-600 border-slate-200'
-                                                    : 'bg-amber-50 text-amber-700 border-amber-100'
-                                            }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                                    normalizedStatus === 'selesai' ? 'bg-emerald-500'
-                                                    : normalizedStatus === 'belum_mulai' ? 'bg-slate-400'
-                                                    : 'bg-amber-500'
-                                                }`}></span>
+                                                        ? 'bg-slate-100 text-slate-600 border-slate-200'
+                                                        : 'bg-amber-50 text-amber-700 border-amber-100'
+                                                }`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${normalizedStatus === 'selesai' ? 'bg-emerald-500'
+                                                        : normalizedStatus === 'belum_mulai' ? 'bg-slate-400'
+                                                            : 'bg-amber-500'
+                                                    }`}></span>
                                                 {normalizedStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                             </span>
                                         </td>

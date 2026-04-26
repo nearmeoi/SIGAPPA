@@ -51,6 +51,7 @@ export interface PkmData {
     lng: number | string;
     testimoni?: TestimoniItem[];
     jenis_pkm?: string;
+    lokasi_tambahan?: any[];
     total_anggaran?: number;
     tim_kegiatan?: { nama: string; peran: string }[];
 }
@@ -73,3 +74,5 @@ export interface FeedbackDialogProps {
     title: string;
     message: string;
 }
+
+

@@ -24,6 +24,7 @@ interface Submission {
     alamat_lengkap?: string;
     latitude?: number | string;
     longitude?: number | string;
+    lokasi_tambahan?: any;
     proposal?: string;
     surat_permohonan?: string;
     rab?: string;
@@ -73,13 +74,16 @@ interface FormData {
     whatsapp: string;
     judul_kegiatan: string;
     kebutuhan: string;
-    provinsi: string;
-    kota_kabupaten: string;
-    kecamatan: string;
-    kelurahan_desa: string;
-    alamat_lengkap: string;
-    latitude: number | null;
-    longitude: number | null;
+    lokasi_list: {
+        id_ui: number;
+        provinsi: string;
+        kota_kabupaten: string;
+        kecamatan: string;
+        kelurahan_desa: string;
+        alamat_lengkap: string;
+        latitude: number | null;
+        longitude: number | null;
+    }[];
     tgl_mulai: string | null;
     tgl_selesai: string | null;
     is_tahun_saja: boolean;
@@ -145,6 +149,11 @@ export default function DosenSubmissionCard({
     const [pegawaiOptions, setPegawaiOptions] = useState<{ dosen: string[], staff: string[] }>({ dosen: [], staff: [] });
     const [sortOption, setSortOption] = useState<'default' | 'status' | 'waktu_terbaru' | 'waktu_terlama'>('default');
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+    const [collapsedLocations, setCollapsedLocations] = useState<Record<number, boolean>>({});
+
+    const toggleLocationCollapse = (idUi: number) => {
+        setCollapsedLocations(prev => ({ ...prev, [idUi]: !prev[idUi] }));
+    };
 
     const sortedHistory = useMemo(() => {
         let history = [...submissionHistory];
@@ -192,13 +201,16 @@ export default function DosenSubmissionCard({
         whatsapp: '',
         judul_kegiatan: '',
         kebutuhan: '',
-        provinsi: '',
-        kota_kabupaten: '',
-        kecamatan: '',
-        kelurahan_desa: '',
-        alamat_lengkap: '',
-        latitude: null,
-        longitude: null,
+        lokasi_list: [{
+            id_ui: Date.now(),
+            provinsi: '',
+            kota_kabupaten: '',
+            kecamatan: '',
+            kelurahan_desa: '',
+            alamat_lengkap: '',
+            latitude: null,
+            longitude: null,
+        }],
         tgl_mulai: null,
         tgl_selesai: null,
         is_tahun_saja: false,
@@ -228,7 +240,7 @@ export default function DosenSubmissionCard({
                     parsedLinks = arr.map((item: any) => ({ name: item.name || '', url: item.url || '' }));
                 }
             }
-        } catch {}
+        } catch { }
 
         const mappedData: FormData = {
             kode_pengajuan: editSubmission.kode_unik ?? null,
@@ -239,13 +251,39 @@ export default function DosenSubmissionCard({
             whatsapp: editSubmission.no_telepon || '',
             judul_kegiatan: editSubmission.judul || '',
             kebutuhan: editSubmission.kebutuhan || editSubmission.ringkasan || '',
-            provinsi: editSubmission.provinsi || '',
-            kota_kabupaten: editSubmission.kota_kabupaten || '',
-            kecamatan: editSubmission.kecamatan || '',
-            kelurahan_desa: editSubmission.kelurahan_desa || '',
-            alamat_lengkap: editSubmission.alamat_lengkap || '',
-            latitude: editSubmission.latitude ? Number(editSubmission.latitude) : null,
-            longitude: editSubmission.longitude ? Number(editSubmission.longitude) : null,
+            lokasi_list: (() => {
+                const arr = [{
+                    id_ui: Date.now(),
+                    provinsi: editSubmission.provinsi || '',
+                    kota_kabupaten: editSubmission.kota_kabupaten || '',
+                    kecamatan: editSubmission.kecamatan || '',
+                    kelurahan_desa: editSubmission.kelurahan_desa || '',
+                    alamat_lengkap: editSubmission.alamat_lengkap || '',
+                    latitude: editSubmission.latitude ? Number(editSubmission.latitude) : null,
+                    longitude: editSubmission.longitude ? Number(editSubmission.longitude) : null,
+                }];
+                try {
+                    const tambahanStr = (editSubmission as any).lokasi_tambahan;
+                    if (tambahanStr) {
+                        const parsed = typeof tambahanStr === 'string' ? JSON.parse(tambahanStr) : tambahanStr;
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((loc, i) => {
+                                arr.push({
+                                    id_ui: Date.now() + i + 1,
+                                    provinsi: loc.provinsi || '',
+                                    kota_kabupaten: loc.kota_kabupaten || '',
+                                    kecamatan: loc.kecamatan || '',
+                                    kelurahan_desa: loc.kelurahan_desa || '',
+                                    alamat_lengkap: loc.alamat_lengkap || '',
+                                    latitude: loc.latitude ? Number(loc.latitude) : null,
+                                    longitude: loc.longitude ? Number(loc.longitude) : null,
+                                });
+                            });
+                        }
+                    }
+                } catch { }
+                return arr;
+            })(),
             tgl_mulai: editSubmission.tgl_mulai || null,
             tgl_selesai: editSubmission.tgl_selesai || null,
             is_tahun_saja: !!editSubmission.is_tahun_saja,
@@ -310,8 +348,8 @@ export default function DosenSubmissionCard({
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (!data.judul_kegiatan.trim()) {
-            setFeedbackDialog({ show: true, type: 'error', title: 'Form Belum Lengkap', message: 'Mohon isi judul kegiatan PKM.' });
+        if (!data.judul_kegiatan.trim() || !data.nama_ketua.trim() || (!data.surat_proposal && !data.kode_pengajuan)) {
+            setFeedbackDialog({ show: true, type: 'error', title: 'Form Belum Lengkap', message: 'Mohon lengkapi judul kegiatan, nama ketua, dan dokumen proposal.' });
             return;
         }
         setIsMockSubmitting(true);
@@ -324,13 +362,7 @@ export default function DosenSubmissionCard({
             email: data.email,
             instansi_mitra: data.instansi,
             no_telepon: data.whatsapp,
-            provinsi: data.provinsi,
-            kota_kabupaten: data.kota_kabupaten,
-            kecamatan: data.kecamatan,
-            kelurahan_desa: data.kelurahan_desa,
-            alamat_lengkap: data.alamat_lengkap,
-            latitude: data.latitude,
-            longitude: data.longitude,
+            lokasi_list: JSON.stringify(data.lokasi_list),
             tgl_mulai: data.tgl_mulai,
             tgl_selesai: data.tgl_selesai,
             is_tahun_saja: data.is_tahun_saja ? '1' : '0',
@@ -367,7 +399,7 @@ export default function DosenSubmissionCard({
                 onSubmitted?.({
                     id: Date.now(),
                     judul: data.judul_kegiatan,
-                    ringkasan: `Lokasi: ${data.kota_kabupaten} • Ketua: ${data.nama_ketua}`,
+                    ringkasan: `Lokasi: ${data.lokasi_list[0]?.kota_kabupaten || '-'} • Ketua: ${data.nama_ketua}`,
                     tanggal: createSubmittedLabel(),
                     status: 'diproses',
                 });
@@ -388,7 +420,7 @@ export default function DosenSubmissionCard({
 
     const handleEditPengajuan = () => {
         if (!selectedDetail) return;
-        
+
         let parsedLinks = [{ name: '', url: '' }];
         try {
             if (selectedDetail.rab) {
@@ -397,7 +429,7 @@ export default function DosenSubmissionCard({
                     parsedLinks = arr.map((item: any) => ({ name: item.name || '', url: item.url || '' }));
                 }
             }
-        } catch {}
+        } catch { }
 
         const mappedData: FormData = {
             kode_pengajuan: selectedDetail.kode_unik ?? null,
@@ -408,21 +440,47 @@ export default function DosenSubmissionCard({
             whatsapp: selectedDetail.no_telepon || '',
             judul_kegiatan: selectedDetail.judul || '',
             kebutuhan: selectedDetail.kebutuhan || selectedDetail.ringkasan || '',
-            provinsi: selectedDetail.provinsi || '',
-            kota_kabupaten: selectedDetail.kota_kabupaten || '',
-            kecamatan: selectedDetail.kecamatan || '',
-            kelurahan_desa: selectedDetail.kelurahan_desa || '',
-            alamat_lengkap: selectedDetail.alamat_lengkap || '',
-            latitude: selectedDetail.latitude ? Number(selectedDetail.latitude) : null,
-            longitude: selectedDetail.longitude ? Number(selectedDetail.longitude) : null,
+            lokasi_list: (() => {
+                const arr = [{
+                    id_ui: Date.now(),
+                    provinsi: selectedDetail.provinsi || '',
+                    kota_kabupaten: selectedDetail.kota_kabupaten || '',
+                    kecamatan: selectedDetail.kecamatan || '',
+                    kelurahan_desa: selectedDetail.kelurahan_desa || '',
+                    alamat_lengkap: selectedDetail.alamat_lengkap || '',
+                    latitude: selectedDetail.latitude ? Number(selectedDetail.latitude) : null,
+                    longitude: selectedDetail.longitude ? Number(selectedDetail.longitude) : null,
+                }];
+                try {
+                    const tambahanStr = (selectedDetail as any).lokasi_tambahan;
+                    if (tambahanStr) {
+                        const parsed = typeof tambahanStr === 'string' ? JSON.parse(tambahanStr) : tambahanStr;
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((loc, i) => {
+                                arr.push({
+                                    id_ui: Date.now() + i + 1,
+                                    provinsi: loc.provinsi || '',
+                                    kota_kabupaten: loc.kota_kabupaten || '',
+                                    kecamatan: loc.kecamatan || '',
+                                    kelurahan_desa: loc.kelurahan_desa || '',
+                                    alamat_lengkap: loc.alamat_lengkap || '',
+                                    latitude: loc.latitude ? Number(loc.latitude) : null,
+                                    longitude: loc.longitude ? Number(loc.longitude) : null,
+                                });
+                            });
+                        }
+                    }
+                } catch { }
+                return arr;
+            })(),
             tgl_mulai: selectedDetail.tgl_mulai || null,
             tgl_selesai: selectedDetail.tgl_selesai || null,
             is_tahun_saja: !!selectedDetail.is_tahun_saja,
             tim_dosen: [''],
             tim_staff: [''],
             tim_mahasiswa: [''],
-            rab_items: selectedDetail.rab_items && selectedDetail.rab_items.length > 0 
-                ? (selectedDetail.rab_items as RabItem[]) 
+            rab_items: selectedDetail.rab_items && selectedDetail.rab_items.length > 0
+                ? (selectedDetail.rab_items as RabItem[])
                 : [{ nama_item: '', jumlah: 1, harga: 0, total: 0 }],
             dana_perguruan_tinggi: Number(selectedDetail.dana_perguruan_tinggi) || 0,
             dana_pemerintah: Number(selectedDetail.dana_pemerintah) || 0,
@@ -497,112 +555,132 @@ export default function DosenSubmissionCard({
                                 </div>
                             </section>
 
-                                <section>
-                                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Kebutuhan PKM</h4>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed italic">
-                                        "{selectedDetail.kebutuhan || selectedDetail.ringkasan || '-'}"
-                                    </div>
-                                </section>
+                            <section>
+                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Kebutuhan PKM</h4>
+                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed italic">
+                                    "{selectedDetail.kebutuhan || selectedDetail.ringkasan || '-'}"
+                                </div>
+                            </section>
 
-                                <section>
-                                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Lokasi PKM</h4>
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed">
-                                        {selectedDetail.alamat_lengkap && <p className="mb-1">{selectedDetail.alamat_lengkap}</p>}
+                            <section>
+                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Lokasi PKM</h4>
+                                <div className="space-y-3">
+                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed shadow-sm">
+                                        <p className="font-bold text-poltekpar-primary text-[10px] uppercase mb-1">Titik 1 (Utama)</p>
+                                        {selectedDetail.alamat_lengkap && <p className="mb-0.5">{selectedDetail.alamat_lengkap}</p>}
                                         <p>{[selectedDetail.kelurahan_desa, selectedDetail.kecamatan, selectedDetail.kota_kabupaten, selectedDetail.provinsi].filter(Boolean).join(', ')}</p>
                                     </div>
-                                </section>
+                                    {(() => {
+                                        try {
+                                            const tambahan = (selectedDetail as any).lokasi_tambahan;
+                                            if (!tambahan) return null;
+                                            const parsed = typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan;
+                                            if (Array.isArray(parsed)) {
+                                                return parsed.map((loc, i) => (
+                                                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed shadow-sm">
+                                                        <p className="font-bold text-slate-400 text-[10px] uppercase mb-1">Titik {i + 2}</p>
+                                                        {loc.alamat_lengkap && <p className="mb-0.5">{loc.alamat_lengkap}</p>}
+                                                        <p>{[loc.kelurahan_desa, loc.kecamatan, loc.kota_kabupaten, loc.provinsi].filter(Boolean).join(', ')}</p>
+                                                    </div>
+                                                ));
+                                            }
+                                        } catch (e) { }
+                                        return null;
+                                    })()}
+                                </div>
+                            </section>
 
-                                <section>
-                                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tim Pelaksana</h4>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60 space-y-2">
-                                        {selectedDetail.tim_kegiatan && selectedDetail.tim_kegiatan.length > 0 ? (
-                                            selectedDetail.tim_kegiatan.filter(t => t.peran !== 'Ketua/Dosen Pengusul').map((t, i) => (
-                                                <div key={i} className="flex flex-col mb-1.5 pb-1.5 border-b border-slate-100 last:border-0 last:mb-0 last:pb-0">
-                                                    <span className="text-slate-900 font-semibold text-sm">{t.nama}</span>
-                                                    <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{t.peran === 'Dosen' ? 'Dosen Terlibat' : t.peran === 'Staff' ? 'Staf Terlibat' : 'Mahasiswa Terlibat'}</span>
-                                                </div>
-                                            ))
-                                        ) : <p className="text-xs text-slate-400 italic">Data tim belum diatur.</p>}
-                                    </div>
-                                </section>
-
-                                <section>
-                                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Anggaran & Sumber Dana</h4>
-                                    <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100/60">
-                                        <div className="p-2.5 bg-blue-50/50 rounded-lg flex justify-between items-center border border-blue-100/50">
-                                            <span className="text-[10px] font-bold text-blue-700 uppercase">Total RAB</span>
-                                            <span className="text-sm font-black text-poltekpar-primary">Rp {Number(selectedDetail.total_anggaran || 0).toLocaleString('id-ID')}</span>
-                                        </div>
-                                        {selectedDetail.rab_items && selectedDetail.rab_items.length > 0 && (
-                                            <div className="pt-2 text-sm border-t border-slate-100/50">
-                                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2 block">Rincian Komponen RAB</span>
-                                                <ul className="space-y-1.5 list-disc pl-4 text-slate-700">
-                                                    {selectedDetail.rab_items.map((item, i) => (
-                                                        <li key={i}><span className="font-semibold">{item.nama_item}</span> ({item.jumlah} &times; Rp {Number(item.harga||0).toLocaleString('id-ID')}) <br/><span className="font-bold text-poltekpar-primary">Rp {Number(item.total||0).toLocaleString('id-ID')}</span></li>
-                                                    ))}
-                                                </ul>
+                            <section>
+                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tim Pelaksana</h4>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60 space-y-2">
+                                    {selectedDetail.tim_kegiatan && selectedDetail.tim_kegiatan.length > 0 ? (
+                                        selectedDetail.tim_kegiatan.filter(t => t.peran !== 'Ketua/Dosen Pengusul').map((t, i) => (
+                                            <div key={i} className="flex flex-col mb-1.5 pb-1.5 border-b border-slate-100 last:border-0 last:mb-0 last:pb-0">
+                                                <span className="text-slate-900 font-semibold text-sm">{t.nama}</span>
+                                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{t.peran === 'Dosen' ? 'Dosen Terlibat' : t.peran === 'Staff' ? 'Staf Terlibat' : 'Mahasiswa Terlibat'}</span>
                                             </div>
-                                        )}
-                                        <div className="pt-2 border-t border-slate-100/50 space-y-1.5">
-                                            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1 block">Sumber Dana</span>
-                                            {(selectedDetail.dana_perguruan_tinggi || selectedDetail.dana_pemerintah || selectedDetail.dana_lembaga_dalam || selectedDetail.dana_lembaga_luar) ? (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {selectedDetail.dana_perguruan_tinggi ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Perguruan Tinggi</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_perguruan_tinggi).toLocaleString('id-ID')}</span></div> : null}
-                                                    {selectedDetail.dana_pemerintah ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Pemerintah</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_pemerintah).toLocaleString('id-ID')}</span></div> : null}
-                                                    {selectedDetail.dana_lembaga_dalam ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Lembaga Dalam Negeri</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_lembaga_dalam).toLocaleString('id-ID')}</span></div> : null}
-                                                    {selectedDetail.dana_lembaga_luar ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Lembaga Luar Negeri</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_lembaga_luar).toLocaleString('id-ID')}</span></div> : null}
-                                                </div>
-                                            ) : <p className="text-xs text-slate-400 italic">Belum ada data sumber dana.</p>}
-                                        </div>
-                                    </div>
-                                </section>
+                                        ))
+                                    ) : <p className="text-xs text-slate-400 italic">Data tim belum diatur.</p>}
+                                </div>
+                            </section>
 
-                                <section>
-                                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Dokumen & Tautan</h4>
-                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60 flex flex-col gap-3">
-                                        <div className="flex flex-col gap-2">
-                                            {selectedDetail.surat_permohonan ? (
-                                                <a href={selectedDetail.surat_permohonan} target="_blank" className="flex items-center gap-2 p-2 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg transition-colors border border-slate-200 shadow-sm">
-                                                    <i className="fa-solid fa-file-contract text-poltekpar-primary w-4 text-center"></i> SURAT PERMOHONAN
-                                                </a>
-                                            ) : <span className="text-xs text-slate-400 flex items-center gap-1.5"><i className="fa-solid fa-triangle-exclamation"></i> Kosong</span>}
-                                            {selectedDetail.proposal && (
-                                                <a href={selectedDetail.proposal} target="_blank" className="flex items-center gap-2 p-2 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg transition-colors border border-slate-200 shadow-sm">
-                                                    <i className="fa-solid fa-file-pdf text-poltekpar-primary w-4 text-center"></i> PROPOSAL
-                                                </a>
-                                            )}
+                            <section>
+                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Anggaran & Sumber Dana</h4>
+                                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100/60">
+                                    <div className="p-2.5 bg-blue-50/50 rounded-lg flex justify-between items-center border border-blue-100/50">
+                                        <span className="text-[10px] font-bold text-blue-700 uppercase">Total RAB</span>
+                                        <span className="text-sm font-black text-poltekpar-primary">Rp {Number(selectedDetail.total_anggaran || 0).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    {selectedDetail.rab_items && selectedDetail.rab_items.length > 0 && (
+                                        <div className="pt-2 text-sm border-t border-slate-100/50">
+                                            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2 block">Rincian Komponen RAB</span>
+                                            <ul className="space-y-1.5 list-disc pl-4 text-slate-700">
+                                                {selectedDetail.rab_items.map((item, i) => (
+                                                    <li key={i}><span className="font-semibold">{item.nama_item}</span> ({item.jumlah} &times; Rp {Number(item.harga || 0).toLocaleString('id-ID')}) <br /><span className="font-bold text-poltekpar-primary">Rp {Number(item.total || 0).toLocaleString('id-ID')}</span></li>
+                                                ))}
+                                            </ul>
                                         </div>
-                                        {selectedDetail.rab && (
-                                            <div className="space-y-2 pt-2 border-t border-slate-200">
-                                                {(() => {
-                                                    try {
-                                                        const arr = JSON.parse(selectedDetail.rab);
-                                                        if (Array.isArray(arr)) {
-                                                            return arr.map((item, i) => (
-                                                                <p key={i} className="text-[12px] bg-white p-2 rounded-lg border border-slate-100">
-                                                                    <span className="text-slate-500 font-bold text-[10px] uppercase block mb-0.5">{item.name || `Tautan Tambahan ${i + 1}`}: </span>
-                                                                    <a href={item.url} target="_blank" className="text-poltekpar-primary font-medium hover:underline break-all">{item.url}</a>
-                                                                </p>
-                                                            ));
-                                                        }
-                                                    } catch(e) {}
-                                                    
-                                                    return selectedDetail.rab.split(',').map((link, i) => {
-                                                        const url = link.trim();
-                                                        if (!url) return null;
-                                                        return (
+                                    )}
+                                    <div className="pt-2 border-t border-slate-100/50 space-y-1.5">
+                                        <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1 block">Sumber Dana</span>
+                                        {(selectedDetail.dana_perguruan_tinggi || selectedDetail.dana_pemerintah || selectedDetail.dana_lembaga_dalam || selectedDetail.dana_lembaga_luar) ? (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {selectedDetail.dana_perguruan_tinggi ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Perguruan Tinggi</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_perguruan_tinggi).toLocaleString('id-ID')}</span></div> : null}
+                                                {selectedDetail.dana_pemerintah ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Pemerintah</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_pemerintah).toLocaleString('id-ID')}</span></div> : null}
+                                                {selectedDetail.dana_lembaga_dalam ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Lembaga Dalam Negeri</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_lembaga_dalam).toLocaleString('id-ID')}</span></div> : null}
+                                                {selectedDetail.dana_lembaga_luar ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Lembaga Luar Negeri</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_lembaga_luar).toLocaleString('id-ID')}</span></div> : null}
+                                            </div>
+                                        ) : <p className="text-xs text-slate-400 italic">Belum ada data sumber dana.</p>}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Dokumen & Tautan</h4>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60 flex flex-col gap-3">
+                                    <div className="flex flex-col gap-2">
+                                        {selectedDetail.surat_permohonan ? (
+                                            <a href={selectedDetail.surat_permohonan} target="_blank" className="flex items-center gap-2 p-2 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg transition-colors border border-slate-200 shadow-sm">
+                                                <i className="fa-solid fa-file-contract text-poltekpar-primary w-4 text-center"></i> SURAT PERMOHONAN
+                                            </a>
+                                        ) : <span className="text-xs text-slate-400 flex items-center gap-1.5"><i className="fa-solid fa-triangle-exclamation"></i> Kosong</span>}
+                                        {selectedDetail.proposal && (
+                                            <a href={selectedDetail.proposal} target="_blank" className="flex items-center gap-2 p-2 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg transition-colors border border-slate-200 shadow-sm">
+                                                <i className="fa-solid fa-file-pdf text-poltekpar-primary w-4 text-center"></i> PROPOSAL
+                                            </a>
+                                        )}
+                                    </div>
+                                    {selectedDetail.rab && (
+                                        <div className="space-y-2 pt-2 border-t border-slate-200">
+                                            {(() => {
+                                                try {
+                                                    const arr = JSON.parse(selectedDetail.rab);
+                                                    if (Array.isArray(arr)) {
+                                                        return arr.map((item, i) => (
                                                             <p key={i} className="text-[12px] bg-white p-2 rounded-lg border border-slate-100">
-                                                                <span className="text-slate-500 font-bold text-[10px] uppercase block mb-0.5">Tautan Tambahan {i + 1}: </span>
-                                                                <a href={url} target="_blank" className="text-poltekpar-primary font-medium hover:underline break-all">{url}</a>
+                                                                <span className="text-slate-500 font-bold text-[10px] uppercase block mb-0.5">{item.name || `Tautan Tambahan ${i + 1}`}: </span>
+                                                                <a href={item.url} target="_blank" className="text-poltekpar-primary font-medium hover:underline break-all">{item.url}</a>
                                                             </p>
-                                                        );
-                                                    });
-                                                })()}
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-                            </div>
+                                                        ));
+                                                    }
+                                                } catch (e) { }
+
+                                                return selectedDetail.rab.split(',').map((link, i) => {
+                                                    const url = link.trim();
+                                                    if (!url) return null;
+                                                    return (
+                                                        <p key={i} className="text-[12px] bg-white p-2 rounded-lg border border-slate-100">
+                                                            <span className="text-slate-500 font-bold text-[10px] uppercase block mb-0.5">Tautan Tambahan {i + 1}: </span>
+                                                            <a href={url} target="_blank" className="text-poltekpar-primary font-medium hover:underline break-all">{url}</a>
+                                                        </p>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        </div>
 
                         {selectedDetail.catatan && (
                             <section>
@@ -705,121 +783,158 @@ export default function DosenSubmissionCard({
                     </div>
                     <div>
                         <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kebutuhan / Deskripsi Singkat <span className="text-red-500">*</span></label>
-                        <textarea value={data.kebutuhan} onChange={e => setData('kebutuhan', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary min-h-[80px]" placeholder="Jelaskan secara singkat kebutuhan atau tujuan utama kegiatan ini..." required />
+                        <textarea value={data.kebutuhan} onChange={e => setData('kebutuhan', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary min-h-[140px]" placeholder="Jelaskan secara singkat kebutuhan atau tujuan utama kegiatan ini..." required />
                     </div>
                 </div>
             </div>
 
             {/* Lokasi */}
-            <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Lokasi Kegiatan</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">Provinsi</label>
-                        <input type="text" value={data.provinsi} onChange={e => setData('provinsi', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Provinsi" />
-                    </div>
-                    <div>
-                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kota/Kabupaten</label>
-                        <input type="text" value={data.kota_kabupaten} onChange={e => setData('kota_kabupaten', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Kota/Kabupaten" />
-                    </div>
-                    <div>
-                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kecamatan</label>
-                        <input type="text" value={data.kecamatan} onChange={e => setData('kecamatan', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Kecamatan" />
-                    </div>
-                    <div>
-                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kelurahan/Desa</label>
-                        <input type="text" value={data.kelurahan_desa} onChange={e => setData('kelurahan_desa', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Kelurahan/Desa" />
-                    </div>
-                </div>
-                <div>
-                    <label className="text-[13px] font-bold text-slate-600 mb-1 block">Alamat Lengkap</label>
-                    <textarea value={data.alamat_lengkap} onChange={e => setData('alamat_lengkap', e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary min-h-[60px]" placeholder="Alamat lengkap lokasi kegiatan..." />
-                </div>
-                <div className="space-y-1.5 mt-4">
-                    <label className="text-[13px] font-bold text-slate-600 mb-1 block">Tandai Lokasi di Peta (Koordinat)</label>
-                    <p className="text-[10px] text-slate-500 mb-2">Geser peta atau klik untuk menandai lokasi spesifik agar mempermudah tim survei.</p>
-                    <MapLocationPicker
-                        latitude={data.latitude}
-                        longitude={data.longitude}
-                        onChange={(lat, lng, address) => {
-                            const newData: any = { latitude: lat, longitude: lng };
-                            if (address) {
-                                if (address.state || address.province) newData.provinsi = address.state || address.province;
-                                if (address.city || address.town || address.county) newData.kota_kabupaten = address.city || address.town || address.county;
-                                if (address.suburb || address.village) newData.kecamatan = address.suburb || address.village;
-                                if (address.neighbourhood || address.residential || address.hamlet) newData.kelurahan_desa = address.neighbourhood || address.residential || address.hamlet;
-                            }
-                            Object.entries(newData).forEach(([key, val]) => setData(key as any, val as any));
-                        }}
-                    />
-                    {formatCoordinate(data.latitude) && formatCoordinate(data.longitude) ? (
-                        <p className="text-[10px] text-slate-500 mt-1 font-mono">Lat: {formatCoordinate(data.latitude)}, Lng: {formatCoordinate(data.longitude)}</p>
-                    ) : data.kelurahan_desa ? (
-                        <p className="text-[10px] text-red-500 mt-1 font-bold animate-pulse flex items-center gap-1">
-                            <i className="fa-solid fa-triangle-exclamation"></i>
-                            Nama desa terisi namun titik peta belum ditandai. Mohon tandai di peta!
-                        </p>
-                    ) : null}
+            <div className="space-y-6">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Lokasi Kegiatan PKM</h4>
+
+                <div className="space-y-6">
+                    {data.lokasi_list.map((lokasi, idx) => (
+                        <div key={lokasi.id_ui} className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
+                            <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => toggleLocationCollapse(lokasi.id_ui)}>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                    Titik Lokasi {idx + 1} {idx === 0 && '(Utama)'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    {idx > 0 && (
+                                        <button type="button" onClick={(e) => { e.stopPropagation(); setData('lokasi_list', data.lokasi_list.filter((_, i) => i !== idx)); }} className="w-8 h-8 flex justify-center items-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-sm">
+                                            <i className="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    )}
+                                    <button type="button" className="w-8 h-8 flex justify-center items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors shadow-sm">
+                                        <i className={`fa-solid fa-chevron-${collapsedLocations[lokasi.id_ui] ? 'down' : 'up'}`}></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {!collapsedLocations[lokasi.id_ui] && (
+                                <div className="animate-in slide-in-from-top-2 duration-300">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[13px] font-bold text-slate-600 mb-1 block">Provinsi</label>
+                                            <input type="text" value={lokasi.provinsi} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].provinsi = e.target.value; setData('lokasi_list', newList); }} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Provinsi" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kota/Kabupaten</label>
+                                            <input type="text" value={lokasi.kota_kabupaten} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].kota_kabupaten = e.target.value; setData('lokasi_list', newList); }} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Kota/Kabupaten" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kecamatan</label>
+                                            <input type="text" value={lokasi.kecamatan} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].kecamatan = e.target.value; setData('lokasi_list', newList); }} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Kecamatan" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[13px] font-bold text-slate-600 mb-1 block">Kelurahan/Desa</label>
+                                            <input type="text" value={lokasi.kelurahan_desa} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].kelurahan_desa = e.target.value; setData('lokasi_list', newList); }} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Kelurahan/Desa" />
+                                        </div>
+                                    </div>
+                                    <div className="mt-4">
+                                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">Alamat Lengkap</label>
+                                        <textarea value={lokasi.alamat_lengkap} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].alamat_lengkap = e.target.value; setData('lokasi_list', newList); }} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary min-h-[60px]" placeholder="Alamat lengkap lokasi kegiatan..." />
+                                    </div>
+                                    <div className="space-y-1.5 mt-4">
+                                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">Tandai Lokasi di Peta (Koordinat)</label>
+                                        <p className="text-[10px] text-slate-500 mb-2">Geser peta atau klik untuk menandai lokasi spesifik agar mempermudah tim survei.</p>
+                                        <MapLocationPicker
+                                            latitude={lokasi.latitude}
+                                            longitude={lokasi.longitude}
+                                            onChange={(lat, lng, address) => {
+                                                const newList = [...data.lokasi_list];
+                                                newList[idx].latitude = lat;
+                                                newList[idx].longitude = lng;
+                                                if (address) {
+                                                    if (address.state || address.province) newList[idx].provinsi = address.state || address.province;
+                                                    if (address.city || address.town || address.county) newList[idx].kota_kabupaten = address.city || address.town || address.county;
+                                                    if (address.suburb || address.village) newList[idx].kecamatan = address.suburb || address.village;
+                                                    if (address.neighbourhood || address.residential || address.hamlet) newList[idx].kelurahan_desa = address.neighbourhood || address.residential || address.hamlet;
+                                                }
+                                                setData('lokasi_list', newList);
+                                            }}
+                                        />
+                                        {formatCoordinate(lokasi.latitude) && formatCoordinate(lokasi.longitude) ? (
+                                            <p className="text-[10px] text-slate-500 mt-1 font-mono">Lat: {formatCoordinate(lokasi.latitude)}, Lng: {formatCoordinate(lokasi.longitude)}</p>
+                                        ) : lokasi.kelurahan_desa ? (
+                                            <p className="text-[10px] text-red-500 mt-1 font-bold animate-pulse flex items-center gap-1">
+                                                <i className="fa-solid fa-triangle-exclamation"></i>
+                                                Nama desa terisi namun titik peta belum ditandai. Mohon tandai di peta!
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+
+                    <button type="button" onClick={() => setData('lokasi_list', [...data.lokasi_list, { id_ui: Date.now(), provinsi: '', kota_kabupaten: '', kecamatan: '', kelurahan_desa: '', alamat_lengkap: '', latitude: null, longitude: null }])} className="w-full py-3 bg-poltekpar-primary/10 hover:bg-poltekpar-primary hover:text-white text-poltekpar-primary rounded-xl text-sm font-bold border border-poltekpar-primary/20 hover:border-poltekpar-primary transition-all flex justify-center items-center gap-2">
+                        <i className="fa-solid fa-plus"></i> Tambah Titik Lokasi Lainnya
+                    </button>
                 </div>
             </div>
 
             {/* Tim */}
-            <div className="space-y-4">
+            < div className="space-y-4" >
                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Tim Pelaksana</h4>
-                {(['tim_dosen', 'tim_staff', 'tim_mahasiswa'] as const).map(type => (
-                    <div key={type}>
-                        <label className="text-[13px] font-bold text-slate-600 mb-1 block">
-                            {type === 'tim_dosen' ? 'Dosen Terlibat' : type === 'tim_staff' ? 'Staf Terlibat' : 'Mahasiswa Terlibat'}
-                        </label>
-                        {data[type].map((member, idx) => (
-                            <div key={idx} className="flex gap-2 mb-2">
-                                <input type="text" list={type === 'tim_dosen' ? 'dosen-suggestions' : type === 'tim_staff' ? 'staff-suggestions' : undefined} value={member} onChange={e => handleMemberChange(type, idx, e.target.value)} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder={`Nama ${type === 'tim_dosen' ? 'dosen' : type === 'tim_staff' ? 'staf' : 'mahasiswa'}...`} />
-                                {data[type].length > 1 && (
-                                    <button type="button" onClick={() => handleRemoveMember(type, idx)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                {
+                    (['tim_dosen', 'tim_staff', 'tim_mahasiswa'] as const).map(type => (
+                        <div key={type}>
+                            <label className="text-[13px] font-bold text-slate-600 mb-1 block">
+                                {type === 'tim_dosen' ? 'Dosen Terlibat' : type === 'tim_staff' ? 'Staf Terlibat' : 'Mahasiswa Terlibat'}
+                            </label>
+                            {data[type].map((member, idx) => (
+                                <div key={idx} className="flex gap-2 mb-2">
+                                    <input type="text" list={type === 'tim_dosen' ? 'dosen-suggestions' : type === 'tim_staff' ? 'staff-suggestions' : undefined} value={member} onChange={e => handleMemberChange(type, idx, e.target.value)} className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder={`Nama ${type === 'tim_dosen' ? 'dosen' : type === 'tim_staff' ? 'staf' : 'mahasiswa'}...`} />
+                                    {data[type].length > 1 && (
+                                        <button type="button" onClick={() => handleRemoveMember(type, idx)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                                            <i className="fa-solid fa-xmark"></i>
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => handleAddMember(type)} className="text-[11px] font-bold text-poltekpar-primary flex items-center gap-1 hover:opacity-70">
+                                <i className="fa-solid fa-plus"></i> Tambah
+                            </button>
+                        </div>
+                    ))
+                }
+            </div >
+
+            {/* RAB */}
+            < div className="space-y-4" >
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Rencana Anggaran Biaya (RAB)</h4>
+                {
+                    data.rab_items.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                            <div className="col-span-5">
+                                <label className="text-[12px] font-bold text-slate-500 mb-1 block">Nama Item</label>
+                                <input type="text" value={item.nama_item} onChange={e => handleRabChange(idx, 'nama_item', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Item..." />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="text-[12px] font-bold text-slate-500 mb-1 block">Jumlah</label>
+                                <input type="number" value={item.jumlah} onChange={e => handleRabChange(idx, 'jumlah', Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" min={1} />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="text-[12px] font-bold text-slate-500 mb-1 block">Harga</label>
+                                <input type="number" value={item.harga || ''} onChange={e => handleRabChange(idx, 'harga', Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" min={0} placeholder="0" />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="text-[12px] font-bold text-slate-500 mb-1 block">Total</label>
+                                <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm font-semibold text-slate-700 border border-slate-100">
+                                    Rp {item.total.toLocaleString('id-ID')}
+                                </div>
+                            </div>
+                            <div className="col-span-1">
+                                {data.rab_items.length > 1 && (
+                                    <button type="button" onClick={() => handleRemoveRab(idx)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
                                         <i className="fa-solid fa-xmark"></i>
                                     </button>
                                 )}
                             </div>
-                        ))}
-                        <button type="button" onClick={() => handleAddMember(type)} className="text-[11px] font-bold text-poltekpar-primary flex items-center gap-1 hover:opacity-70">
-                            <i className="fa-solid fa-plus"></i> Tambah
-                        </button>
-                    </div>
-                ))}
-            </div>
-
-            {/* RAB */}
-            <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Rencana Anggaran Biaya (RAB)</h4>
-                {data.rab_items.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-5">
-                            <label className="text-[12px] font-bold text-slate-500 mb-1 block">Nama Item</label>
-                            <input type="text" value={item.nama_item} onChange={e => handleRabChange(idx, 'nama_item', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" placeholder="Item..." />
                         </div>
-                        <div className="col-span-2">
-                            <label className="text-[12px] font-bold text-slate-500 mb-1 block">Jumlah</label>
-                            <input type="number" value={item.jumlah} onChange={e => handleRabChange(idx, 'jumlah', Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" min={1} />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="text-[12px] font-bold text-slate-500 mb-1 block">Harga</label>
-                            <input type="number" value={item.harga || ''} onChange={e => handleRabChange(idx, 'harga', Number(e.target.value))} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary" min={0} placeholder="0" />
-                        </div>
-                        <div className="col-span-2">
-                            <label className="text-[12px] font-bold text-slate-500 mb-1 block">Total</label>
-                            <div className="px-3 py-2 bg-slate-50 rounded-lg text-sm font-semibold text-slate-700 border border-slate-100">
-                                Rp {item.total.toLocaleString('id-ID')}
-                            </div>
-                        </div>
-                        <div className="col-span-1">
-                            {data.rab_items.length > 1 && (
-                                <button type="button" onClick={() => handleRemoveRab(idx)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
-                                    <i className="fa-solid fa-xmark"></i>
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                ))}
+                    ))
+                }
                 <div className="flex items-center justify-between">
                     <button type="button" onClick={handleAddRab} className="text-[11px] font-bold text-poltekpar-primary flex items-center gap-1 hover:opacity-70">
                         <i className="fa-solid fa-plus"></i> Tambah Item
@@ -828,10 +943,10 @@ export default function DosenSubmissionCard({
                         Total RAB: Rp {totalRAB.toLocaleString('id-ID')}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Sumber Dana */}
-            <div className="space-y-4">
+            < div className="space-y-4" >
                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Sumber Dana</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
@@ -856,10 +971,10 @@ export default function DosenSubmissionCard({
                         </div>
                     ))}
                 </div>
-            </div>
+            </div >
 
             {/* Dokumen */}
-            <div className="space-y-4">
+            < div className="space-y-4" >
                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <i className="fa-solid fa-link text-poltekpar-primary"></i> Dokumen & Tautan
                 </h4>
@@ -926,15 +1041,15 @@ export default function DosenSubmissionCard({
                         ))}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Submit */}
-            <div className="pt-2">
+            < div className="pt-2" >
                 <button type="submit" disabled={isMockSubmitting} className="w-full py-3 bg-gradient-to-r from-poltekpar-primary to-poltekpar-navy text-white font-bold rounded-xl shadow-lg shadow-poltekpar-primary/20 disabled:opacity-50 transition-all hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2">
                     {isMockSubmitting ? 'Mengirim...' : 'Kirim Pengajuan'}
                 </button>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 
     if (onlyShowStatus) {
@@ -944,7 +1059,7 @@ export default function DosenSubmissionCard({
                     <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <h3 className="text-sm font-bold text-slate-900 border-l-4 border-poltekpar-primary pl-3">Daftar Riwayat Pengajuan</h3>
                         <div className="relative">
-                            <button 
+                            <button
                                 onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
                                 className="flex bg-white hover:bg-slate-50 transition-colors border border-slate-200 rounded-xl items-center shadow-sm overflow-hidden group w-full sm:w-[220px]"
                             >
@@ -952,9 +1067,9 @@ export default function DosenSubmissionCard({
                                     <i className="fa-solid fa-filter text-xs"></i>
                                 </div>
                                 <div className="flex-1 text-left py-2 pl-1.5 text-[11px] font-bold text-slate-700 truncate">
-                                    {sortOption === 'default' ? 'Prioritas (Revisi & Diproses)' : 
-                                     sortOption === 'status' ? 'Berdasarkan Status' : 
-                                     sortOption === 'waktu_terbaru' ? 'Waktu (Terbaru)' : 'Waktu (Terlama)'}
+                                    {sortOption === 'default' ? 'Prioritas (Revisi & Diproses)' :
+                                        sortOption === 'status' ? 'Berdasarkan Status' :
+                                            sortOption === 'waktu_terbaru' ? 'Waktu (Terbaru)' : 'Waktu (Terlama)'}
                                 </div>
                                 <div className={`pr-3.5 text-slate-400 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`}>
                                     <i className="fa-solid fa-chevron-down text-[10px]"></i>
@@ -1052,8 +1167,8 @@ export default function DosenSubmissionCard({
                                             </span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl active:bg-slate-100 transition-colors"
                                                 onClick={() => setSelectedDetail(item)}
                                             >
@@ -1103,7 +1218,7 @@ export default function DosenSubmissionCard({
                     {renderSubmissionForm()}
                 </form>
             )}
-            
+
             <datalist id="dosen-suggestions">
                 {pegawaiOptions.dosen.map((name, i) => <option key={`d-${i}`} value={name} />)}
             </datalist>

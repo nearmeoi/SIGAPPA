@@ -11,7 +11,7 @@ class AdminMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         // Jika belum login → ke halaman login
-        if (! $request->user()) {
+        if (!$request->user()) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
@@ -20,7 +20,7 @@ class AdminMiddleware
         }
 
         // Jika sudah login tapi bukan admin/superadmin/secret_account → 403 Forbidden
-        if (!in_array($request->user()->role, ['admin', 'superadmin', 'secret_account'])) {
+        if (!in_array($request->user()->role, ['admin', 'superadmin', 'secret_account', 'direktur'])) {
             abort(403, 'Akses ditolak. Halaman ini hanya untuk admin.');
         }
 

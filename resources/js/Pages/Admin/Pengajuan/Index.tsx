@@ -52,6 +52,7 @@ interface IndexProps {
 
 const STATUS_BADGE: Record<string, { label: string; text: string; bg: string; dot: string }> = {
     diproses: { label: 'Diproses', text: 'text-blue-700', bg: 'bg-blue-50', dot: 'bg-blue-400' },
+    diajukan: { label: 'Ke Direktur', text: 'text-violet-700', bg: 'bg-violet-50', dot: 'bg-violet-400' },
     diterima: { label: 'Diterima', text: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-400' },
     direvisi: { label: 'Revisi', text: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-400' },
     ditolak: { label: 'Ditolak', text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-400' },
@@ -61,6 +62,7 @@ const TABS = [
     { id: '', label: 'Semua' },
     { id: 'pengajuan', label: 'Pengajuan' },
     { id: 'reviu', label: 'Reviu' },
+    { id: 'diajukan', label: 'Ke Direktur' },
     { id: 'direvisi', label: 'Revisi' },
     { id: 'diterima', label: 'Diterima' },
     { id: 'ditolak', label: 'Ditolak' },
@@ -113,29 +115,29 @@ const getIncompleteReasons = (item: Pengajuan): string[] => {
     const hasRabItems = Array.isArray(item.rab_items) && item.rab_items.length > 0 && item.rab_items.some((ri) =>
         !isEmpty(ri.nama_item) && Number(ri.jumlah || 0) > 0
     );
-    
+
     // Fallback for Masyarakat who might use the link field instead of table
     const hasRabLink = !isEmpty((item as any).rab);
-    
+
     if (!hasRabItems && !hasRabLink) reasons.push('dokumen/rincian RAB');
 
     // Team Check
     const tim = item.tim_kegiatan || [];
     const hasKetua = tim.some(m => !isEmpty(m.peran_tim) && String(m.peran_tim).toLowerCase().includes('ketua'));
-    
+
     if (isDosen) {
         if (!hasKetua) reasons.push('ketua tim');
         const anggotaCount = tim.filter(m => !String(m.peran_tim || '').toLowerCase().includes('ketua')).length;
         if (anggotaCount === 0) reasons.push('anggota tim (dosen/staff/mhs)');
-        
+
         if (isEmpty(item.judul_kegiatan)) reasons.push('judul kegiatan');
-        
+
         const hasFunding = Number(item.dana_perguruan_tinggi || 0) > 0
             || Number(item.dana_pemerintah || 0) > 0
             || Number(item.dana_lembaga_dalam || 0) > 0
             || Number(item.dana_lembaga_luar || 0) > 0
             || (!isEmpty(item.sumber_dana));
-            
+
         if (!hasFunding) reasons.push('sumber dana');
     }
 
@@ -220,7 +222,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
         const count = selectAllAcrossPages ? (listPengajuan.total - selectedIds.length) : selectedIds.length;
         if (confirm(`Apakah Anda yakin ingin menghapus ${count} pengajuan terpilih?`)) {
             router.delete('/admin/pengajuan/bulk', {
-                data: { 
+                data: {
                     ids: !selectAllAcrossPages ? selectedIds : [],
                     select_all: selectAllAcrossPages,
                     excluded_ids: selectAllAcrossPages ? selectedIds : [],
@@ -273,11 +275,10 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                         <button
                             key={t.id}
                             onClick={() => handleTabChange(t.id)}
-                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${
-                                tab === t.id
+                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${tab === t.id
                                     ? 'bg-white text-zinc-900 shadow-sm'
                                     : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
-                            }`}
+                                }`}
                         >
                             {t.label}
                         </button>
@@ -329,7 +330,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                             {selectAllAcrossPages ? listPengajuan.total : selectedIds.length} item terpilih
                         </span>
                         <span className="text-red-300">|</span>
-                        
+
                         <button
                             onClick={handleBulkDelete}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg text-[12px] font-bold hover:bg-red-700 transition-all shadow-sm active:scale-95"
@@ -354,7 +355,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                             <div className="flex items-center gap-2">
                                 <AlertCircle size={14} className="text-indigo-400" />
                                 <span>Semua <b>{selectedIds.length}</b> pengajuan di halaman ini terpilih.</span>
-                                <button 
+                                <button
                                     onClick={() => setSelectAllAcrossPages(true)}
                                     className="px-2 py-1 bg-indigo-600 text-white rounded-md font-bold hover:bg-indigo-700 transition-colors shadow-sm"
                                 >
@@ -369,7 +370,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                             <div className="flex items-center gap-2">
                                 <Check size={14} className="text-emerald-400" />
                                 <span>Semua <b>{listPengajuan.total}</b> pengajuan terpilih (lintas halaman).</span>
-                                <button 
+                                <button
                                     onClick={() => {
                                         setSelectedIds([]);
                                         setSelectAllAcrossPages(false);

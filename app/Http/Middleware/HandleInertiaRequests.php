@@ -47,9 +47,18 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'flash' => [
-                'success' => fn () => $request->session()->get('success'),
-                'error' => fn () => $request->session()->get('error'),
+                'success' => fn() => $request->session()->get('success'),
+                'error' => fn() => $request->session()->get('error'),
             ],
+            'visitorStats' => \App\Models\SiteSetting::getVisitorStats(),
+            'listKontak' => \App\Models\Kontak::orderBy('created_at', 'asc')
+                ->get()
+                ->map(fn($k) => [
+                    'id_kontak' => $k->id_kontak,
+                    'ikon' => $k->ikon,
+                    'label' => $k->label,
+                    'nilai_kontak' => $k->nilai_kontak,
+                ]),
         ];
     }
 }

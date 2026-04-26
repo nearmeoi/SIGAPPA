@@ -44,7 +44,7 @@ Route::get('/beranda', [LandingController::class, 'index'])->name('beranda');
 Route::get('/panduan', function () {
     $panduan = TemplateDokumen::where('jenis', 'panduan')->first();
     $pdfUrl = $panduan && Storage::disk('public')->exists($panduan->file_path)
-        ? '/storage/'.$panduan->file_path
+        ? '/storage/' . $panduan->file_path
         : '/panduan_penggunaan.pdf';
 
     return Inertia::render('Panduan', ['pdfUrl' => $pdfUrl]);
@@ -57,7 +57,7 @@ Route::post('/testimoni/public', [LandingController::class, 'storePublicTestimon
 Route::get('/evaluasi', function () {
     return Inertia::render('Public/Evaluasi');
 })->name('evaluasi.index');
-Route::post('/evaluasi-sistem', [LandingController::class, 'storeEvaluasiSistem'])->middleware('throttle:5,1')->name('evaluasi.store');
+Route::post('/evaluasi-sistem', [LandingController::class, 'storeEvaluasiSistem'])->middleware('throttle:60,1')->name('evaluasi.store');
 
 // Developer Crew
 Route::get('/developer-crew', function () {
@@ -78,7 +78,7 @@ Route::get('/api/geocode', function (Request $request) {
     }
 
     $params = http_build_query([
-        'q' => $query.', Indonesia',
+        'q' => $query . ', Indonesia',
         'format' => 'json',
         'limit' => '8',
         'countrycodes' => 'id',
@@ -107,7 +107,7 @@ Route::get('/api/geocode', function (Request $request) {
 Route::get('/api/reverse-geocode', function (Request $request) {
     $lat = $request->input('lat');
     $lon = $request->input('lon');
-    if (! $lat || ! $lon) {
+    if (!$lat || !$lon) {
         return response()->json([]);
     }
 
@@ -208,8 +208,8 @@ Route::middleware('auth')->group(function () {
         $pegawai = Pegawai::select('nama_pegawai', 'jabatan')->get();
 
         return response()->json([
-            'dosen' => $pegawai->filter(fn ($p) => stripos($p->jabatan, 'dosen') !== false)->pluck('nama_pegawai')->values(),
-            'staff' => $pegawai->filter(fn ($p) => stripos($p->jabatan, 'dosen') === false)->pluck('nama_pegawai')->values(),
+            'dosen' => $pegawai->filter(fn($p) => stripos($p->jabatan, 'dosen') !== false)->pluck('nama_pegawai')->values(),
+            'staff' => $pegawai->filter(fn($p) => stripos($p->jabatan, 'dosen') === false)->pluck('nama_pegawai')->values(),
         ]);
     })->name('api.pegawai-options');
 
@@ -217,10 +217,12 @@ Route::middleware('auth')->group(function () {
     // Direktur routes
     // ─────────────────────────────────────────
     Route::prefix('direktur')->name('direktur.')->middleware('direktur')->group(function () {
-        Route::get('/', fn () => redirect()->route('direktur.dashboard'));
+        Route::get('/', fn() => redirect()->route('direktur.dashboard'));
         Route::get('/dashboard', [DirekturController::class, 'index'])->name('dashboard');
+        Route::get('/pengajuan/{id}', [DirekturController::class, 'show'])->name('pengajuan.show');
         Route::post('/pengajuan/{id}/approve', [DirekturController::class, 'approve'])->name('pengajuan.approve');
         Route::post('/pengajuan/{id}/decline', [DirekturController::class, 'decline'])->name('pengajuan.decline');
+        Route::post('/pengajuan/{id}/revise', [DirekturController::class, 'revise'])->name('pengajuan.revise');
     });
 
     // ─────────────────────────────────────────
@@ -245,7 +247,7 @@ Route::middleware('auth')->group(function () {
     // Admin routes
     // ─────────────────────────────────────────
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
-        Route::get('/', fn () => redirect()->route('admin.dashboard'));
+        Route::get('/', fn() => redirect()->route('admin.dashboard'));
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
         // Global search API (admin only)
@@ -268,6 +270,10 @@ Route::middleware('auth')->group(function () {
         Route::put('/pengajuan/{id}/status', [PengajuanController::class, 'updateStatus'])->name('pengajuan.update_status');
         Route::put('/pengajuan/{id}/lokasi', [PengajuanController::class, 'updateLokasi'])->name('pengajuan.update_lokasi');
         Route::delete('/pengajuan/{pengajuanId}/tim/{timId}', [PengajuanController::class, 'destroyTim'])->name('pengajuan.destroy_tim');
+
+        // Pengajuan Logs — superadmin only edit/delete
+        Route::put('/pengajuan-logs/{id}', [PengajuanController::class, 'updateLog'])->name('pengajuan_logs.update');
+        Route::delete('/pengajuan-logs/{id}', [PengajuanController::class, 'destroyLog'])->name('pengajuan_logs.destroy');
 
         // Pegawai CRUD
         Route::get('/pegawai', [PegawaiController::class, 'index'])->name('pegawai.index');
@@ -396,7 +402,7 @@ Route::middleware('auth')->group(function () {
 
             Mail::to($email)->send($mail);
 
-            return response()->json(['success' => true, 'message' => 'Test email sent to '.$email]);
+            return response()->json(['success' => true, 'message' => 'Test email sent to ' . $email]);
         });
     });
 });

@@ -19,6 +19,9 @@ class AuthController extends Controller
      */
     private function dashboardUrl(): string
     {
+        if (Auth::user()?->role === 'direktur') {
+            return '/direktur/dashboard';
+        }
         return in_array(Auth::user()?->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/beranda';
     }
 
@@ -53,7 +56,7 @@ class AuthController extends Controller
 
         $pegawai = Pegawai::where('nip', $request->nip)->first();
 
-        if (! $pegawai) {
+        if (!$pegawai) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'NIP tidak ditemukan dalam data pegawai. Tidak dapat mendaftar sebagai Dosen.',
@@ -90,7 +93,7 @@ class AuthController extends Controller
         $pkmData = Pengajuan::with(['aktivitas.testimoni', 'timKegiatan.pegawai', 'jenisPkm'])
             ->whereNotNull('latitude')
             ->get()
-            ->map(fn ($pengajuan) => [
+            ->map(fn($pengajuan) => [
                 'id' => $pengajuan->id_pengajuan,
                 'nama' => $pengajuan->judul_kegiatan,
                 'tahun' => $pengajuan->created_at?->year ?? date('Y'),
@@ -107,11 +110,11 @@ class AuthController extends Controller
                 'lat' => (float) ($pengajuan->latitude ?? 0),
                 'lng' => (float) ($pengajuan->longitude ?? 0),
                 'total_anggaran' => $pengajuan->total_anggaran ?? 0,
-                'tim_kegiatan' => $pengajuan->timKegiatan->map(fn ($tim) => [
+                'tim_kegiatan' => $pengajuan->timKegiatan->map(fn($tim) => [
                     'nama' => $tim->pegawai ? $tim->pegawai->nama_pegawai : $tim->nama_mahasiswa,
                     'peran' => $tim->peran_tim,
                 ])->toArray(),
-                'testimoni' => ($pengajuan->aktivitas?->testimoni ?? collect())->map(fn ($testimoni) => [
+                'testimoni' => ($pengajuan->aktivitas?->testimoni ?? collect())->map(fn($testimoni) => [
                     'nama_pemberi' => $testimoni->nama_pemberi,
                     'rating' => (int) $testimoni->rating,
                     'pesan_ulasan' => $testimoni->pesan_ulasan,
@@ -152,7 +155,9 @@ class AuthController extends Controller
             $request->session()->regenerate();
             $user = Auth::user();
 
-            $default = in_array($user->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/';
+            $default = $user->role === 'direktur'
+                ? '/direktur/dashboard'
+                : (in_array($user->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/');
 
             return redirect()->intended($default);
         }
@@ -182,7 +187,7 @@ class AuthController extends Controller
 
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'nip' => [$preferredRole === 'dosen' ? 'required' : 'nullable', 'numeric'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ], [
@@ -236,7 +241,9 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        $redirectTo = in_array($user->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/';
+        $redirectTo = $user->role === 'direktur'
+            ? '/direktur/dashboard'
+            : (in_array($user->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/');
 
         return redirect($redirectTo);
     }

@@ -28,7 +28,7 @@ class PengajuanUserController extends Controller
                 ->with(['timKegiatan.pegawai', 'jenisPkm', 'user', 'aktivitas'])
                 ->latest()
                 ->get()
-                ->map(fn ($p) => [
+                ->map(fn($p) => [
                     'id' => $p->id_pengajuan,
                     'kode_unik' => $p->kode_unik,
                     'judul' => $p->judul_kegiatan,
@@ -50,6 +50,7 @@ class PengajuanUserController extends Controller
                     'alamat_lengkap' => $p->alamat_lengkap,
                     'latitude' => $p->latitude,
                     'longitude' => $p->longitude,
+                    'lokasi_tambahan' => $p->lokasi_tambahan,
                     'tgl_mulai' => $p->tgl_mulai ? $p->tgl_mulai->format('Y-m-d') : null,
                     'tgl_selesai' => $p->tgl_selesai ? $p->tgl_selesai->format('Y-m-d') : null,
                     'is_tahun_saja' => $p->is_tahun_saja,
@@ -68,7 +69,7 @@ class PengajuanUserController extends Controller
                     'nama_pengusul' => $this->resolveSubmitterName($p),
                     'email_pengusul' => $this->resolveSubmitterEmail($p),
                     'kebutuhan' => $p->kebutuhan,
-                    'tim_kegiatan' => $p->timKegiatan->map(fn ($t) => [
+                    'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
                         'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
                         'peran' => $t->peran_tim,
                     ]),
@@ -97,7 +98,9 @@ class PengajuanUserController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->role === 'masyarakat') {
+        // Jika request memiliki atribut 'needs' (dari form MasyarakatSubmissionCard)
+        // atau role user memang masyarakat, arahkan ke storeMasyarakat
+        if ($user->role === 'masyarakat' || $request->has('needs')) {
             return $this->storeMasyarakat($request);
         }
 
@@ -109,13 +112,7 @@ class PengajuanUserController extends Controller
             'email' => 'nullable|email|max:255',
             'instansi_mitra' => 'nullable|string|max:255',
             'no_telepon' => 'nullable|string|max:20',
-            'provinsi' => 'required|string|max:100',
-            'kota_kabupaten' => 'required|string|max:100',
-            'kecamatan' => 'nullable|string|max:100',
-            'kelurahan_desa' => 'nullable|string|max:100',
-            'alamat_lengkap' => 'nullable|string|max:1000',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'lokasi_list' => 'nullable|string',
             'sumber_dana' => 'nullable|string|max:255',
             'total_anggaran' => 'nullable|numeric|min:0',
             'tgl_mulai' => 'nullable|date',
@@ -142,25 +139,46 @@ class PengajuanUserController extends Controller
         $suratProposalUrl = null;
 
         if ($request->hasFile('surat_permohonan')) {
-            $suratPermohonanUrl = '/storage/'.$request->file('surat_permohonan')->store('pengajuan/dokumen', 'public');
+            $suratPermohonanUrl = '/storage/' . $request->file('surat_permohonan')->store('pengajuan/dokumen', 'public');
         }
         if ($request->hasFile('surat_proposal')) {
-            $suratProposalUrl = '/storage/'.$request->file('surat_proposal')->store('pengajuan/dokumen', 'public');
+            $suratProposalUrl = '/storage/' . $request->file('surat_proposal')->store('pengajuan/dokumen', 'public');
         }
 
         $rabItems = $this->normalizeRabItems($request->input('rab_items', []));
+
+        $lokasiListStr = $request->input('lokasi_list', '[]');
+        // Optional fallback check if string is null
+        $lokasiListStr = $lokasiListStr ? $lokasiListStr : '[]';
+        $lokasiList = json_decode($lokasiListStr, true);
+        if (!is_array($lokasiList) || empty($lokasiList)) {
+            $lokasiList = [
+                [
+                    'provinsi' => $request->provinsi ?? '',
+                    'kota_kabupaten' => $request->kota_kabupaten ?? '',
+                    'kecamatan' => $request->kecamatan ?? '',
+                    'kelurahan_desa' => $request->kelurahan_desa ?? '',
+                    'alamat_lengkap' => $request->alamat_lengkap ?? '',
+                    'latitude' => $request->latitude ?? null,
+                    'longitude' => $request->longitude ?? null,
+                ]
+            ];
+        }
+        $primaryLokasi = $lokasiList[0];
+        $lokasiTambahan = array_slice($lokasiList, 1);
 
         $pengajuan = Pengajuan::create([
             'id_user' => $user->id_user,
             'id_jenis_pkm' => $request->id_jenis_pkm ?? $defaultJenisPkm?->id_jenis_pkm ?? 1,
             'tipe_pengusul' => 'dosen',
-            'provinsi' => $request->provinsi,
-            'kota_kabupaten' => $request->kota_kabupaten,
-            'kecamatan' => $request->kecamatan ?? '',
-            'kelurahan_desa' => $request->kelurahan_desa ?? '',
-            'alamat_lengkap' => $request->alamat_lengkap ?? '',
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
+            'provinsi' => $primaryLokasi['provinsi'] ?? '',
+            'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
+            'kecamatan' => $primaryLokasi['kecamatan'] ?? '',
+            'kelurahan_desa' => $primaryLokasi['kelurahan_desa'] ?? '',
+            'alamat_lengkap' => $primaryLokasi['alamat_lengkap'] ?? '',
+            'latitude' => $primaryLokasi['latitude'] ?? null,
+            'longitude' => $primaryLokasi['longitude'] ?? null,
+            'lokasi_tambahan' => $lokasiTambahan,
             'judul_kegiatan' => $request->judul_kegiatan,
             'nama_pengusul' => $request->nama_dosen,
             'email_pengusul' => $request->email ?: $user->email,
@@ -209,7 +227,7 @@ class PengajuanUserController extends Controller
 
         if (count($teamMembers) > 0) {
             $now = now();
-            $rows = array_map(fn ($m) => array_merge($m, [
+            $rows = array_map(fn($m) => array_merge($m, [
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -243,13 +261,7 @@ class PengajuanUserController extends Controller
             'email' => 'nullable|email|max:255',
             'instansi_mitra' => 'nullable|string|max:255',
             'no_telepon' => 'nullable|string|max:20',
-            'provinsi' => 'required|string|max:100',
-            'kota_kabupaten' => 'required|string|max:100',
-            'kecamatan' => 'nullable|string|max:100',
-            'kelurahan_desa' => 'nullable|string|max:100',
-            'alamat_lengkap' => 'nullable|string|max:1000',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'lokasi_list' => 'nullable|string',
             'sumber_dana' => 'nullable|string|max:255',
             'total_anggaran' => 'nullable|numeric|min:0',
             'tgl_mulai' => 'nullable|date',
@@ -282,15 +294,36 @@ class PengajuanUserController extends Controller
 
         $rabItems = $this->normalizeRabItems($request->input('rab_items', []));
 
+        $lokasiListStr = $request->input('lokasi_list', '[]');
+        // Optional fallback check if string is null
+        $lokasiListStr = $lokasiListStr ? $lokasiListStr : '[]';
+        $lokasiList = json_decode($lokasiListStr, true);
+        if (!is_array($lokasiList) || empty($lokasiList)) {
+            $lokasiList = [
+                [
+                    'provinsi' => $request->provinsi ?? $pengajuan->provinsi,
+                    'kota_kabupaten' => $request->kota_kabupaten ?? $pengajuan->kota_kabupaten,
+                    'kecamatan' => $request->kecamatan ?? $pengajuan->kecamatan,
+                    'kelurahan_desa' => $request->kelurahan_desa ?? $pengajuan->kelurahan_desa,
+                    'alamat_lengkap' => $request->alamat_lengkap ?? $pengajuan->alamat_lengkap,
+                    'latitude' => $request->latitude ?? $pengajuan->latitude,
+                    'longitude' => $request->longitude ?? $pengajuan->longitude,
+                ]
+            ];
+        }
+        $primaryLokasi = $lokasiList[0];
+        $lokasiTambahan = array_slice($lokasiList, 1);
+
         $pengajuan->update([
             'id_jenis_pkm' => $request->id_jenis_pkm ?? $pengajuan->id_jenis_pkm,
-            'provinsi' => $request->provinsi,
-            'kota_kabupaten' => $request->kota_kabupaten,
-            'kecamatan' => $request->kecamatan ?? '',
-            'kelurahan_desa' => $request->kelurahan_desa ?? '',
-            'alamat_lengkap' => $request->alamat_lengkap ?? '',
-            'latitude' => $request->latitude ?? $pengajuan->latitude,
-            'longitude' => $request->longitude ?? $pengajuan->longitude,
+            'provinsi' => $primaryLokasi['provinsi'] ?? '',
+            'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
+            'kecamatan' => $primaryLokasi['kecamatan'] ?? '',
+            'kelurahan_desa' => $primaryLokasi['kelurahan_desa'] ?? '',
+            'alamat_lengkap' => $primaryLokasi['alamat_lengkap'] ?? '',
+            'latitude' => $primaryLokasi['latitude'] ?? null,
+            'longitude' => $primaryLokasi['longitude'] ?? null,
+            'lokasi_tambahan' => $lokasiTambahan,
             'judul_kegiatan' => $request->judul_kegiatan,
             'nama_pengusul' => $request->nama_dosen,
             'email_pengusul' => $request->email ?: $user->email,
@@ -385,13 +418,7 @@ class PengajuanUserController extends Controller
             'needs' => 'required|string',
             'email' => 'required|email|max:255',
             'whatsapp' => 'required|string|max:20',
-            'provinsi' => 'required|string|max:100',
-            'kota_kabupaten' => 'required|string|max:100',
-            'kecamatan' => 'nullable|string|max:100',
-            'kelurahan_desa' => 'nullable|string|max:100',
-            'alamat_lengkap' => 'nullable|string|max:1000',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'lokasi_list' => 'nullable|string',
             'tgl_mulai' => 'nullable|date',
             'tgl_selesai' => 'nullable|date',
             'is_tahun_saja' => 'nullable|boolean',
@@ -409,6 +436,26 @@ class PengajuanUserController extends Controller
             $suratProposalUrl = '/storage/' . $request->file('surat_proposal')->store('pengajuan/dokumen', 'public');
         }
 
+        $lokasiListStr = $request->input('lokasi_list', '[]');
+        // Optional fallback check if string is null
+        $lokasiListStr = $lokasiListStr ? $lokasiListStr : '[]';
+        $lokasiList = json_decode($lokasiListStr, true);
+        if (!is_array($lokasiList) || empty($lokasiList)) {
+            $lokasiList = [
+                [
+                    'provinsi' => $request->provinsi ?? $pengajuan->provinsi,
+                    'kota_kabupaten' => $request->kota_kabupaten ?? $pengajuan->kota_kabupaten,
+                    'kecamatan' => $request->kecamatan ?? $pengajuan->kecamatan,
+                    'kelurahan_desa' => $request->kelurahan_desa ?? $pengajuan->kelurahan_desa,
+                    'alamat_lengkap' => $request->alamat_lengkap ?? $pengajuan->alamat_lengkap,
+                    'latitude' => $request->latitude ?? $pengajuan->latitude,
+                    'longitude' => $request->longitude ?? $pengajuan->longitude,
+                ]
+            ];
+        }
+        $primaryLokasi = $lokasiList[0];
+        $lokasiTambahan = array_slice($lokasiList, 1);
+
         $pengajuan->update([
             'nama_pengusul' => $request->name,
             'email_pengusul' => $request->email,
@@ -416,13 +463,14 @@ class PengajuanUserController extends Controller
             'no_telepon' => $request->whatsapp,
             'kebutuhan' => $request->needs,
             'judul_kegiatan' => 'Pengajuan PKM dari ' . $request->institution,
-            'provinsi' => $request->provinsi,
-            'kota_kabupaten' => $request->kota_kabupaten,
-            'kecamatan' => $request->kecamatan ?? '',
-            'kelurahan_desa' => $request->kelurahan_desa ?? '',
-            'alamat_lengkap' => $request->alamat_lengkap ?? '',
-            'latitude' => $request->latitude ?? $pengajuan->latitude,
-            'longitude' => $request->longitude ?? $pengajuan->longitude,
+            'provinsi' => $primaryLokasi['provinsi'] ?? '',
+            'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
+            'kecamatan' => $primaryLokasi['kecamatan'] ?? '',
+            'kelurahan_desa' => $primaryLokasi['kelurahan_desa'] ?? '',
+            'alamat_lengkap' => $primaryLokasi['alamat_lengkap'] ?? '',
+            'latitude' => $primaryLokasi['latitude'] ?? null,
+            'longitude' => $primaryLokasi['longitude'] ?? null,
+            'lokasi_tambahan' => $lokasiTambahan,
             'is_tahun_saja' => $request->has('is_tahun_saja') ? $request->boolean('is_tahun_saja') : $pengajuan->is_tahun_saja,
             'tgl_mulai' => $request->tgl_mulai ?? $pengajuan->tgl_mulai,
             'tgl_selesai' => $request->tgl_selesai ?? $pengajuan->tgl_selesai,
@@ -448,13 +496,7 @@ class PengajuanUserController extends Controller
             'needs' => 'required|string',
             'email' => 'required|email|max:255',
             'whatsapp' => 'required|string|max:20',
-            'provinsi' => 'required|string|max:100',
-            'kota_kabupaten' => 'required|string|max:100',
-            'kecamatan' => 'nullable|string|max:100',
-            'kelurahan_desa' => 'nullable|string|max:100',
-            'alamat_lengkap' => 'nullable|string|max:1000',
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'lokasi_list' => 'nullable|string',
             'tgl_mulai' => 'nullable|date',
             'tgl_selesai' => 'nullable|date',
             'is_tahun_saja' => 'nullable|boolean',
@@ -467,28 +509,52 @@ class PengajuanUserController extends Controller
 
         if ($request->hasFile('surat_permohonan')) {
             $suratPermohonanUrl = $request->file('surat_permohonan')->store('pengajuan/dokumen', 'public');
-            $suratPermohonanUrl = '/storage/'.$suratPermohonanUrl;
+            $suratPermohonanUrl = '/storage/' . $suratPermohonanUrl;
         }
         if ($request->hasFile('surat_proposal')) {
             $suratProposalUrl = $request->file('surat_proposal')->store('pengajuan/dokumen', 'public');
-            $suratProposalUrl = '/storage/'.$suratProposalUrl;
+            $suratProposalUrl = '/storage/' . $suratProposalUrl;
         }
+
+        $lokasiListStr = $request->input('lokasi_list', '[]');
+        // Optional fallback check if string is null
+        $lokasiListStr = $lokasiListStr ? $lokasiListStr : '[]';
+        $lokasiList = json_decode($lokasiListStr, true);
+        if (!is_array($lokasiList) || empty($lokasiList)) {
+            $lokasiList = [
+                [
+                    'provinsi' => $request->provinsi ?? '',
+                    'kota_kabupaten' => $request->kota_kabupaten ?? '',
+                    'kecamatan' => $request->kecamatan ?? '',
+                    'kelurahan_desa' => $request->kelurahan_desa ?? '',
+                    'alamat_lengkap' => $request->alamat_lengkap ?? '',
+                    'latitude' => $request->latitude ?? null,
+                    'longitude' => $request->longitude ?? null,
+                ]
+            ];
+        }
+        $primaryLokasi = $lokasiList[0];
+        $lokasiTambahan = array_slice($lokasiList, 1);
+
+        // Ambil default jenis PKM
+        $defaultJenisPkm = \App\Models\JenisPkm::first();
 
         Pengajuan::create([
             'id_user' => Auth::id(),
-            'id_jenis_pkm' => null,
+            'id_jenis_pkm' => $defaultJenisPkm?->id_jenis_pkm ?? 1,
             'tipe_pengusul' => 'masyarakat',
-            'provinsi' => $request->provinsi,
-            'kota_kabupaten' => $request->kota_kabupaten,
-            'kecamatan' => $request->kecamatan ?? '',
-            'kelurahan_desa' => $request->kelurahan_desa ?? '',
-            'alamat_lengkap' => $request->alamat_lengkap ?? '',
-            'latitude' => $request->latitude,
-            'longitude' => $request->longitude,
+            'provinsi' => $primaryLokasi['provinsi'] ?? '',
+            'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
+            'kecamatan' => $primaryLokasi['kecamatan'] ?? '',
+            'kelurahan_desa' => $primaryLokasi['kelurahan_desa'] ?? '',
+            'alamat_lengkap' => $primaryLokasi['alamat_lengkap'] ?? '',
+            'latitude' => $primaryLokasi['latitude'] ?? null,
+            'longitude' => $primaryLokasi['longitude'] ?? null,
+            'lokasi_tambahan' => $lokasiTambahan,
             'is_tahun_saja' => $request->boolean('is_tahun_saja'),
             'tgl_mulai' => $request->tgl_mulai,
             'tgl_selesai' => $request->tgl_selesai,
-            'judul_kegiatan' => 'Pengajuan PKM dari '.$request->institution,
+            'judul_kegiatan' => 'Pengajuan PKM dari ' . $request->institution,
             'nama_pengusul' => $request->name,
             'email_pengusul' => $request->email,
             'kebutuhan' => $request->needs,
@@ -511,7 +577,7 @@ class PengajuanUserController extends Controller
     {
         if (is_array($members)) {
             foreach ($members as $name) {
-                if (! empty(trim($name))) {
+                if (!empty(trim($name))) {
                     $teamMembers[] = [
                         'id_pegawai' => null,
                         'nama_mahasiswa' => $name,
@@ -558,7 +624,7 @@ class PengajuanUserController extends Controller
 
     private function resolveSubmitterName(Pengajuan $pengajuan): string
     {
-        if (! empty($pengajuan->nama_pengusul)) {
+        if (!empty($pengajuan->nama_pengusul)) {
             return $pengajuan->nama_pengusul;
         }
 
@@ -568,7 +634,7 @@ class PengajuanUserController extends Controller
             });
 
             $ketuaName = $ketuaTim?->pegawai?->nama_pegawai ?? $ketuaTim?->nama_mahasiswa;
-            if (! empty($ketuaName)) {
+            if (!empty($ketuaName)) {
                 return $ketuaName;
             }
         }
@@ -578,7 +644,7 @@ class PengajuanUserController extends Controller
 
     private function resolveSubmitterEmail(Pengajuan $pengajuan): string
     {
-        if (! empty($pengajuan->email_pengusul)) {
+        if (!empty($pengajuan->email_pengusul)) {
             return $pengajuan->email_pengusul;
         }
 

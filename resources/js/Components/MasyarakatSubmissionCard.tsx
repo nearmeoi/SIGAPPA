@@ -5,7 +5,10 @@ import ActionFeedbackDialog from './ActionFeedbackDialog';
 import MapLocationPicker from './MapLocationPicker';
 import DocumentationGallery from './DocumentationGallery';
 import TestimonialSidebarDisplay from './TestimonialSidebarDisplay';
+import SuccessView from './SuccessView';
 import type { PkmData } from '@/types';
+
+
 
 interface Submission {
     id: number;
@@ -22,6 +25,9 @@ interface Submission {
     kecamatan?: string;
     kelurahan_desa?: string;
     alamat_lengkap?: string;
+    latitude?: number | string;
+    longitude?: number | string;
+    lokasi_tambahan?: any;
     proposal?: string;
     surat_permohonan?: string;
     rab?: string;
@@ -81,13 +87,16 @@ interface FormData {
     email: string;
     whatsapp: string;
     needs: string;
-    provinsi: string;
-    kota_kabupaten: string;
-    kecamatan: string;
-    kelurahan_desa: string;
-    alamat_lengkap: string;
-    latitude: number | null;
-    longitude: number | null;
+    lokasi_list: {
+        id_ui: number;
+        provinsi: string;
+        kota_kabupaten: string;
+        kecamatan: string;
+        kelurahan_desa: string;
+        alamat_lengkap: string;
+        latitude: number | null;
+        longitude: number | null;
+    }[];
     tgl_mulai: string | null;
     tgl_selesai: string | null;
     is_tahun_saja: boolean;
@@ -120,10 +129,15 @@ export default function MasyarakatSubmissionCard({
     const [mainTab, setMainTab] = useState('pengajuan');
     const [selectedDetail, setSelectedDetail] = useState<Submission | null>(null);
     const [isMockSubmitting, setIsMockSubmitting] = useState(false);
-    
+
     const [feedbackDialog, setFeedbackDialog] = useState<{ show: boolean; type: 'success' | 'error'; title: string; message: string }>({ show: false, type: 'success', title: '', message: '' });
     const [sortOption, setSortOption] = useState<'default' | 'status' | 'waktu_terbaru' | 'waktu_terlama'>('default');
     const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+    const [collapsedLocations, setCollapsedLocations] = useState<Record<number, boolean>>({});
+
+    const toggleLocationCollapse = (idUi: number) => {
+        setCollapsedLocations(prev => ({ ...prev, [idUi]: !prev[idUi] }));
+    };
 
     // Feedback Flow States
     const [showFeedbackFlow, setShowFeedbackFlow] = useState(false);
@@ -172,13 +186,16 @@ export default function MasyarakatSubmissionCard({
         email: '',
         whatsapp: '',
         needs: '',
-        provinsi: '',
-        kota_kabupaten: '',
-        kecamatan: '',
-        kelurahan_desa: '',
-        alamat_lengkap: '',
-        latitude: null,
-        longitude: null,
+        lokasi_list: [{
+            id_ui: Date.now(),
+            provinsi: '',
+            kota_kabupaten: '',
+            kecamatan: '',
+            kelurahan_desa: '',
+            alamat_lengkap: '',
+            latitude: null,
+            longitude: null,
+        }],
         tgl_mulai: null,
         tgl_selesai: null,
         is_tahun_saja: false,
@@ -195,7 +212,7 @@ export default function MasyarakatSubmissionCard({
 
     useEffect(() => {
         if (!editSubmission) return;
-        
+
         let parsedLinks = [{ name: '', url: '' }];
         try {
             if (editSubmission.rab) {
@@ -204,7 +221,7 @@ export default function MasyarakatSubmissionCard({
                     parsedLinks = arr.map((item: any) => ({ name: item.name || '', url: item.url || '' }));
                 }
             }
-        } catch {}
+        } catch { }
 
         setData({
             name: editSubmission.nama_pengusul || '',
@@ -212,13 +229,39 @@ export default function MasyarakatSubmissionCard({
             email: editSubmission.email_pengusul || '',
             whatsapp: editSubmission.no_telepon || '',
             needs: editSubmission.kebutuhan || editSubmission.ringkasan || '',
-            provinsi: editSubmission.provinsi || '',
-            kota_kabupaten: editSubmission.kota_kabupaten || '',
-            kecamatan: editSubmission.kecamatan || '',
-            kelurahan_desa: editSubmission.kelurahan_desa || '',
-            alamat_lengkap: editSubmission.alamat_lengkap || '',
-            latitude: editSubmission.latitude ? Number(editSubmission.latitude) : null,
-            longitude: editSubmission.longitude ? Number(editSubmission.longitude) : null,
+            lokasi_list: (() => {
+                const arr = [{
+                    id_ui: Date.now(),
+                    provinsi: editSubmission.provinsi || '',
+                    kota_kabupaten: editSubmission.kota_kabupaten || '',
+                    kecamatan: editSubmission.kecamatan || '',
+                    kelurahan_desa: editSubmission.kelurahan_desa || '',
+                    alamat_lengkap: editSubmission.alamat_lengkap || '',
+                    latitude: editSubmission.latitude ? Number(editSubmission.latitude) : null,
+                    longitude: editSubmission.longitude ? Number(editSubmission.longitude) : null,
+                }];
+                try {
+                    const tambahanStr = (editSubmission as any).lokasi_tambahan;
+                    if (tambahanStr) {
+                        const parsed = typeof tambahanStr === 'string' ? JSON.parse(tambahanStr) : tambahanStr;
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((loc, i) => {
+                                arr.push({
+                                    id_ui: Date.now() + i + 1,
+                                    provinsi: loc.provinsi || '',
+                                    kota_kabupaten: loc.kota_kabupaten || '',
+                                    kecamatan: loc.kecamatan || '',
+                                    kelurahan_desa: loc.kelurahan_desa || '',
+                                    alamat_lengkap: loc.alamat_lengkap || '',
+                                    latitude: loc.latitude ? Number(loc.latitude) : null,
+                                    longitude: loc.longitude ? Number(loc.longitude) : null,
+                                });
+                            });
+                        }
+                    }
+                } catch { }
+                return arr;
+            })(),
             tgl_mulai: editSubmission.tgl_mulai || null,
             tgl_selesai: editSubmission.tgl_selesai || null,
             is_tahun_saja: false,
@@ -245,13 +288,7 @@ export default function MasyarakatSubmissionCard({
         formData.append('email', data.email);
         formData.append('whatsapp', data.whatsapp);
         formData.append('needs', data.needs);
-        formData.append('provinsi', data.provinsi);
-        formData.append('kota_kabupaten', data.kota_kabupaten);
-        formData.append('kecamatan', data.kecamatan);
-        formData.append('kelurahan_desa', data.kelurahan_desa);
-        formData.append('alamat_lengkap', data.alamat_lengkap);
-        if (data.latitude) formData.append('latitude', data.latitude.toString());
-        if (data.longitude) formData.append('longitude', data.longitude.toString());
+        formData.append('lokasi_list', JSON.stringify(data.lokasi_list));
         if (data.tgl_mulai) formData.append('tgl_mulai', data.tgl_mulai);
         if (data.tgl_selesai) formData.append('tgl_selesai', data.tgl_selesai);
         formData.append('is_tahun_saja', data.is_tahun_saja ? '1' : '0');
@@ -269,8 +306,8 @@ export default function MasyarakatSubmissionCard({
 
     const handleInitialSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (!data.name.trim() || !data.institution.trim() || !data.needs.trim() || (!filePermohonan && !isEditing)) {
-            setFeedbackDialog({ show: true, type: 'error', title: 'Form Belum Lengkap', message: 'Mohon lengkapi identitas, kebutuhan, dan dokumen wajib.' });
+        if (!data.name.trim() || !data.institution.trim() || !data.needs.trim() || !data.email.trim() || !data.whatsapp.trim() || (!filePermohonan && !isEditing)) {
+            setFeedbackDialog({ show: true, type: 'error', title: 'Form Belum Lengkap', message: 'Mohon lengkapi identitas (termasuk email dan no. whatsapp), kebutuhan, dan dokumen wajib.' });
             return;
         }
 
@@ -318,8 +355,11 @@ export default function MasyarakatSubmissionCard({
         setIsSubmittingFinal(true);
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            // Get CSRF from meta tag properly
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
             await axios.post('/evaluasi-sistem', {
+                _token: csrfToken, // Body token often more reliable
                 nama: data.name,
                 no_telp: data.whatsapp,
                 asal_instansi: data.institution,
@@ -327,7 +367,8 @@ export default function MasyarakatSubmissionCard({
                 masukan: feedbackComment
             }, {
                 headers: {
-                    'X-CSRF-TOKEN': csrfToken || ''
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
 
@@ -344,9 +385,10 @@ export default function MasyarakatSubmissionCard({
                     alert('Gagal mengirim pengajuan. Namun evaluasi Anda telah tersimpan.');
                 },
             });
-        } catch (error) {
+        } catch (error: any) {
             setIsSubmittingFinal(false);
-            alert('Terjadi kesalahan koneksi. Silakan coba lagi.');
+            const errMsg = error.response?.data?.message || error.message || 'Unknown error';
+            alert('Terjadi kesalahan koneksi. Detail: ' + errMsg);
         }
     };
 
@@ -446,29 +488,70 @@ export default function MasyarakatSubmissionCard({
                                     <div className="w-1.5 h-1.5 rounded-full bg-poltekpar-primary"></div>
                                     Lokasi PKM
                                 </h4>
-                                <div className="space-y-4 bg-slate-50/50 p-6 rounded-2xl border border-slate-100">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
-                                        <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
-                                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Provinsi</span>
-                                            <span className="text-slate-900 font-bold text-sm">{selectedDetail.provinsi || '-'}</span>
+                                <div className="space-y-4">
+                                    <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                        <div className="text-[10px] font-black text-poltekpar-primary uppercase tracking-tighter mb-4 px-2 py-0.5 bg-blue-50 w-fit rounded-md border border-blue-100">Titik 1 (Utama)</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Provinsi</span>
+                                                <span className="text-slate-900 font-bold text-sm">{selectedDetail.provinsi || '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kota / Kabupaten</span>
+                                                <span className="text-slate-900 font-bold text-sm">{selectedDetail.kota_kabupaten || '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kecamatan</span>
+                                                <span className="text-slate-900 font-bold text-sm">{selectedDetail.kecamatan || '-'}</span>
+                                            </div>
+                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kelurahan / Desa</span>
+                                                <span className="text-slate-900 font-bold text-sm">{selectedDetail.kelurahan_desa || '-'}</span>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
-                                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kota / Kabupaten</span>
-                                            <span className="text-slate-900 font-bold text-sm">{selectedDetail.kota_kabupaten || '-'}</span>
-                                        </div>
-                                        <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
-                                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kecamatan</span>
-                                            <span className="text-slate-900 font-bold text-sm">{selectedDetail.kecamatan || '-'}</span>
-                                        </div>
-                                        <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
-                                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kelurahan / Desa</span>
-                                            <span className="text-slate-900 font-bold text-sm">{selectedDetail.kelurahan_desa || '-'}</span>
+                                        <div className="pt-4">
+                                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block mb-1.5">Alamat Lengkap</span>
+                                            <span className="text-slate-900 font-semibold text-sm leading-relaxed block">{selectedDetail.alamat_lengkap || '-'}</span>
                                         </div>
                                     </div>
-                                    <div className="pt-2">
-                                        <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block mb-1.5">Alamat Lengkap</span>
-                                        <span className="text-slate-900 font-semibold text-sm leading-relaxed block">{selectedDetail.alamat_lengkap || '-'}</span>
-                                    </div>
+
+                                    {(() => {
+                                        try {
+                                            const tambahan = (selectedDetail as any).lokasi_tambahan;
+                                            if (!tambahan) return null;
+                                            const parsed = typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan;
+                                            if (Array.isArray(parsed)) {
+                                                return parsed.map((loc, i) => (
+                                                    <div key={i} className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 shadow-sm">
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-4 px-2 py-0.5 bg-slate-100 w-fit rounded-md border border-slate-200 text-center">Titik {i + 2}</div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+                                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Provinsi</span>
+                                                                <span className="text-slate-900 font-bold text-sm">{loc.provinsi || '-'}</span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kota / Kabupaten</span>
+                                                                <span className="text-slate-900 font-bold text-sm">{loc.kota_kabupaten || '-'}</span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kecamatan</span>
+                                                                <span className="text-slate-900 font-bold text-sm">{loc.kecamatan || '-'}</span>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
+                                                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Kelurahan / Desa</span>
+                                                                <span className="text-slate-900 font-bold text-sm">{loc.kelurahan_desa || '-'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="pt-4">
+                                                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block mb-1.5">Alamat Lengkap</span>
+                                                            <span className="text-slate-900 font-semibold text-sm leading-relaxed block">{loc.alamat_lengkap || '-'}</span>
+                                                        </div>
+                                                    </div>
+                                                ));
+                                            }
+                                        } catch (e) { }
+                                        return null;
+                                    })()}
                                 </div>
                             </section>
 
@@ -513,7 +596,7 @@ export default function MasyarakatSubmissionCard({
                                                             </div>
                                                         ));
                                                     }
-                                                } catch(e) {}
+                                                } catch (e) { }
                                                 return null;
                                             })()}
                                         </div>
@@ -570,7 +653,7 @@ export default function MasyarakatSubmissionCard({
                     <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <h3 className="text-sm font-bold text-slate-900 border-l-4 border-poltekpar-primary pl-3">Daftar Riwayat Pengajuan</h3>
                         <div className="relative">
-                            <button 
+                            <button
                                 onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
                                 className="flex bg-white hover:bg-slate-50 transition-colors border border-slate-200 rounded-xl items-center shadow-sm overflow-hidden group w-full sm:w-[220px]"
                             >
@@ -578,9 +661,9 @@ export default function MasyarakatSubmissionCard({
                                     <i className="fa-solid fa-filter text-xs"></i>
                                 </div>
                                 <div className="flex-1 text-left py-2 pl-1.5 text-[11px] font-bold text-slate-700 truncate">
-                                    {sortOption === 'default' ? 'Prioritas (Revisi & Diproses)' : 
-                                     sortOption === 'status' ? 'Berdasarkan Status' : 
-                                     sortOption === 'waktu_terbaru' ? 'Waktu (Terbaru)' : 'Waktu (Terlama)'}
+                                    {sortOption === 'default' ? 'Prioritas (Revisi & Diproses)' :
+                                        sortOption === 'status' ? 'Berdasarkan Status' :
+                                            sortOption === 'waktu_terbaru' ? 'Waktu (Terbaru)' : 'Waktu (Terlama)'}
                                 </div>
                                 <div className={`pr-3.5 text-slate-400 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`}>
                                     <i className="fa-solid fa-chevron-down text-[10px]"></i>
@@ -678,8 +761,8 @@ export default function MasyarakatSubmissionCard({
                                             </span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button 
-                                                type="button" 
+                                            <button
+                                                type="button"
                                                 className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl active:bg-slate-100 transition-colors"
                                                 onClick={() => setSelectedDetail(item)}
                                             >
@@ -726,35 +809,68 @@ export default function MasyarakatSubmissionCard({
 
             <section className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><i className="fa-solid fa-handshake-angle text-poltekpar-primary"></i>Kebutuhan PKM</h3>
-                <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Deskripsi Kebutuhan / Permintaan <span className="text-red-500">*</span></label><textarea value={data.needs} onChange={e => setData('needs', e.target.value)} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary resize-none outline-none" placeholder="Jelaskan kebutuhan pengabdian..." required /></div>
+                <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Deskripsi Kebutuhan / Permintaan <span className="text-red-500">*</span></label><textarea value={data.needs} onChange={e => setData('needs', e.target.value)} rows={5} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary resize-none outline-none min-h-[120px]" placeholder="Jelaskan kebutuhan pengabdian..." required /></div>
             </section>
 
             <section className="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-6">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><i className="fa-solid fa-map-location-dot text-poltekpar-primary"></i>Lokasi PKM</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Provinsi <span className="text-red-500">*</span></label><input type="text" value={data.provinsi} onChange={e => setData('provinsi', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Provinsi" required /></div>
-                    <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Kota / Kabupaten <span className="text-red-500">*</span></label><input type="text" value={data.kota_kabupaten} onChange={e => setData('kota_kabupaten', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Kota/Kabupaten" required /></div>
-                    <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Kecamatan</label><input type="text" value={data.kecamatan} onChange={e => setData('kecamatan', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Kecamatan" /></div>
-                    <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Kelurahan / Desa</label><input type="text" value={data.kelurahan_desa} onChange={e => setData('kelurahan_desa', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Kelurahan/Desa" /></div>
-                    <div className="md:col-span-2 space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Alamat Lengkap</label><textarea value={data.alamat_lengkap} onChange={e => setData('alamat_lengkap', e.target.value)} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary resize-none outline-none" placeholder="Detail alamat..." /></div>
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><i className="fa-solid fa-map-location-dot text-poltekpar-primary"></i>Lokasi PKM</h3>
                 </div>
-                <div className="space-y-1.5 mt-4 text-left">
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Tandai Lokasi di Peta (Koordinat)</label>
-                    <p className="text-[10px] text-slate-500 mb-2">Geser peta atau klik untuk menandai lokasi spesifik agar mempermudah tim survei.</p>
-                    <MapLocationPicker
-                        latitude={data.latitude}
-                        longitude={data.longitude}
-                        onChange={(lat, lng, address) => {
-                            const newData: any = { latitude: lat, longitude: lng };
-                            if (address) {
-                                if (address.state || address.province) newData.provinsi = address.state || address.province;
-                                if (address.city || address.town || address.county) newData.kota_kabupaten = address.city || address.town || address.county;
-                                if (address.suburb || address.village) newData.kecamatan = address.suburb || address.village;
-                                if (address.neighbourhood || address.residential || address.hamlet) newData.kelurahan_desa = address.neighbourhood || address.residential || address.hamlet;
-                            }
-                            Object.entries(newData).forEach(([key, val]) => setData(key as any, val as any));
-                        }}
-                    />
+                <div className="space-y-6">
+                    {data.lokasi_list.map((lokasi, idx) => (
+                        <div key={lokasi.id_ui} className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative">
+                            <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => toggleLocationCollapse(lokasi.id_ui)}>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                    Titik Lokasi {idx + 1} {idx === 0 && '(Utama)'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    {idx > 0 && (
+                                        <button type="button" onClick={(e) => { e.stopPropagation(); setData('lokasi_list', data.lokasi_list.filter((_, i) => i !== idx)); }} className="w-8 h-8 flex justify-center items-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-sm">
+                                            <i className="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    )}
+                                    <button type="button" className="w-8 h-8 flex justify-center items-center rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors shadow-sm">
+                                        <i className={`fa-solid fa-chevron-${collapsedLocations[lokasi.id_ui] ? 'down' : 'up'}`}></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {!collapsedLocations[lokasi.id_ui] && (
+                                <div className="animate-in slide-in-from-top-2 duration-300">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Provinsi <span className="text-red-500">*</span></label><input type="text" value={lokasi.provinsi} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].provinsi = e.target.value; setData('lokasi_list', newList); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Provinsi" required /></div>
+                                        <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Kota / Kabupaten <span className="text-red-500">*</span></label><input type="text" value={lokasi.kota_kabupaten} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].kota_kabupaten = e.target.value; setData('lokasi_list', newList); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Kota/Kabupaten" required /></div>
+                                        <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Kecamatan</label><input type="text" value={lokasi.kecamatan} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].kecamatan = e.target.value; setData('lokasi_list', newList); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Kecamatan" /></div>
+                                        <div className="space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Kelurahan / Desa</label><input type="text" value={lokasi.kelurahan_desa} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].kelurahan_desa = e.target.value; setData('lokasi_list', newList); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary outline-none" placeholder="Kelurahan/Desa" /></div>
+                                        <div className="md:col-span-2 space-y-1.5 text-left"><label className="text-xs font-semibold text-slate-700 block mb-1">Alamat Lengkap</label><textarea value={lokasi.alamat_lengkap} onChange={e => { const newList = [...data.lokasi_list]; newList[idx].alamat_lengkap = e.target.value; setData('lokasi_list', newList); }} rows={2} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary resize-none outline-none" placeholder="Detail alamat..." /></div>
+                                    </div>
+                                    <div className="space-y-1.5 mt-4 text-left">
+                                        <label className="text-xs font-semibold text-slate-700 block mb-1">Tandai Lokasi di Peta (Koordinat)</label>
+                                        <p className="text-[10px] text-slate-500 mb-2">Geser peta atau klik untuk menandai lokasi spesifik agar mempermudah tim survei.</p>
+                                        <MapLocationPicker
+                                            latitude={lokasi.latitude}
+                                            longitude={lokasi.longitude}
+                                            onChange={(lat, lng, address) => {
+                                                const newList = [...data.lokasi_list];
+                                                newList[idx].latitude = lat;
+                                                newList[idx].longitude = lng;
+                                                if (address) {
+                                                    if (address.state || address.province) newList[idx].provinsi = address.state || address.province;
+                                                    if (address.city || address.town || address.county) newList[idx].kota_kabupaten = address.city || address.town || address.county;
+                                                    if (address.suburb || address.village) newList[idx].kecamatan = address.suburb || address.village;
+                                                    if (address.neighbourhood || address.residential || address.hamlet) newList[idx].kelurahan_desa = address.neighbourhood || address.residential || address.hamlet;
+                                                }
+                                                setData('lokasi_list', newList);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    <button type="button" onClick={() => setData('lokasi_list', [...data.lokasi_list, { id_ui: Date.now(), provinsi: '', kota_kabupaten: '', kecamatan: '', kelurahan_desa: '', alamat_lengkap: '', latitude: null, longitude: null }])} className="w-full py-3 bg-poltekpar-primary/10 hover:bg-poltekpar-primary hover:text-white text-poltekpar-primary rounded-xl text-sm font-bold border border-poltekpar-primary/20 hover:border-poltekpar-primary transition-all flex justify-center items-center gap-2">
+                        <i className="fa-solid fa-plus"></i> Tambah Titik Lokasi Lainnya
+                    </button>
                 </div>
             </section>
 
@@ -839,17 +955,26 @@ export default function MasyarakatSubmissionCard({
             {!hideMainTabNav && mainTab === 'arsip' ? null : renderSubmissionTab()}
             <ActionFeedbackDialog show={feedbackDialog.show} type={feedbackDialog.type} title={feedbackDialog.title} message={feedbackDialog.message} onClose={() => setFeedbackDialog({ ...feedbackDialog, show: false })} />
             {renderDetailModal()}
-            
+
             {showFeedbackFlow && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
+                    <div className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-500 relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowFeedbackFlow(false)}
+                            className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all z-10"
+                            disabled={isSubmittingFinal}
+                        >
+                            <i className="fa-solid fa-xmark text-lg"></i>
+                        </button>
+
                         {flowStep === 'rating' && (
                             <div className="p-6 sm:p-10 text-center space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
                                 <div className="flex justify-between items-center px-2">
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Wajib Isi Evaluasi</span>
                                     <span className="text-[10px] font-black text-poltekpar-primary bg-blue-50 px-2 py-1 rounded-lg">Pertanyaan {activeQuestionIndex + 1}/{EVALUATION_QUESTIONS.length}</span>
                                 </div>
-                                
+
                                 <div className="min-h-[100px] flex items-center justify-center">
                                     <h3 className="text-xl font-black text-slate-900 leading-tight">
                                         {EVALUATION_QUESTIONS[activeQuestionIndex]}
@@ -890,23 +1015,24 @@ export default function MasyarakatSubmissionCard({
                                 </div>
 
                                 <div className="space-y-3">
-                                    <textarea 
+                                    <textarea
                                         placeholder="Tulis masukan Anda di sini (Opsional)"
                                         value={feedbackComment}
                                         onChange={e => setFeedbackComment(e.target.value)}
-                                        className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary/30 outline-none resize-none min-h-[120px] transition-all"
+                                        disabled={isSubmittingFinal}
+                                        className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary/30 outline-none resize-none min-h-[120px] transition-all disabled:opacity-60"
                                     />
                                 </div>
 
                                 <div className="flex gap-3">
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => setFlowStep('rating')}
                                         className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-all"
                                     >
                                         Kembali
                                     </button>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={submitAllData}
                                         disabled={isSubmittingFinal}
@@ -919,23 +1045,13 @@ export default function MasyarakatSubmissionCard({
                         )}
 
                         {flowStep === 'success' && (
-                            <div className="p-10 text-center space-y-6 animate-in zoom-in-95 duration-500">
-                                <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                                    <i className="fa-solid fa-check-double text-4xl animate-bounce"></i>
-                                </div>
-                                <div>
-                                    <h3 className="text-2xl font-black text-slate-900">Selesai! Berhasil Terkirim</h3>
-                                    <p className="text-slate-500 mt-2 font-medium">Terima kasih atas evaluasi dan pengajuan PKM Anda. Tim kami akan segera memproses berkas Anda.</p>
-                                </div>
-                                <div className="pt-4">
-                                    <button 
-                                        type="button"
-                                        onClick={() => { window.location.href = '/cek-status'; }}
-                                        className="w-full py-4 bg-poltekpar-primary text-white rounded-2xl font-black text-sm shadow-xl shadow-poltekpar-primary/30 hover:bg-poltekpar-navy transition-all"
-                                    >
-                                        Lihat Status Pengajuan
-                                    </button>
-                                </div>
+                            <div className="p-10">
+                                <SuccessView
+                                    title="Selesai! Berhasil Terkirim"
+                                    description="Terima kasih atas evaluasi dan pengajuan PKM Anda. Tim kami akan segera memproses berkas Anda."
+                                    buttonLabel="Lihat Status Pengajuan"
+                                    onButtonClick={() => { window.location.href = '/cek-status'; }}
+                                />
                             </div>
                         )}
                     </div>

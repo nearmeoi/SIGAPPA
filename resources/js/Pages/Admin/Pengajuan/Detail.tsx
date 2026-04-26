@@ -3,7 +3,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import ConfirmDialog from '../../../Components/ConfirmDialog';
 import MapLocationPicker from '../../../Components/MapLocationPicker';
-import { AlertCircle, ArrowLeft, CheckCircle, ExternalLink, File, Folder, MapPin, Plus, RotateCcw, Save, SquarePen, Trash2, User, Users, Wallet, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, ExternalLink, File, Folder, MapPin, Plus, RotateCcw, Save, Send, SquarePen, Trash2, User, Users, Wallet, XCircle } from 'lucide-react';
 
 interface Pegawai { id_pegawai: number; nama_pegawai: string; nip?: string; role?: string | null; }
 interface TimKegiatan { id_tim: number; nama_mahasiswa?: string; peran_tim?: string; pegawai?: { nama_pegawai: string }; }
@@ -47,6 +47,8 @@ interface Pengajuan {
     tim_kegiatan?: TimKegiatan[];
     aktivitas?: Aktivitas;
     arsip?: Arsip[];
+    direktur_approved_at?: string;
+    catatan_direktur?: string;
     logs?: {
         id: number;
         status_lama?: string;
@@ -96,7 +98,7 @@ interface DraftState {
     staff_terlibat: string[];
     mahasiswa_terlibat: string[];
     rab_items: RabItem[];
-    link_tambahan: {name: string; url: string}[];
+    link_tambahan: { name: string; url: string }[];
     file_surat_permohonan: File | null;
     file_proposal: File | null;
 }
@@ -113,6 +115,7 @@ interface DialogState {
 
 const statusConfig: Record<string, { label: string; text: string; bg: string; dot: string }> = {
     diproses: { label: 'Diproses', text: 'text-blue-700', bg: 'bg-blue-50', dot: 'bg-blue-400' },
+    diajukan: { label: 'Diajukan ke Direktur', text: 'text-violet-700', bg: 'bg-violet-50', dot: 'bg-violet-400' },
     diterima: { label: 'Diterima', text: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-400' },
     direvisi: { label: 'Revisi', text: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-400' },
     ditolak: { label: 'Ditolak', text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-400' },
@@ -156,7 +159,7 @@ const linksOf = (v?: string) => {
     try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed.filter(item => item.url).map(item => ({ name: item.name || 'Tautan Tambahan', url: item.url }));
-    } catch {}
+    } catch { }
     return raw.split(',').map(x => ({ name: 'Tautan Tambahan', url: x.trim() })).filter(x => x.url);
 };
 const normalizeRabItems = (items?: RabItem[]) => (items || [])
@@ -211,7 +214,7 @@ const buildDraft = (pengajuan: Pengajuan, ketuaId?: number): DraftState => ({
     staff_terlibat: roleItems(pengajuan.tim_kegiatan, 'staff', ketuaId).length ? roleItems(pengajuan.tim_kegiatan, 'staff', ketuaId) : [''],
     mahasiswa_terlibat: roleItems(pengajuan.tim_kegiatan, 'mahasiswa', ketuaId).length ? roleItems(pengajuan.tim_kegiatan, 'mahasiswa', ketuaId) : [''],
     rab_items: normalizeRabItems(pengajuan.rab_items).length ? normalizeRabItems(pengajuan.rab_items) : [emptyRabItem()],
-    link_tambahan: linksOf(pengajuan.rab).length ? linksOf(pengajuan.rab) : [{name: '', url: ''}],
+    link_tambahan: linksOf(pengajuan.rab).length ? linksOf(pengajuan.rab) : [{ name: '', url: '' }],
     file_surat_permohonan: null,
     file_proposal: null,
 });
@@ -234,15 +237,15 @@ const Field = ({ label, value, wide = false }: { label: string; value?: React.Re
         <div className="min-h-[44px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">{value || '-'}</div>
     </div>
 );
-    const getFullUrl = (path: string | null | undefined) => {
-        if (!path) return '';
-        if (path.startsWith('blob:') || path.startsWith('http')) return path;
-        const origin = window.location.origin;
-        const cleanPath = path.startsWith('/') ? path : `/${path}`;
-        return `${origin}${cleanPath}`;
-    };
+const getFullUrl = (path: string | null | undefined) => {
+    if (!path) return '';
+    if (path.startsWith('blob:') || path.startsWith('http')) return path;
+    const origin = window.location.origin;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${origin}${cleanPath}`;
+};
 
-    const Doc = ({ label, url }: { label: string; url?: string | null }) => (
+const Doc = ({ label, url }: { label: string; url?: string | null }) => (
     <div className="space-y-1.5">
         <div className="text-xs font-semibold text-slate-700">{label}</div>
         {url ? (
@@ -283,41 +286,41 @@ const EditableTeam = ({
 }) => {
     const listId = `list-${title.replace(/\s+/g, '-').toLowerCase()}`;
     return (
-    <div className="space-y-3">
-        <div className="text-[13px] font-bold text-slate-600">{title}</div>
-        {suggestions.length > 0 && (
-            <datalist id={listId}>
-                {suggestions.map(s => <option key={s} value={s} />)}
-            </datalist>
-        )}
-        {(items.length ? items : ['']).map((item, index) => (
-            <div key={`${title}-${index}`} className="flex items-center gap-2">
-                <input
-                    type="text"
-                    list={suggestions.length ? listId : undefined}
-                    value={item}
-                    onChange={(e) => onChange(index, e.target.value)}
-                    placeholder={placeholder}
-                    className="min-h-[44px] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
-                />
-                <button
-                    type="button"
-                    onClick={() => onRemove(index)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
-                >
-                    <Trash2 size={15} />
-                </button>
-            </div>
-        ))}
-        <button
-            type="button"
-            onClick={onAdd}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-        >
-            <Plus size={14} />
-            Tambah
-        </button>
-    </div>
+        <div className="space-y-3">
+            <div className="text-[13px] font-bold text-slate-600">{title}</div>
+            {suggestions.length > 0 && (
+                <datalist id={listId}>
+                    {suggestions.map(s => <option key={s} value={s} />)}
+                </datalist>
+            )}
+            {(items.length ? items : ['']).map((item, index) => (
+                <div key={`${title}-${index}`} className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        list={suggestions.length ? listId : undefined}
+                        value={item}
+                        onChange={(e) => onChange(index, e.target.value)}
+                        placeholder={placeholder}
+                        className="min-h-[44px] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => onRemove(index)}
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-red-200 bg-red-50 text-red-600 transition-colors hover:bg-red-100"
+                    >
+                        <Trash2 size={15} />
+                    </button>
+                </div>
+            ))}
+            <button
+                type="button"
+                onClick={onAdd}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+                <Plus size={14} />
+                Tambah
+            </button>
+        </div>
     );
 };
 
@@ -506,10 +509,17 @@ const EditField = ({
 
 export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) {
     const { props } = usePage();
+    const user = (props as any).auth?.user;
+    const isDirektur = user?.role === 'direktur';
+    const isViewer = isDirektur;
 
     const [catatan, setCatatan] = useState(pengajuan.catatan_admin || '');
     const [selectedAction, setSelectedAction] = useState('');
     const [catatanError, setCatatanError] = useState('');
+    const [catatanDirektur, setCatatanDirektur] = useState('');
+    const [decisionAction, setDecisionAction] = useState<'approve' | 'decline' | 'revise' | null>(null);
+    const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
+
     const ketua = useMemo(() => getKetua(pengajuan.tim_kegiatan), [pengajuan.tim_kegiatan]);
     const [confirmDialog, setConfirmDialog] = useState<DialogState>({ open: false, title: '', message: '', action: () => undefined, variant: 'warning', confirmLabel: 'Ya, Lanjutkan', cancelLabel: 'Batal' });
     const [editingSection, setEditingSection] = useState<string | null>(null);
@@ -642,7 +652,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
 
     const saveSection = (section: string, payload: Record<string, any>, url?: string) => {
         const hasFiles = Object.values(payload).some(v => v instanceof window.File);
-        
+
         const options = {
             preserveScroll: true,
             onSuccess: () => setEditingSection((current) => (current === section ? null : current)),
@@ -662,8 +672,29 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
         }
     };
 
-    const sectionActions = (section: string, payload: Record<string, any>, url?: string) =>
-        editingSection === section ? (
+    const handleDirekturDecision = () => {
+        if (!decisionAction) return;
+        if (!catatanDirektur.trim()) {
+            setCatatanError('Catatan wajib diisi.');
+            return;
+        }
+        setCatatanError('');
+        setIsSubmittingDecision(true);
+
+        const urlMap = {
+            approve: `/direktur/pengajuan/${pengajuan.id_pengajuan}/approve`,
+            decline: `/direktur/pengajuan/${pengajuan.id_pengajuan}/decline`,
+            revise: `/direktur/pengajuan/${pengajuan.id_pengajuan}/revise`,
+        };
+
+        router.post(urlMap[decisionAction], { catatan: catatanDirektur }, {
+            onFinish: () => setIsSubmittingDecision(false),
+        });
+    };
+
+    const sectionActions = (section: string, payload: Record<string, any>, url?: string) => {
+        if (isViewer) return null;
+        return editingSection === section ? (
             <>
                 <button
                     type="button"
@@ -691,6 +722,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                 Edit
             </button>
         );
+    };
 
     return (
         <AdminLayout title="">
@@ -710,364 +742,407 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
 
 
 
-                        <>
-                            <Card
-                                title={isDosen ? "Informasi Ketua Pengusul" : "Identitas Pengusul / Perwakilan"}
-                                action={sectionActions('submitter', {
-                                    nama_pengusul: draft.nama_pengusul,
-                                    email_pengusul: draft.email_pengusul,
-                                    instansi_mitra: draft.instansi_mitra,
-                                    no_telepon: draft.no_telepon,
-                                })}
-                                icon={<User size={16} className="text-slate-400" />}
-                            >
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    {editingSection === 'submitter' ? (
-                                        <>
-                                            <EditField label="Nama Lengkap" value={draft.nama_pengusul} onChange={(v) => setDraftField('nama_pengusul', v)} />
-                                            <EditField label="Instansi / Organisasi" value={draft.instansi_mitra} onChange={(v) => setDraftField('instansi_mitra', v)} />
-                                            <EditField label="Email" value={draft.email_pengusul} type="email" onChange={(v) => setDraftField('email_pengusul', v)} />
-                                            <EditField label="No. WhatsApp" value={draft.no_telepon} onChange={(v) => setDraftField('no_telepon', v)} />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Field label="Nama Lengkap" value={submitterName} />
-                                            <Field label="Instansi / Organisasi" value={pengajuan.instansi_mitra || 'Politeknik Pariwisata Makassar'} />
-                                            <Field label="Email" value={submitterEmail} />
-                                            <Field label="No. WhatsApp" value={pengajuan.no_telepon} />
-                                        </>
-                                    )}
-                                </div>
-                            </Card>
-                            <Card
-                                title={isDosen ? "Detail Kegiatan" : "Kebutuhan PKM"}
-                                action={sectionActions('detail', {
-                                    judul_kegiatan: draft.judul_kegiatan,
-                                    kebutuhan: draft.kebutuhan,
-                                    id_jenis_pkm: draft.id_jenis_pkm,
-                                    tgl_mulai: draft.is_tahun_saja ? toYearOnlyDate(draft.tahun_pelaksanaan) : draft.tgl_mulai,
-                                    tgl_selesai: draft.tgl_selesai,
-                                    is_tahun_saja: draft.is_tahun_saja ? 1 : 0,
-                                })}
-                                icon={<File size={16} className="text-slate-400" />}
-                            >
-                                <div className="space-y-4">
-                                    {editingSection === 'detail' ? (
-                                        <>
-                                            <div className="md:col-span-2 space-y-1.5">
-                                                <div className="text-xs font-semibold text-slate-700">Jenis PKM</div>
-                                                <select
-                                                    value={draft.id_jenis_pkm}
-                                                    onChange={(e) => setDraftField('id_jenis_pkm', e.target.value)}
-                                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
-                                                >
-                                                    {listJenisPkm.map((jp) => (
-                                                        <option key={jp.id_jenis_pkm} value={jp.id_jenis_pkm}>{jp.nama_jenis}</option>
-                                                    ))}
-                                                </select>
+                    <>
+                        <Card
+                            title={isDosen ? "Informasi Ketua Pengusul" : "Identitas Pengusul / Perwakilan"}
+                            action={sectionActions('submitter', {
+                                nama_pengusul: draft.nama_pengusul,
+                                email_pengusul: draft.email_pengusul,
+                                instansi_mitra: draft.instansi_mitra,
+                                no_telepon: draft.no_telepon,
+                            })}
+                            icon={<User size={16} className="text-slate-400" />}
+                        >
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                {editingSection === 'submitter' ? (
+                                    <>
+                                        <EditField label="Nama Lengkap" value={draft.nama_pengusul} onChange={(v) => setDraftField('nama_pengusul', v)} />
+                                        <EditField label="Instansi / Organisasi" value={draft.instansi_mitra} onChange={(v) => setDraftField('instansi_mitra', v)} />
+                                        <EditField label="Email" value={draft.email_pengusul} type="email" onChange={(v) => setDraftField('email_pengusul', v)} />
+                                        <EditField label="No. WhatsApp" value={draft.no_telepon} onChange={(v) => setDraftField('no_telepon', v)} />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Field label="Nama Lengkap" value={submitterName} />
+                                        <Field label="Instansi / Organisasi" value={pengajuan.instansi_mitra || 'Politeknik Pariwisata Makassar'} />
+                                        <Field label="Email" value={submitterEmail} />
+                                        <Field label="No. WhatsApp" value={pengajuan.no_telepon} />
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                        <Card
+                            title={isDosen ? "Detail Kegiatan" : "Kebutuhan PKM"}
+                            action={sectionActions('detail', {
+                                judul_kegiatan: draft.judul_kegiatan,
+                                kebutuhan: draft.kebutuhan,
+                                id_jenis_pkm: draft.id_jenis_pkm,
+                                tgl_mulai: draft.is_tahun_saja ? toYearOnlyDate(draft.tahun_pelaksanaan) : draft.tgl_mulai,
+                                tgl_selesai: draft.tgl_selesai,
+                                is_tahun_saja: draft.is_tahun_saja ? 1 : 0,
+                            })}
+                            icon={<File size={16} className="text-slate-400" />}
+                        >
+                            <div className="space-y-4">
+                                {editingSection === 'detail' ? (
+                                    <>
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <div className="text-xs font-semibold text-slate-700">Jenis PKM</div>
+                                            <select
+                                                value={draft.id_jenis_pkm}
+                                                onChange={(e) => setDraftField('id_jenis_pkm', e.target.value)}
+                                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
+                                            >
+                                                {listJenisPkm.map((jp) => (
+                                                    <option key={jp.id_jenis_pkm} value={jp.id_jenis_pkm}>{jp.nama_jenis}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id="is_tahun_saja"
+                                                    checked={draft.is_tahun_saja}
+                                                    onChange={(e) => setDraft((prev) => ({
+                                                        ...prev,
+                                                        is_tahun_saja: e.target.checked,
+                                                        tahun_pelaksanaan: e.target.checked ? (prev.tahun_pelaksanaan || getYearValue(prev.tgl_mulai)) : prev.tahun_pelaksanaan,
+                                                    }))}
+                                                    className="rounded border-slate-300 text-poltekpar-primary focus:ring-poltekpar-primary"
+                                                />
+                                                <label htmlFor="is_tahun_saja" className="text-xs font-semibold text-slate-700 cursor-pointer">Waktu Kegiatan Hanya Tahun</label>
                                             </div>
-                                            <div className="md:col-span-2 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="is_tahun_saja"
-                                                        checked={draft.is_tahun_saja}
-                                                        onChange={(e) => setDraft((prev) => ({
-                                                            ...prev,
-                                                            is_tahun_saja: e.target.checked,
-                                                            tahun_pelaksanaan: e.target.checked ? (prev.tahun_pelaksanaan || getYearValue(prev.tgl_mulai)) : prev.tahun_pelaksanaan,
-                                                        }))}
-                                                        className="rounded border-slate-300 text-poltekpar-primary focus:ring-poltekpar-primary"
-                                                    />
-                                                    <label htmlFor="is_tahun_saja" className="text-xs font-semibold text-slate-700 cursor-pointer">Waktu Kegiatan Hanya Tahun</label>
+                                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                <div className="space-y-1.5">
+                                                    <div className="text-xs font-semibold text-slate-700">{draft.is_tahun_saja ? 'Tahun Pelaksanaan' : 'Tanggal Mulai'}</div>
+                                                    {draft.is_tahun_saja ? (
+                                                        <input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
+                                                            maxLength={4}
+                                                            value={draft.tahun_pelaksanaan}
+                                                            onChange={(e) => setDraftField('tahun_pelaksanaan', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
+                                                            placeholder="YYYY"
+                                                        />
+                                                    ) : (
+                                                        <input type="date" value={draft.tgl_mulai || ''} onChange={e => setDraftField('tgl_mulai', e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary" />
+                                                    )}
                                                 </div>
-                                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                {!draft.is_tahun_saja && (
                                                     <div className="space-y-1.5">
-                                                        <div className="text-xs font-semibold text-slate-700">{draft.is_tahun_saja ? 'Tahun Pelaksanaan' : 'Tanggal Mulai'}</div>
-                                                        {draft.is_tahun_saja ? (
-                                                            <input
-                                                                type="text"
-                                                                inputMode="numeric"
-                                                                pattern="[0-9]*"
-                                                                maxLength={4}
-                                                                value={draft.tahun_pelaksanaan}
-                                                                onChange={(e) => setDraftField('tahun_pelaksanaan', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                                                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
-                                                                placeholder="YYYY"
-                                                            />
-                                                        ) : (
-                                                            <input type="date" value={draft.tgl_mulai || ''} onChange={e => setDraftField('tgl_mulai', e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary" />
-                                                        )}
+                                                        <div className="text-xs font-semibold text-slate-700">Tanggal Selesai</div>
+                                                        <input type="date" value={draft.tgl_selesai || ''} onChange={e => setDraftField('tgl_selesai', e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary" min={draft.tgl_mulai || undefined} />
                                                     </div>
-                                                    {!draft.is_tahun_saja && (
-                                                        <div className="space-y-1.5">
-                                                            <div className="text-xs font-semibold text-slate-700">Tanggal Selesai</div>
-                                                            <input type="date" value={draft.tgl_selesai || ''} onChange={e => setDraftField('tgl_selesai', e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary" min={draft.tgl_mulai || undefined} />
+                                                )}
+                                            </div>
+                                        </div>
+                                        <EditField label="Judul Kegiatan PKM" value={draft.judul_kegiatan} onChange={(v) => setDraftField('judul_kegiatan', v)} wide textarea />
+                                        <EditField label="Kebutuhan / Deskripsi Singkat" value={draft.kebutuhan} onChange={(v) => setDraftField('kebutuhan', v)} wide textarea />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Field label="Jenis PKM" value={pengajuan.jenis_pkm?.nama_jenis} wide />
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <div className="text-xs font-semibold text-slate-700">Waktu Pelaksanaan</div>
+                                            <div className="min-h-[44px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                                                {(pengajuan as any).is_tahun_saja ? (pengajuan.tgl_mulai ? new Date(pengajuan.tgl_mulai).getFullYear() : '-') : (pengajuan.tgl_mulai ? `${fmtDate(pengajuan.tgl_mulai)} - ${pengajuan.tgl_selesai ? fmtDate(pengajuan.tgl_selesai) : 'Selesai'}` : '-')}
+                                            </div>
+                                        </div>
+                                        <Field label="Judul Kegiatan PKM" value={pengajuan.judul_kegiatan} wide />
+                                        <Field label="Kebutuhan / Deskripsi Singkat" value={pengajuan.kebutuhan} wide />
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                        <Card
+                            title="Lokasi Kegiatan"
+                            action={sectionActions('location', {
+                                provinsi: draft.provinsi,
+                                kota_kabupaten: draft.kota_kabupaten,
+                                kecamatan: draft.kecamatan,
+                                kelurahan_desa: draft.kelurahan_desa,
+                                alamat_lengkap: draft.alamat_lengkap,
+                                latitude: draft.latitude,
+                                longitude: draft.longitude,
+                            })}
+                            icon={<MapPin size={16} className="text-slate-400" />}
+                        >
+                            <div className="space-y-4">
+                                {editingSection === 'location' ? (
+                                    <>
+                                        <div className="rounded-xl overflow-hidden border border-zinc-200">
+                                            <MapLocationPicker
+                                                latitude={draft.latitude ?? null}
+                                                longitude={draft.longitude ?? null}
+                                                onChange={(lat, lng, addr) => {
+                                                    setDraft(prev => ({
+                                                        ...prev,
+                                                        latitude: lat,
+                                                        longitude: lng,
+                                                        ...(addr && {
+                                                            provinsi: addr.provinsi || prev.provinsi,
+                                                            kota_kabupaten: addr.kotaKabupaten || prev.kota_kabupaten,
+                                                            kecamatan: addr.kecamatan || prev.kecamatan,
+                                                            kelurahan_desa: addr.kelurahanDesa || prev.kelurahan_desa,
+                                                            alamat_lengkap: addr.address || prev.alamat_lengkap
+                                                        })
+                                                    }));
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
+                                            <EditField label="Provinsi" value={draft.provinsi} onChange={(v) => setDraftField('provinsi', v)} />
+                                            <EditField label="Kota/Kabupaten" value={draft.kota_kabupaten} onChange={(v) => setDraftField('kota_kabupaten', v)} />
+                                            <EditField label="Kecamatan" value={draft.kecamatan} onChange={(v) => setDraftField('kecamatan', v)} />
+                                            <EditField label="Kelurahan/Desa" value={draft.kelurahan_desa} onChange={(v) => setDraftField('kelurahan_desa', v)} />
+                                            <EditField label="Alamat Lengkap" value={draft.alamat_lengkap} onChange={(v) => setDraftField('alamat_lengkap', v)} wide textarea />
+                                        </div>
+                                    </>
+                                ) : (() => {
+                                    let additionalLocations: any[] = [];
+                                    try {
+                                        const parsed = typeof (pengajuan as any).lokasi_tambahan === 'string'
+                                            ? JSON.parse((pengajuan as any).lokasi_tambahan)
+                                            : (pengajuan as any).lokasi_tambahan;
+                                        if (Array.isArray(parsed)) additionalLocations = parsed;
+                                    } catch { }
+
+                                    return (
+                                        <div className="space-y-6">
+                                            {/* Titik Utama */}
+                                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative mt-4 shadow-sm">
+                                                <div className="absolute -top-3 left-4 bg-blue-100 text-blue-700 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-blue-200 shadow-sm flex items-center gap-1.5">
+                                                    <MapPin size={12} />
+                                                    Titik 1 (Utama) {pengajuan.kota_kabupaten ? `- ${pengajuan.kota_kabupaten}` : ''}
+                                                </div>
+                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
+                                                    <Field label="Provinsi" value={pengajuan.provinsi} />
+                                                    <Field label="Kota/Kabupaten" value={pengajuan.kota_kabupaten} />
+                                                    <Field label="Kecamatan" value={pengajuan.kecamatan} />
+                                                    <Field label="Kelurahan/Desa" value={pengajuan.kelurahan_desa} />
+                                                    <Field label="Alamat Lengkap" value={pengajuan.alamat_lengkap} wide />
+                                                    {(pengajuan.latitude && pengajuan.longitude) && (
+                                                        <div className="col-span-full pt-3">
+                                                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${pengajuan.latitude},${pengajuan.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors w-fit border border-blue-100">
+                                                                <MapPin size={16} /> Buka di Google Maps
+                                                            </a>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                            <EditField label="Judul Kegiatan PKM" value={draft.judul_kegiatan} onChange={(v) => setDraftField('judul_kegiatan', v)} wide textarea />
-                                            <EditField label="Kebutuhan / Deskripsi Singkat" value={draft.kebutuhan} onChange={(v) => setDraftField('kebutuhan', v)} wide textarea />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Field label="Jenis PKM" value={pengajuan.jenis_pkm?.nama_jenis} wide />
-                                            <div className="md:col-span-2 space-y-1.5">
-                                                <div className="text-xs font-semibold text-slate-700">Waktu Pelaksanaan</div>
-                                                <div className="min-h-[44px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
-                                                    {(pengajuan as any).is_tahun_saja ? (pengajuan.tgl_mulai ? new Date(pengajuan.tgl_mulai).getFullYear() : '-') : (pengajuan.tgl_mulai ? `${fmtDate(pengajuan.tgl_mulai)} - ${pengajuan.tgl_selesai ? fmtDate(pengajuan.tgl_selesai) : 'Selesai'}` : '-')}
+
+                                            {/* Titik Tambahan */}
+                                            {additionalLocations.map((loc, idx) => (
+                                                <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative mt-6 shadow-sm">
+                                                    <div className="absolute -top-3 left-4 bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-slate-300 shadow-sm flex items-center gap-1.5">
+                                                        <MapPin size={12} />
+                                                        Titik {idx + 2} {loc.kota_kabupaten ? `- ${loc.kota_kabupaten}` : ''}
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
+                                                        <Field label="Provinsi" value={loc.provinsi} />
+                                                        <Field label="Kota/Kabupaten" value={loc.kota_kabupaten} />
+                                                        <Field label="Kecamatan" value={loc.kecamatan} />
+                                                        <Field label="Kelurahan/Desa" value={loc.kelurahan_desa} />
+                                                        <Field label="Alamat Lengkap" value={loc.alamat_lengkap} wide />
+                                                        {(loc.latitude && loc.longitude) && (
+                                                            <div className="col-span-full pt-3">
+                                                                <a href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude || loc.lat},${loc.longitude || loc.lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors w-fit border border-slate-200">
+                                                                    <MapPin size={16} /> Buka di Google Maps
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <Field label="Judul Kegiatan PKM" value={pengajuan.judul_kegiatan} wide />
-                                            <Field label="Kebutuhan / Deskripsi Singkat" value={pengajuan.kebutuhan} wide />
-                                        </>
-                                    )}
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </Card>
+                        <Card
+                            title="Tim Pelaksana"
+                            action={sectionActions('team', {
+                                ketua_tim: draft.ketua_tim.trim(),
+                                dosen_terlibat: draft.dosen_terlibat.map((item) => item.trim()).filter(Boolean),
+                                staff_terlibat: draft.staff_terlibat.map((item) => item.trim()).filter(Boolean),
+                                mahasiswa_terlibat: draft.mahasiswa_terlibat.map((item) => item.trim()).filter(Boolean),
+                            }, `/admin/pengajuan/${pengajuan.id_pengajuan}/tim`)}
+                            icon={<Users size={16} className="text-slate-400" />}
+                        >
+                            {editingSection === 'team' ? (
+                                <div className="space-y-5">
+                                    <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                                        Admin dapat menyesuaikan anggota tim pelaksana dan memastikan siapa Ketua Tim.
+                                    </div>
+                                    <EditField label="Ketua Tim PKM" value={draft.ketua_tim} onChange={(v) => setDraftField('ketua_tim', v)} />
+                                    <EditableTeam
+                                        title="Dosen Terlibat"
+                                        items={draft.dosen_terlibat}
+                                        placeholder="Nama dosen..."
+                                        onChange={(index, value) => setTeamFieldValue('dosen_terlibat', index, value)}
+                                        onAdd={() => addTeamField('dosen_terlibat')}
+                                        onRemove={(index) => removeTeamField('dosen_terlibat', index)}
+                                        suggestions={listPegawai?.filter(p => !p.role || p.role === 'dosen').map(p => p.nama_pegawai) || []}
+                                    />
+                                    <EditableTeam
+                                        title="Staf Terlibat"
+                                        items={draft.staff_terlibat}
+                                        placeholder="Nama staf..."
+                                        onChange={(index, value) => setTeamFieldValue('staff_terlibat', index, value)}
+                                        onAdd={() => addTeamField('staff_terlibat')}
+                                        onRemove={(index) => removeTeamField('staff_terlibat', index)}
+                                        suggestions={listPegawai?.map(p => p.nama_pegawai) || []}
+                                    />
+                                    <EditableTeam
+                                        title="Mahasiswa Terlibat"
+                                        items={draft.mahasiswa_terlibat}
+                                        placeholder="Nama mahasiswa..."
+                                        onChange={(index, value) => setTeamFieldValue('mahasiswa_terlibat', index, value)}
+                                        onAdd={() => addTeamField('mahasiswa_terlibat')}
+                                        onRemove={(index) => removeTeamField('mahasiswa_terlibat', index)}
+                                    />
                                 </div>
-                            </Card>
-                            <Card
-                                title="Lokasi Kegiatan"
-                                action={sectionActions('location', {
-                                    provinsi: draft.provinsi,
-                                    kota_kabupaten: draft.kota_kabupaten,
-                                    kecamatan: draft.kecamatan,
-                                    kelurahan_desa: draft.kelurahan_desa,
-                                    alamat_lengkap: draft.alamat_lengkap,
-                                    latitude: draft.latitude,
-                                    longitude: draft.longitude,
-                                })}
-                                icon={<MapPin size={16} className="text-slate-400" />}
-                            >
+                            ) : (
                                 <div className="space-y-4">
-                                    {editingSection === 'location' ? (
-                                        <>
-                                            <div className="rounded-xl overflow-hidden border border-zinc-200">
-                                                <MapLocationPicker
-                                                    latitude={draft.latitude ?? null}
-                                                    longitude={draft.longitude ?? null}
-                                                    onChange={(lat, lng, addr) => {
-                                                        setDraft(prev => ({
-                                                            ...prev,
-                                                            latitude: lat,
-                                                            longitude: lng,
-                                                            ...(addr && {
-                                                                provinsi: addr.provinsi || prev.provinsi,
-                                                                kota_kabupaten: addr.kotaKabupaten || prev.kota_kabupaten,
-                                                                kecamatan: addr.kecamatan || prev.kecamatan,
-                                                                kelurahan_desa: addr.kelurahanDesa || prev.kelurahan_desa,
-                                                                alamat_lengkap: addr.address || prev.alamat_lengkap
-                                                            })
-                                                        }));
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
-                                                <EditField label="Provinsi" value={draft.provinsi} onChange={(v) => setDraftField('provinsi', v)} />
-                                                <EditField label="Kota/Kabupaten" value={draft.kota_kabupaten} onChange={(v) => setDraftField('kota_kabupaten', v)} />
-                                                <EditField label="Kecamatan" value={draft.kecamatan} onChange={(v) => setDraftField('kecamatan', v)} />
-                                                <EditField label="Kelurahan/Desa" value={draft.kelurahan_desa} onChange={(v) => setDraftField('kelurahan_desa', v)} />
-                                                <EditField label="Alamat Lengkap" value={draft.alamat_lengkap} onChange={(v) => setDraftField('alamat_lengkap', v)} wide textarea />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                            <Field label="Provinsi" value={pengajuan.provinsi} />
-                                            <Field label="Kota/Kabupaten" value={pengajuan.kota_kabupaten} />
-                                            <Field label="Kecamatan" value={pengajuan.kecamatan} />
-                                            <Field label="Kelurahan/Desa" value={pengajuan.kelurahan_desa} />
-                                            <Field label="Alamat Lengkap" value={pengajuan.alamat_lengkap} wide />
-                                            {(pengajuan.latitude && pengajuan.longitude) && (
-                                                <div className="col-span-full pt-3">
-                                                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${pengajuan.latitude},${pengajuan.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors w-fit border border-blue-100">
-                                                        <MapPin size={16} /> Buka di Google Maps
-                                                    </a>
+                                    <Team title="Ketua Tim PKM" items={draft.ketua_tim.trim() ? [draft.ketua_tim.trim()] : []} />
+                                    <Team title="Dosen Terlibat" items={roleNames('dosen')} />
+                                    <Team title="Staf Terlibat" items={roleNames('staff')} />
+                                    <Team title="Mahasiswa Terlibat" items={roleNames('mahasiswa')} />
+                                </div>
+                            )}
+                        </Card>
+                        <Card
+                            title="Rencana Anggaran Biaya (RAB)"
+                            action={sectionActions('budget', {
+                                rab_items: draftRabItems,
+                                total_anggaran: draftTotalRab,
+                            })}
+                            icon={<Wallet size={16} className="text-slate-400" />}
+                        >
+                            <div className="space-y-4">
+                                {editingSection === 'budget' ? (
+                                    <EditableRabTable
+                                        items={draft.rab_items}
+                                        onChange={setRabItemField}
+                                        onAdd={addRabItem}
+                                        onRemove={removeRabItem}
+                                    />
+                                ) : (
+                                    <RabTable items={rabItems} />
+                                )}
+                                <div className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+                                    <div className="text-[11px] font-bold uppercase tracking-widest text-blue-700">Total RAB</div>
+                                    <div className="mt-1 text-2xl font-black text-poltekpar-primary">{fmtMoney(editingSection === 'budget' ? draftTotalRab : pengajuan.total_anggaran)}</div>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card
+                            title="Sumber Dana"
+                            action={sectionActions('funding', {
+                                dana_perguruan_tinggi: Number(draft.dana_perguruan_tinggi || 0),
+                                dana_pemerintah: Number(draft.dana_pemerintah || 0),
+                                dana_lembaga_dalam: Number(draft.dana_lembaga_dalam || 0),
+                                dana_lembaga_luar: Number(draft.dana_lembaga_luar || 0),
+                            })}
+                            icon={<Wallet size={16} className="text-slate-400" />}
+                        >
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {editingSection === 'funding' ? (
+                                    <>
+                                        <EditField label="Perguruan Tinggi" value={draft.dana_perguruan_tinggi} type="currency" onChange={(v) => setDraftField('dana_perguruan_tinggi', v)} />
+                                        <EditField label="Pemerintah" value={draft.dana_pemerintah} type="currency" onChange={(v) => setDraftField('dana_pemerintah', v)} />
+                                        <EditField label="Lembaga Dalam Negeri" value={draft.dana_lembaga_dalam} type="currency" onChange={(v) => setDraftField('dana_lembaga_dalam', v)} />
+                                        <EditField label="Lembaga Luar Negeri" value={draft.dana_lembaga_luar} type="currency" onChange={(v) => setDraftField('dana_lembaga_luar', v)} />
+                                    </>
+                                ) : (
+                                    <>
+                                        <Field label="Perguruan Tinggi" value={fmtMoney(pengajuan.dana_perguruan_tinggi)} />
+                                        <Field label="Pemerintah" value={fmtMoney(pengajuan.dana_pemerintah)} />
+                                        <Field label="Lembaga Dalam Negeri" value={fmtMoney(pengajuan.dana_lembaga_dalam)} />
+                                        <Field label="Lembaga Luar Negeri" value={fmtMoney(pengajuan.dana_lembaga_luar)} />
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                        <Card
+                            title="Dokumen & Tautan"
+                            action={sectionActions('docs', {
+                                surat_permohonan: draft.surat_permohonan, // Only sent to avoid validation clearing if no file
+                                proposal: draft.proposal,
+                                file_surat_permohonan: draft.file_surat_permohonan,
+                                file_proposal: draft.file_proposal,
+                                rab: JSON.stringify(draft.link_tambahan.filter(l => l.url.trim() !== '')),
+                            })}
+                            icon={<Folder size={16} className="text-slate-400" />}
+                        >
+                            <div className="space-y-4">
+                                {editingSection === 'docs' ? (
+                                    <>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-slate-700">Surat Permohonan <span className="text-slate-400 font-normal">(Opsional: unggah file baru untuk menimpa)</span></label>
+                                            {draft.surat_permohonan && (
+                                                <div className="flex items-center gap-2 mb-2 p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-100/50 flex items-center justify-center text-blue-600"><Folder size={14} /></div>
+                                                    <div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-blue-800">File sudah terdeteksi</p><p className="text-[10px] text-blue-600/70 truncate">{draft.surat_permohonan.split('/').pop()}</p></div>
+                                                    <a href={draft.surat_permohonan} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-white text-[10px] font-bold text-blue-700 rounded shadow-sm border border-blue-200 hover:bg-blue-50 transition-colors">Lihat File</a>
                                                 </div>
                                             )}
+                                            <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setDraftField('file_surat_permohonan', e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-poltekpar-primary/10 file:text-poltekpar-primary" />
                                         </div>
-                                    )}
-                                </div>
-                            </Card>
-                            <Card
-                                title="Tim Pelaksana"
-                                action={sectionActions('team', {
-                                    ketua_tim: draft.ketua_tim.trim(),
-                                    dosen_terlibat: draft.dosen_terlibat.map((item) => item.trim()).filter(Boolean),
-                                    staff_terlibat: draft.staff_terlibat.map((item) => item.trim()).filter(Boolean),
-                                    mahasiswa_terlibat: draft.mahasiswa_terlibat.map((item) => item.trim()).filter(Boolean),
-                                }, `/admin/pengajuan/${pengajuan.id_pengajuan}/tim`)}
-                                icon={<Users size={16} className="text-slate-400" />}
-                            >
-                                {editingSection === 'team' ? (
-                                    <div className="space-y-5">
-                                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                                            Admin dapat menyesuaikan anggota tim pelaksana dan memastikan siapa Ketua Tim.
-                                        </div>
-                                        <EditField label="Ketua Tim PKM" value={draft.ketua_tim} onChange={(v) => setDraftField('ketua_tim', v)} />
-                                        <EditableTeam
-                                            title="Dosen Terlibat"
-                                            items={draft.dosen_terlibat}
-                                            placeholder="Nama dosen..."
-                                            onChange={(index, value) => setTeamFieldValue('dosen_terlibat', index, value)}
-                                            onAdd={() => addTeamField('dosen_terlibat')}
-                                            onRemove={(index) => removeTeamField('dosen_terlibat', index)}
-                                            suggestions={listPegawai?.filter(p => !p.role || p.role === 'dosen').map(p => p.nama_pegawai) || []}
-                                        />
-                                        <EditableTeam
-                                            title="Staf Terlibat"
-                                            items={draft.staff_terlibat}
-                                            placeholder="Nama staf..."
-                                            onChange={(index, value) => setTeamFieldValue('staff_terlibat', index, value)}
-                                            onAdd={() => addTeamField('staff_terlibat')}
-                                            onRemove={(index) => removeTeamField('staff_terlibat', index)}
-                                            suggestions={listPegawai?.map(p => p.nama_pegawai) || []}
-                                        />
-                                        <EditableTeam
-                                            title="Mahasiswa Terlibat"
-                                            items={draft.mahasiswa_terlibat}
-                                            placeholder="Nama mahasiswa..."
-                                            onChange={(index, value) => setTeamFieldValue('mahasiswa_terlibat', index, value)}
-                                            onAdd={() => addTeamField('mahasiswa_terlibat')}
-                                            onRemove={(index) => removeTeamField('mahasiswa_terlibat', index)}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <Team title="Ketua Tim PKM" items={draft.ketua_tim.trim() ? [draft.ketua_tim.trim()] : []} />
-                                        <Team title="Dosen Terlibat" items={roleNames('dosen')} />
-                                        <Team title="Staf Terlibat" items={roleNames('staff')} />
-                                        <Team title="Mahasiswa Terlibat" items={roleNames('mahasiswa')} />
-                                    </div>
-                                )}
-                            </Card>
-                            <Card
-                                title="Rencana Anggaran Biaya (RAB)"
-                                action={sectionActions('budget', {
-                                    rab_items: draftRabItems,
-                                    total_anggaran: draftTotalRab,
-                                })}
-                                icon={<Wallet size={16} className="text-slate-400" />}
-                            >
-                                <div className="space-y-4">
-                                    {editingSection === 'budget' ? (
-                                        <EditableRabTable
-                                            items={draft.rab_items}
-                                            onChange={setRabItemField}
-                                            onAdd={addRabItem}
-                                            onRemove={removeRabItem}
-                                        />
-                                    ) : (
-                                        <RabTable items={rabItems} />
-                                    )}
-                                    <div className="rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
-                                        <div className="text-[11px] font-bold uppercase tracking-widest text-blue-700">Total RAB</div>
-                                        <div className="mt-1 text-2xl font-black text-poltekpar-primary">{fmtMoney(editingSection === 'budget' ? draftTotalRab : pengajuan.total_anggaran)}</div>
-                                    </div>
-                                </div>
-                            </Card>
-                            <Card
-                                title="Sumber Dana"
-                                action={sectionActions('funding', {
-                                    dana_perguruan_tinggi: Number(draft.dana_perguruan_tinggi || 0),
-                                    dana_pemerintah: Number(draft.dana_pemerintah || 0),
-                                    dana_lembaga_dalam: Number(draft.dana_lembaga_dalam || 0),
-                                    dana_lembaga_luar: Number(draft.dana_lembaga_luar || 0),
-                                })}
-                                icon={<Wallet size={16} className="text-slate-400" />}
-                            >
-                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    {editingSection === 'funding' ? (
-                                        <>
-                                            <EditField label="Perguruan Tinggi" value={draft.dana_perguruan_tinggi} type="currency" onChange={(v) => setDraftField('dana_perguruan_tinggi', v)} />
-                                            <EditField label="Pemerintah" value={draft.dana_pemerintah} type="currency" onChange={(v) => setDraftField('dana_pemerintah', v)} />
-                                            <EditField label="Lembaga Dalam Negeri" value={draft.dana_lembaga_dalam} type="currency" onChange={(v) => setDraftField('dana_lembaga_dalam', v)} />
-                                            <EditField label="Lembaga Luar Negeri" value={draft.dana_lembaga_luar} type="currency" onChange={(v) => setDraftField('dana_lembaga_luar', v)} />
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Field label="Perguruan Tinggi" value={fmtMoney(pengajuan.dana_perguruan_tinggi)} />
-                                            <Field label="Pemerintah" value={fmtMoney(pengajuan.dana_pemerintah)} />
-                                            <Field label="Lembaga Dalam Negeri" value={fmtMoney(pengajuan.dana_lembaga_dalam)} />
-                                            <Field label="Lembaga Luar Negeri" value={fmtMoney(pengajuan.dana_lembaga_luar)} />
-                                        </>
-                                    )}
-                                </div>
-                            </Card>
-                            <Card
-                                title="Dokumen & Tautan"
-                                action={sectionActions('docs', {
-                                    surat_permohonan: draft.surat_permohonan, // Only sent to avoid validation clearing if no file
-                                    proposal: draft.proposal,
-                                    file_surat_permohonan: draft.file_surat_permohonan,
-                                    file_proposal: draft.file_proposal,
-                                    rab: JSON.stringify(draft.link_tambahan.filter(l => l.url.trim() !== '')),
-                                })}
-                                icon={<Folder size={16} className="text-slate-400" />}
-                            >
-                                <div className="space-y-4">
-                                    {editingSection === 'docs' ? (
-                                        <>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-semibold text-slate-700">Surat Permohonan <span className="text-slate-400 font-normal">(Opsional: unggah file baru untuk menimpa)</span></label>
-                                                {draft.surat_permohonan && (
-                                                    <div className="flex items-center gap-2 mb-2 p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg">
-                                                        <div className="w-8 h-8 rounded-lg bg-blue-100/50 flex items-center justify-center text-blue-600"><Folder size={14} /></div>
-                                                        <div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-blue-800">File sudah terdeteksi</p><p className="text-[10px] text-blue-600/70 truncate">{draft.surat_permohonan.split('/').pop()}</p></div>
-                                                        <a href={draft.surat_permohonan} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-white text-[10px] font-bold text-blue-700 rounded shadow-sm border border-blue-200 hover:bg-blue-50 transition-colors">Lihat File</a>
-                                                    </div>
-                                                )}
-                                                <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setDraftField('file_surat_permohonan', e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-poltekpar-primary/10 file:text-poltekpar-primary" />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-semibold text-slate-700">Proposal <span className="text-slate-400 font-normal">(Opsional: unggah file baru untuk menimpa)</span></label>
-                                                {draft.proposal && (
-                                                    <div className="flex items-center gap-2 mb-2 p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg">
-                                                        <div className="w-8 h-8 rounded-lg bg-blue-100/50 flex items-center justify-center text-blue-600"><Folder size={14} /></div>
-                                                        <div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-blue-800">File sudah terdeteksi</p><p className="text-[10px] text-blue-600/70 truncate">{draft.proposal.split('/').pop()}</p></div>
-                                                        <a href={draft.proposal} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-white text-[10px] font-bold text-blue-700 rounded shadow-sm border border-blue-200 hover:bg-blue-50 transition-colors">Lihat File</a>
-                                                    </div>
-                                                )}
-                                                <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setDraftField('file_proposal', e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-poltekpar-primary/10 file:text-poltekpar-primary" />
-                                            </div>
-                                            <div className="space-y-3 pt-2 border-t border-slate-100/50">
-                                                <div className="flex justify-between items-center">
-                                                    <label className="text-xs font-semibold text-slate-700">Link Tambahan</label>
-                                                    <button type="button" onClick={() => setDraft(prev => ({ ...prev, link_tambahan: [...prev.link_tambahan, { name: '', url: '' }] }))} className="text-[11px] font-bold text-poltekpar-primary hover:opacity-70 flex items-center gap-1">
-                                                        <Plus size={12} /> Tambah
-                                                    </button>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-slate-700">Proposal <span className="text-slate-400 font-normal">(Opsional: unggah file baru untuk menimpa)</span></label>
+                                            {draft.proposal && (
+                                                <div className="flex items-center gap-2 mb-2 p-2.5 bg-blue-50/50 border border-blue-100 rounded-lg">
+                                                    <div className="w-8 h-8 rounded-lg bg-blue-100/50 flex items-center justify-center text-blue-600"><Folder size={14} /></div>
+                                                    <div className="flex-1 min-w-0"><p className="text-[11px] font-bold text-blue-800">File sudah terdeteksi</p><p className="text-[10px] text-blue-600/70 truncate">{draft.proposal.split('/').pop()}</p></div>
+                                                    <a href={draft.proposal} target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-white text-[10px] font-bold text-blue-700 rounded shadow-sm border border-blue-200 hover:bg-blue-50 transition-colors">Lihat File</a>
                                                 </div>
-                                                {draft.link_tambahan.map((link, idx) => (
-                                                    <div key={idx} className="flex flex-col sm:flex-row items-center gap-2">
-                                                        <input type="text" placeholder="Nama Tautan (Opsional)..." value={link.name} onChange={e => {
-                                                            const newLinks = [...draft.link_tambahan];
-                                                            newLinks[idx].name = e.target.value;
-                                                            setDraft(prev => ({ ...prev, link_tambahan: newLinks }));
-                                                        }} className="w-full sm:w-1/3 min-h-[44px] px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-poltekpar-primary" />
-                                                        <div className="flex-1 w-full flex items-center gap-2">
-                                                            <input type="url" placeholder="https://..." value={link.url} onChange={e => {
-                                                                const newLinks = [...draft.link_tambahan];
-                                                                newLinks[idx].url = e.target.value;
-                                                                setDraft(prev => ({ ...prev, link_tambahan: newLinks }));
-                                                            }} className="flex-1 min-h-[44px] px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-poltekpar-primary" />
-                                                            {draft.link_tambahan.length > 1 && (
-                                                                <button type="button" onClick={() => setDraft(prev => ({ ...prev, link_tambahan: prev.link_tambahan.filter((_, i) => i !== idx) }))} className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                            )}
+                                            <input type="file" accept=".pdf,.doc,.docx" onChange={(e) => setDraftField('file_proposal', e.target.files?.[0] || null)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-poltekpar-primary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-poltekpar-primary/10 file:text-poltekpar-primary" />
+                                        </div>
+                                        <div className="space-y-3 pt-2 border-t border-slate-100/50">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs font-semibold text-slate-700">Link Tambahan</label>
+                                                <button type="button" onClick={() => setDraft(prev => ({ ...prev, link_tambahan: [...prev.link_tambahan, { name: '', url: '' }] }))} className="text-[11px] font-bold text-poltekpar-primary hover:opacity-70 flex items-center gap-1">
+                                                    <Plus size={12} /> Tambah
+                                                </button>
                                             </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Doc label="Surat Permohonan" url={pengajuan.surat_permohonan} />
-                                            <Doc label="Proposal" url={pengajuan.proposal} />
-                                            <div className="space-y-1.5"><div className="text-xs font-semibold text-slate-700">Link Tambahan</div>{extraLinks.length ? <div className="space-y-2">{extraLinks.map((link, i) => <a key={`${link.url}-${i}`} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-indigo-600"><span className="truncate">{link.name}</span><ExternalLink size={14} /></a>)}</div> : <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">Tidak ada link tambahan.</div>}</div>
-                                        </>
-                                    )}
-                                </div>
-                            </Card>
-                        </>
+                                            {draft.link_tambahan.map((link, idx) => (
+                                                <div key={idx} className="flex flex-col sm:flex-row items-center gap-2">
+                                                    <input type="text" placeholder="Nama Tautan (Opsional)..." value={link.name} onChange={e => {
+                                                        const newLinks = [...draft.link_tambahan];
+                                                        newLinks[idx].name = e.target.value;
+                                                        setDraft(prev => ({ ...prev, link_tambahan: newLinks }));
+                                                    }} className="w-full sm:w-1/3 min-h-[44px] px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-poltekpar-primary" />
+                                                    <div className="flex-1 w-full flex items-center gap-2">
+                                                        <input type="url" placeholder="https://..." value={link.url} onChange={e => {
+                                                            const newLinks = [...draft.link_tambahan];
+                                                            newLinks[idx].url = e.target.value;
+                                                            setDraft(prev => ({ ...prev, link_tambahan: newLinks }));
+                                                        }} className="flex-1 min-h-[44px] px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 outline-none focus:border-poltekpar-primary" />
+                                                        {draft.link_tambahan.length > 1 && (
+                                                            <button type="button" onClick={() => setDraft(prev => ({ ...prev, link_tambahan: prev.link_tambahan.filter((_, i) => i !== idx) }))} className="shrink-0 w-10 h-10 flex items-center justify-center rounded-lg bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Doc label="Surat Permohonan" url={pengajuan.surat_permohonan} />
+                                        <Doc label="Proposal" url={pengajuan.proposal} />
+                                        <div className="space-y-1.5"><div className="text-xs font-semibold text-slate-700">Link Tambahan</div>{extraLinks.length ? <div className="space-y-2">{extraLinks.map((link, i) => <a key={`${link.url}-${i}`} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-indigo-600"><span className="truncate">{link.name}</span><ExternalLink size={14} /></a>)}</div> : <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">Tidak ada link tambahan.</div>}</div>
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+                    </>
                 </div>
 
                 <div className="space-y-6">
@@ -1110,7 +1185,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                     const stLama = log.status_lama ? (statusConfig[log.status_lama] || statusConfig.diproses) : null;
                                     return (
                                         <div key={log.id} className="flex gap-3 pb-4 relative">
-                                            {i < pengajuan.logs!.length - 1 && (
+                                            {i < (pengajuan.logs?.length || 0) - 1 && (
                                                 <div className="absolute left-[7px] top-4 bottom-0 w-[2px] bg-zinc-100" />
                                             )}
                                             <div className={`w-4 h-4 rounded-full shrink-0 mt-0.5 border-2 border-white ring-2 ${stBaru.dot.replace('bg-', 'ring-')}`} />
@@ -1136,7 +1211,154 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                             <div className="px-5 py-4 text-[13px] text-zinc-400">Belum ada riwayat perubahan.</div>
                         </div>
                     )}
-                    {pengajuan.status_pengajuan !== 'selesai' && <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"><div className="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4"><h2 className="text-[14px] font-semibold text-zinc-900">Verifikasi Berkas</h2></div><div className="space-y-6 p-5"><div className="grid grid-cols-1 gap-3"><button onClick={() => setSelectedAction('diterima')} className={`flex items-center justify-between rounded-lg border-2 px-4 py-3 text-[14px] font-medium transition-all ${selectedAction === 'diterima' ? 'border-emerald-500 bg-emerald-50 text-emerald-900 shadow-md ring-2 ring-emerald-200 scale-[1.02] font-bold' : 'border-emerald-200 bg-emerald-50/30 text-emerald-700 hover:border-emerald-300'}`}><div className="flex items-center gap-3"><CheckCircle size={18} />Diterima</div>{selectedAction === 'diterima' && <span className="text-[11px] bg-emerald-500 text-white px-2.5 py-1 rounded-full font-bold">TERPILIH</span>}</button><button onClick={() => setSelectedAction('direvisi')} className={`flex items-center justify-between rounded-lg border-2 px-4 py-3 text-[14px] font-medium transition-all ${selectedAction === 'direvisi' ? 'border-amber-500 bg-amber-50 text-amber-900 shadow-md ring-2 ring-amber-200 scale-[1.02] font-bold' : 'border-amber-200 bg-amber-50/30 text-amber-700 hover:border-amber-300'}`}><div className="flex items-center gap-3"><RotateCcw size={18} />Revisi</div>{selectedAction === 'direvisi' && <span className="text-[11px] bg-amber-500 text-white px-2.5 py-1 rounded-full font-bold">TERPILIH</span>}</button><button onClick={() => setSelectedAction('ditolak')} className={`flex items-center justify-between rounded-lg border-2 px-4 py-3 text-[14px] font-medium transition-all ${selectedAction === 'ditolak' ? 'border-red-500 bg-red-50 text-red-900 shadow-md ring-2 ring-red-200 scale-[1.02] font-bold' : 'border-red-200 bg-red-50/30 text-red-700 hover:border-red-300'}`}><div className="flex items-center gap-3"><X size={18} />Ditolak</div>{selectedAction === 'ditolak' && <span className="text-[11px] bg-red-500 text-white px-2.5 py-1 rounded-full font-bold">TERPILIH</span>}</button></div>{(selectedAction === 'direvisi' || selectedAction === 'diterima' || selectedAction === 'ditolak') && <div className="pt-2">{selectedAction === 'direvisi' ? (<div className="flex items-center gap-2 mb-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[12px] font-bold text-amber-700"><AlertCircle size={14} className="shrink-0" />Catatan revisi wajib diisi sebelum verifikasi.</div>) : selectedAction === 'ditolak' ? (<div className="flex items-center gap-2 mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-[12px] font-bold text-red-700"><AlertCircle size={14} className="shrink-0" />Alasan penolakan wajib diisi sebelum verifikasi.</div>) : (<div className="flex items-center gap-2 mb-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-[12px] font-bold text-blue-700"><AlertCircle size={14} className="shrink-0" />Catatan persetujuan (opsional).</div>)}<textarea value={catatan} onChange={(e) => setCatatan(e.target.value)} rows={4} placeholder={selectedAction === 'direvisi' ? "Catatan revisi..." : selectedAction === 'ditolak' ? "Tulis alasan penolakan..." : "Tulis catatan tambahan untuk pengaju (opsional)..."} className="w-full rounded-md border border-zinc-200 p-3 text-[13px] outline-none focus:border-poltekpar-primary focus:ring-2 focus:ring-poltekpar-primary/20" />{catatanError && <p className="mt-1.5 text-[12px] text-red-500">{catatanError}</p>}</div>}<button onClick={saveDecision} disabled={!selectedAction || ((selectedAction === 'direvisi' || selectedAction === 'ditolak') && !catatan.trim())} className={`w-full rounded-xl py-3 text-[14px] font-bold ${selectedAction && (selectedAction !== 'direvisi' && selectedAction !== 'ditolak' || catatan.trim()) ? 'bg-zinc-900 text-white' : 'cursor-not-allowed bg-zinc-100 text-zinc-400'}`}>Verifikasi</button></div></div>}
+
+                    {/* Direktur Decision Panel */}
+                    {isDirektur && pengajuan.status_pengajuan === 'diajukan' && (
+                        <div className="overflow-hidden rounded-2xl border border-violet-200 bg-white shadow-lg ring-1 ring-violet-500/10">
+                            <div className="border-b border-violet-100 bg-violet-50/50 px-6 py-4">
+                                <h2 className="text-sm font-bold text-violet-900">Keputusan Direktur</h2>
+                                <p className="text-[11px] text-violet-600 mt-0.5">Sertakan catatan untuk keputusan Anda.</p>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                <div className="space-y-2">
+                                    {([
+                                        { id: 'approve', label: 'Terima Pengajuan', icon: <CheckCircle size={16} />, color: 'border-emerald-200 bg-emerald-50 text-emerald-700', selected: 'border-emerald-500 bg-emerald-100 text-emerald-900 ring-2 ring-emerald-200' },
+                                        { id: 'revise', label: 'Kembalikan untuk Revisi', icon: <RotateCcw size={16} />, color: 'border-amber-200 bg-amber-50 text-amber-700', selected: 'border-amber-500 bg-amber-100 text-amber-900 ring-2 ring-amber-200' },
+                                        { id: 'decline', label: 'Tolak Pengajuan', icon: <XCircle size={16} />, color: 'border-red-200 bg-red-50 text-red-700', selected: 'border-red-500 bg-red-100 text-red-900 ring-2 ring-red-200' },
+                                    ] as const).map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => { setDecisionAction(opt.id); setCatatanError(''); }}
+                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all ${decisionAction === opt.id ? opt.selected : opt.color}`}
+                                        >
+                                            {opt.icon}
+                                            {opt.label}
+                                            {decisionAction === opt.id && <span className="ml-auto text-[10px] bg-current/10 px-2 py-0.5 rounded-full font-black">TERPILIH</span>}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {decisionAction && (
+                                    <div className="space-y-3 pt-2">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Catatan Direktur <span className="text-red-500">*</span></label>
+                                            <textarea
+                                                value={catatanDirektur}
+                                                onChange={e => setCatatanDirektur(e.target.value)}
+                                                rows={4}
+                                                placeholder="Tulis alasan atau arahan di sini..."
+                                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-4 focus:ring-violet-500/5 resize-none"
+                                            />
+                                            {catatanError && <p className="text-xs text-red-500 font-medium">{catatanError}</p>}
+                                        </div>
+
+                                        <button
+                                            onClick={handleDirekturDecision}
+                                            disabled={isSubmittingDecision}
+                                            className={`w-full py-4 rounded-xl text-sm font-black text-white shadow-xl transition-all ${decisionAction === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20'
+                                                : decisionAction === 'decline' ? 'bg-red-600 hover:bg-red-700 shadow-red-500/20'
+                                                    : 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                                                } ${isSubmittingDecision ? 'opacity-60 cursor-not-allowed' : 'active:scale-[0.98]'}`}
+                                        >
+                                            {isSubmittingDecision ? 'Memproses...' : (
+                                                decisionAction === 'approve' ? '✓ Konfirmasi Terima'
+                                                    : decisionAction === 'decline' ? '✕ Konfirmasi Tolak'
+                                                        : '↺ Konfirmasi Revisi'
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {!isDirektur && !['selesai', 'diterima', 'ditolak'].includes(pengajuan.status_pengajuan) && (
+                        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+                            <div className="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4">
+                                <h2 className="text-[14px] font-semibold text-zinc-900">Ajukan ke Direktur</h2>
+                                <p className="text-[12px] text-zinc-500 mt-1">Setelah data pengajuan lengkap dan benar, ajukan ke Direktur untuk keputusan akhir.</p>
+                            </div>
+                            <div className="p-5">
+                                <div className="mb-3">
+                                    <label className="text-xs font-bold text-zinc-700">Catatan untuk Direktur <span className="text-zinc-400 font-normal">(opsional)</span></label>
+                                    <textarea
+                                        value={catatan}
+                                        onChange={e => setCatatan(e.target.value)}
+                                        rows={3}
+                                        placeholder="Tulis catatan/konteks untuk Direktur jika diperlukan..."
+                                        className="mt-1.5 w-full rounded-lg border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-poltekpar-primary focus:ring-2 focus:ring-poltekpar-primary/20 resize-none"
+                                    />
+                                </div>
+                                {missing.length > 0 && (
+                                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-800">
+                                        <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-500" />
+                                        <div>
+                                            <div className="font-bold">Data belum lengkap:</div>
+                                            <div>{missing.join(', ')}</div>
+                                        </div>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setConfirmDialog({
+                                        open: true,
+                                        title: 'Ajukan ke Direktur?',
+                                        message: 'Pengajuan ini akan dikirim ke Direktur untuk diperiksa dan diputuskan. Pastikan semua data sudah benar.',
+                                        action: () => router.put(`/admin/pengajuan/${pengajuan.id_pengajuan}/status`, {
+                                            status_pengajuan: 'diajukan',
+                                            catatan_admin: catatan || null,
+                                        }),
+                                        variant: 'warning',
+                                        confirmLabel: 'Ya, Ajukan',
+                                        cancelLabel: 'Batal',
+                                    })}
+                                    disabled={missing.length > 0}
+                                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[14px] font-bold transition-all ${missing.length > 0
+                                        ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                                        : 'bg-poltekpar-primary text-white hover:bg-poltekpar-navy shadow-sm'
+                                        }`}
+                                >
+                                    <Send size={16} />
+                                    Ajukan ke Direktur
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {pengajuan.status_pengajuan === 'diajukan' && !isDirektur && (
+                        <div className="rounded-xl border border-violet-200 bg-violet-50 p-5">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                                <p className="text-sm font-bold text-violet-800">Menunggu Keputusan Direktur</p>
+                            </div>
+                            <p className="text-xs text-violet-700">Pengajuan ini telah dikirim ke Direktur dan sedang menunggu keputusan (Terima / Tolak / Revisi).</p>
+                        </div>
+                    )}
+
+                    {/* Admin can mark as selesai after diterima */}
+                    {pengajuan.status_pengajuan === 'diterima' && (
+                        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+                            <div className="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4">
+                                <h2 className="text-[14px] font-semibold text-zinc-900">Tandai Selesai</h2>
+                            </div>
+                            <div className="p-5">
+                                <button
+                                    onClick={() => setConfirmDialog({
+                                        open: true,
+                                        title: 'Tandai Selesai?',
+                                        message: 'PKM ini akan ditandai sebagai selesai.',
+                                        action: () => router.put(`/admin/pengajuan/${pengajuan.id_pengajuan}/status`, { status_pengajuan: 'selesai' }),
+                                        variant: 'info',
+                                        confirmLabel: 'Ya, Selesai',
+                                        cancelLabel: 'Batal',
+                                    })}
+                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white text-[14px] font-bold hover:bg-indigo-700 transition-all"
+                                >
+                                    <CheckCircle size={16} />
+                                    Tandai Selesai
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

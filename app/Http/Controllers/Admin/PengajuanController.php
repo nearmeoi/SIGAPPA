@@ -26,7 +26,7 @@ class PengajuanController extends Controller
                 $escaped = addcslashes($search, '\\%_');
                 $query->where(function ($q) use ($escaped) {
                     $q->where('judul_kegiatan', 'like', "%{$escaped}%")
-                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$escaped}%"));
+                        ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$escaped}%"));
                 });
             })
             ->when($request->tab, function ($query, $tab) {
@@ -42,7 +42,7 @@ class PengajuanController extends Controller
                 $query->whereYear('tgl_mulai', $tahun);
             })
             ->when($sortField === 'status_pengajuan', function ($query) use ($sortDir) {
-                $query->orderByRaw("FIELD(status_pengajuan, 'diproses', 'diterima', 'direvisi', 'ditolak') ".$sortDir);
+                $query->orderByRaw("FIELD(status_pengajuan, 'diproses', 'diterima', 'direvisi', 'ditolak') " . $sortDir);
             }, function ($query) use ($sortField, $sortDir) {
                 $query->orderBy($sortField, $sortDir);
             })
@@ -78,10 +78,10 @@ class PengajuanController extends Controller
                 'tahun' => $request->tahun ?? '',
             ],
             'availableYears' => Pengajuan::selectRaw('YEAR(tgl_mulai) as year')
-                                ->whereNotNull('tgl_mulai')
-                                ->groupBy('year')
-                                ->orderBy('year', 'desc')
-                                ->pluck('year'),
+                ->whereNotNull('tgl_mulai')
+                ->groupBy('year')
+                ->orderBy('year', 'desc')
+                ->pluck('year'),
         ]);
     }
 
@@ -131,8 +131,8 @@ class PengajuanController extends Controller
             'surat_permohonan' => $p->surat_permohonan,
             'rab' => $p->rab,
             'rab_items' => $p->rab_items,
-            'admin_read_at'         => $p->admin_read_at,
-            'direktur_approved_at'  => $p->direktur_approved_at?->format('d M Y, H:i'),
+            'admin_read_at' => $p->admin_read_at,
+            'direktur_approved_at' => $p->direktur_approved_at?->format('d M Y, H:i'),
             'user' => $p->user ? [
                 'id_user' => $p->user->id_user,
                 'name' => $p->user->name,
@@ -163,12 +163,12 @@ class PengajuanController extends Controller
                 'jenis_arsip' => $ar->jenis_arsip,
             ]),
             'logs' => $p->logs->map(fn($log) => [
-                'id'              => $log->id,
-                'status_lama'     => $log->status_lama,
-                'status_baru'     => $log->status_baru,
-                'catatan'         => $log->catatan,
+                'id' => $log->id,
+                'status_lama' => $log->status_lama,
+                'status_baru' => $log->status_baru,
+                'catatan' => $log->catatan,
                 'changed_by_name' => $log->changed_by_name,
-                'created_at'      => $log->created_at?->format('d M Y, H:i'),
+                'created_at' => $log->created_at?->format('d M Y, H:i'),
             ])->values(),
         ];
 
@@ -221,7 +221,13 @@ class PengajuanController extends Controller
             'alamat_lengkap' => 'sometimes|nullable|string',
             'latitude' => 'sometimes|nullable|numeric|between:-90,90',
             'longitude' => 'sometimes|nullable|numeric|between:-180,180',
-            'status_pengajuan' => 'sometimes|nullable|in:diproses,direvisi,diterima,ditolak,selesai',
+            'status_pengajuan' => [
+                'sometimes',
+                'nullable',
+                $request->user()?->role === 'superadmin'
+                ? 'in:diproses,direvisi,diterima,ditolak,selesai'
+                : 'in:diproses,direvisi',
+            ],
             'catatan_admin' => 'sometimes|nullable|string|max:1000',
             'proposal' => 'sometimes|nullable|string|max:2048',
             'surat_permohonan' => 'sometimes|nullable|string|max:2048',
@@ -242,10 +248,10 @@ class PengajuanController extends Controller
         }
 
         if ($request->hasFile('file_surat_permohonan')) {
-            $validated['surat_permohonan'] = '/storage/'.$request->file('file_surat_permohonan')->store('pengajuan/dokumen', 'public');
+            $validated['surat_permohonan'] = '/storage/' . $request->file('file_surat_permohonan')->store('pengajuan/dokumen', 'public');
         }
         if ($request->hasFile('file_proposal')) {
-            $validated['proposal'] = '/storage/'.$request->file('file_proposal')->store('pengajuan/dokumen', 'public');
+            $validated['proposal'] = '/storage/' . $request->file('file_proposal')->store('pengajuan/dokumen', 'public');
         }
 
         $pengajuan->update($validated);
@@ -320,22 +326,25 @@ class PengajuanController extends Controller
 
         if ($selectAll) {
             $query = Pengajuan::query();
-            
+
             // Apply filters to match the user's current view
             if (!empty($filters['search'])) {
                 $search = $filters['search'];
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('judul_kegiatan', 'like', "%{$search}%")
-                      ->orWhere('nama_pengusul', 'like', "%{$search}%")
-                      ->orWhere('instansi_mitra', 'like', "%{$search}%");
+                        ->orWhere('nama_pengusul', 'like', "%{$search}%")
+                        ->orWhere('instansi_mitra', 'like', "%{$search}%");
                 });
             }
 
             if (!empty($filters['tab'])) {
                 $tab = $filters['tab'];
-                if ($tab === 'pengajuan') $query->where('status_pengajuan', 'diproses');
-                elseif ($tab === 'reviu') $query->where('status_pengajuan', 'direvisi');
-                else $query->where('status_pengajuan', $tab);
+                if ($tab === 'pengajuan')
+                    $query->where('status_pengajuan', 'diproses');
+                elseif ($tab === 'reviu')
+                    $query->where('status_pengajuan', 'direvisi');
+                else
+                    $query->where('status_pengajuan', $tab);
             }
 
             if (!empty($filters['tahun'])) {
@@ -372,28 +381,27 @@ class PengajuanController extends Controller
     public function updateStatus(Request $request, int $id)
     {
         $request->validate([
-            'status_pengajuan' => 'required|in:'.Pengajuan::STATUS_DIPROSES.','.Pengajuan::STATUS_DIREVISI.','.Pengajuan::STATUS_DITERIMA.','.Pengajuan::STATUS_DITOLAK.','.Pengajuan::STATUS_SELESAI,
-            'catatan_admin' => 'required_if:status_pengajuan,ditolak|required_if:status_pengajuan,direvisi|nullable|string|max:1000',
+            'status_pengajuan' => 'required|in:' . Pengajuan::STATUS_DIAJUKAN . ',' . Pengajuan::STATUS_SELESAI,
+            'catatan_admin' => 'nullable|string|max:1000',
         ]);
 
         $pengajuan = Pengajuan::findOrFail($id);
 
-        // Direktur must approve before admin can accept
-        if ($request->status_pengajuan === Pengajuan::STATUS_DITERIMA && ! $pengajuan->direktur_approved_at) {
-            return redirect()->back()->withErrors([
-                'status_pengajuan' => 'Pengajuan belum mendapat persetujuan Direktur. Minta Direktur untuk menyetujui terlebih dahulu.',
-            ]);
-        }
-
-        // Only check completeness when accepting or completing — allow revisi/tolak/diproses freely
-        if (in_array($request->status_pengajuan, ['diterima', 'selesai'])) {
+        // Admin forwards to Direktur — check completeness first
+        if ($request->status_pengajuan === Pengajuan::STATUS_DIAJUKAN) {
             $incompleteFields = $this->getIncompleteFields($pengajuan);
-
             if ($incompleteFields !== []) {
                 return redirect()->back()->withErrors([
-                    'status_pengajuan' => 'Pengajuan belum bisa diverifikasi karena data berikut masih belum lengkap: '.implode(', ', $incompleteFields).'.',
+                    'status_pengajuan' => 'Pengajuan belum bisa diajukan karena data berikut masih belum lengkap: ' . implode(', ', $incompleteFields) . '.',
                 ]);
             }
+        }
+
+        // Selesai only allowed when already diterima
+        if ($request->status_pengajuan === Pengajuan::STATUS_SELESAI && $pengajuan->status_pengajuan !== Pengajuan::STATUS_DITERIMA) {
+            return redirect()->back()->withErrors([
+                'status_pengajuan' => 'Status selesai hanya bisa diubah dari status diterima.',
+            ]);
         }
 
         $statusLama = $pengajuan->status_pengajuan;
@@ -406,27 +414,52 @@ class PengajuanController extends Controller
 
         DB::transaction(function () use ($pengajuan, $statusBaru, $statusLama, $request) {
             $pengajuan->status_pengajuan = $statusBaru;
-            $pengajuan->catatan_admin    = $request->catatan_admin;
+            if ($request->filled('catatan_admin')) {
+                $pengajuan->catatan_admin = $request->catatan_admin;
+            }
             $pengajuan->save();
 
             PengajuanLog::create([
-                'id_pengajuan'       => $pengajuan->id_pengajuan,
-                'status_lama'        => $statusLama,
-                'status_baru'        => $statusBaru,
-                'catatan'            => $request->catatan_admin,
+                'id_pengajuan' => $pengajuan->id_pengajuan,
+                'status_lama' => $statusLama,
+                'status_baru' => $statusBaru,
+                'catatan' => $request->catatan_admin,
                 'changed_by_user_id' => auth()->id(),
-                'changed_by_name'    => auth()->user()?->name,
+                'changed_by_name' => auth()->user()?->name,
             ]);
-
-            if ($statusBaru === Pengajuan::STATUS_DITERIMA && $statusLama !== Pengajuan::STATUS_DITERIMA) {
-                Aktivitas::firstOrCreate(
-                    ['id_pengajuan' => $pengajuan->id_pengajuan],
-                    ['status_pelaksanaan' => 'belum_mulai'],
-                );
-            }
         });
 
         return redirect()->back()->with('success', 'Status pengajuan berhasil diperbarui.');
+    }
+
+    /**
+     * Superadmin: edit a log entry catatan/status.
+     */
+    public function updateLog(Request $request, int $id)
+    {
+        abort_unless($request->user()?->role === 'superadmin', 403, 'Akses ditolak.');
+
+        $request->validate([
+            'catatan' => 'nullable|string|max:2000',
+            'status_baru' => 'nullable|string|max:50',
+        ]);
+
+        $log = \App\Models\PengajuanLog::findOrFail($id);
+        $log->update($request->only('catatan', 'status_baru'));
+
+        return redirect()->back()->with('success', 'Log berhasil diperbarui.');
+    }
+
+    /**
+     * Superadmin: delete a log entry.
+     */
+    public function destroyLog(Request $request, int $id)
+    {
+        abort_unless($request->user()?->role === 'superadmin', 403, 'Akses ditolak.');
+
+        \App\Models\PengajuanLog::findOrFail($id)->delete();
+
+        return redirect()->back()->with('success', 'Log berhasil dihapus.');
     }
 
     public function syncTim(Request $request, int $id)
@@ -584,7 +617,7 @@ class PengajuanController extends Controller
     private function normalizeTeamEntries(array $items): array
     {
         return collect($items)
-            ->map(fn ($item) => trim((string) $item))
+            ->map(fn($item) => trim((string) $item))
             ->filter()
             ->values()
             ->all();
@@ -596,16 +629,16 @@ class PengajuanController extends Controller
         $isDosen = $submitterType === 'dosen';
 
         // Load tim kegiatan if not already loaded
-        if (! $pengajuan->relationLoaded('timKegiatan')) {
+        if (!$pengajuan->relationLoaded('timKegiatan')) {
             $pengajuan->load('timKegiatan');
         }
 
         $tim = $pengajuan->timKegiatan ?? collect();
-        $hasKetua = $tim->contains(fn ($m) => str_contains(strtolower((string) $m->peran_tim), 'ketua'));
-        $totalAnggota = $tim->filter(fn ($m) => ! str_contains(strtolower((string) $m->peran_tim), 'ketua'))->count();
+        $hasKetua = $tim->contains(fn($m) => str_contains(strtolower((string) $m->peran_tim), 'ketua'));
+        $totalAnggota = $tim->filter(fn($m) => !str_contains(strtolower((string) $m->peran_tim), 'ketua'))->count();
 
         $rabItems = collect($pengajuan->rab_items ?? [])
-            ->filter(fn ($item) => filled(data_get($item, 'nama_item')) && (float) data_get($item, 'jumlah', 0) > 0)
+            ->filter(fn($item) => filled(data_get($item, 'nama_item')) && (float) data_get($item, 'jumlah', 0) > 0)
             ->values();
 
         $fields = [
@@ -617,7 +650,7 @@ class PengajuanController extends Controller
             blank($pengajuan->provinsi) ? 'provinsi' : null,
             blank($pengajuan->kota_kabupaten) ? 'kota / kabupaten' : null,
             blank($pengajuan->surat_permohonan) ? 'surat permohonan' : null,
-            ! $hasKetua ? 'Ketua Tim PKM' : null,
+            !$hasKetua ? 'Ketua Tim PKM' : null,
             $totalAnggota === 0 ? 'Tim Terlibat (Dosen/Staff/Mahasiswa)' : null,
             $rabItems->isEmpty() ? 'Rincian RAB' : null,
         ];
@@ -640,7 +673,7 @@ class PengajuanController extends Controller
                 $escaped = addcslashes($search, '\\%_');
                 $query->where(function ($q) use ($escaped) {
                     $q->where('judul_kegiatan', 'like', "%{$escaped}%")
-                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$escaped}%"));
+                        ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$escaped}%"));
                 });
             })
             ->when($request->status, function ($query, $status) {
@@ -648,7 +681,7 @@ class PengajuanController extends Controller
             })
             ->latest();
 
-        $filename = 'pengajuan_'.now()->format('Y-m-d_His').'.csv';
+        $filename = 'pengajuan_' . now()->format('Y-m-d_His') . '.csv';
 
         $headers = [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -657,7 +690,7 @@ class PengajuanController extends Controller
 
         $callback = function () use ($query) {
             $file = fopen('php://output', 'w');
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM
 
             fputcsv($file, [
                 'Nama Kegiatan',

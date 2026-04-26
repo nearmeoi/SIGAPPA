@@ -28,14 +28,11 @@ class LandingController extends Controller
         // Log kunjungan baru
         SiteSetting::logVisit(request()->ip(), request()->userAgent(), request()->path());
 
-        // Ambil statistik lengkap
-        $visitorStats = SiteSetting::getVisitorStats();
-
         // Peta PKM publik: hanya yang sudah diterima/selesai dan memiliki koordinat
         $pkmData = Pengajuan::with(['aktivitas.testimoni', 'aktivitas.arsip', 'timKegiatan.pegawai', 'jenisPkm'])
             ->whereNotNull('latitude')
             ->get()
-            ->map(fn ($p) => [
+            ->map(fn($p) => [
                 'id' => $p->id_pengajuan,
                 'nama' => $p->judul_kegiatan,
                 'tahun' => $p->aktivitas?->tgl_realisasi_mulai?->year ?? $p->tgl_mulai?->year ?? $p->created_at?->year ?? date('Y'),
@@ -59,12 +56,13 @@ class LandingController extends Controller
                 'desa' => $p->kelurahan_desa ?? '',
                 'lat' => (float) ($p->latitude ?? 0),
                 'lng' => (float) ($p->longitude ?? 0),
+                'lokasi_tambahan' => is_array($p->lokasi_tambahan) ? $p->lokasi_tambahan : [],
                 'total_anggaran' => $p->total_anggaran ?? 0,
-                'tim_kegiatan' => $p->timKegiatan->map(fn ($t) => [
+                'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
                     'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
                     'peran' => $t->peran_tim,
                 ])->toArray(),
-                'testimoni' => $p->aktivitas ? $p->aktivitas->testimoni->map(fn ($testimoni) => [
+                'testimoni' => $p->aktivitas ? $p->aktivitas->testimoni->map(fn($testimoni) => [
                     'nama_pemberi' => $testimoni->nama_pemberi,
                     'rating' => $testimoni->rating,
                     'pesan_ulasan' => $testimoni->pesan_ulasan,
@@ -72,7 +70,7 @@ class LandingController extends Controller
                 'arsip_laporan' => $p->aktivitas?->arsip?->where('jenis_arsip', 'laporan_akhir')->first()?->url_dokumen ?? null,
                 'dokumentasi' => $p->aktivitas?->arsip?->where('jenis_arsip', 'foto_kegiatan')->first()?->url_dokumen ?? null,
                 'tambahan' => ($p->aktivitas?->arsip?->where('jenis_arsip', 'dokumen_lain') ?? collect())
-                    ->map(fn ($a) => [
+                    ->map(fn($a) => [
                         'nama' => $a->nama_dokumen ?? 'Dokumen Lainnya',
                         'url' => $a->url_dokumen,
                     ])
@@ -111,9 +109,9 @@ class LandingController extends Controller
 
         $chartStats = [
             'years' => $years,
-            'selesai' => collect($years)->map(fn ($y) => $yearlyStats->where('year', $y)->first()?->selesai ?? 0)->toArray(),
-            'berlangsung' => collect($years)->map(fn ($y) => $yearlyStats->where('year', $y)->first()?->berlangsung ?? 0)->toArray(),
-            'belum_mulai' => collect($years)->map(fn ($y) => $yearlyStats->where('year', $y)->first()?->belum_mulai ?? 0)->toArray(),
+            'selesai' => collect($years)->map(fn($y) => $yearlyStats->where('year', $y)->first()?->selesai ?? 0)->toArray(),
+            'berlangsung' => collect($years)->map(fn($y) => $yearlyStats->where('year', $y)->first()?->berlangsung ?? 0)->toArray(),
+            'belum_mulai' => collect($years)->map(fn($y) => $yearlyStats->where('year', $y)->first()?->belum_mulai ?? 0)->toArray(),
             'total_pengajuan' => (int) ($pkmSummary->total ?? 0),
             'total_diterima' => (int) (($pkmSummary->total_belum_mulai ?? 0) + ($pkmSummary->total_berlangsung ?? 0)),
             'total_selesai' => (int) ($pkmSummary->total_selesai ?? 0),
@@ -124,7 +122,7 @@ class LandingController extends Controller
             ->latest()
             ->limit(10)
             ->get()
-            ->map(function($item) {
+            ->map(function ($item) {
                 // Hitung rata-rata rating dari 5 pertanyaan (q1-q5)
                 $avgRating = round(($item->q1 + $item->q2 + $item->q3 + $item->q4 + $item->q5) / 5);
 
@@ -149,15 +147,6 @@ class LandingController extends Controller
             'pkmData' => $pkmData,
             'testimonials' => $testimonials,
             'testimoniStats' => $testimoniStats,
-            'visitorStats' => $visitorStats,
-            'listKontak' => Kontak::orderBy('created_at', 'asc')
-                ->get()
-                ->map(fn($k) => [
-                    'id_kontak' => $k->id_kontak,
-                    'ikon' => $k->ikon,
-                    'label' => $k->label,
-                    'nilai_kontak' => $k->nilai_kontak,
-                ]),
         ]);
     }
 
@@ -182,7 +171,7 @@ class LandingController extends Controller
         $pengajuan = Pengajuan::where('kode_unik', $kode)->firstOrFail();
         $aktivitas = Aktivitas::where('id_pengajuan', $pengajuan->id_pengajuan)->first();
 
-        if (! $aktivitas) {
+        if (!$aktivitas) {
             $aktivitas = Aktivitas::create([
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'status_pelaksanaan' => 'berjalan',
@@ -216,7 +205,7 @@ class LandingController extends Controller
         ]));
 
         foreach (($request->dokumen_lainnya ?? []) as $doc) {
-            if (! empty($doc['url_dokumen'])) {
+            if (!empty($doc['url_dokumen'])) {
                 Arsip::create(array_merge($commonData, [
                     'nama_dokumen' => $doc['nama_dokumen'] ?? 'Dokumen Tambahan',
                     'jenis_arsip' => 'dokumen_lain',
@@ -249,7 +238,7 @@ class LandingController extends Controller
         $pengajuan = Pengajuan::where('kode_unik', $kode)->firstOrFail();
         $aktivitas = Aktivitas::where('id_pengajuan', $pengajuan->id_pengajuan)->first();
 
-        if (! $aktivitas) {
+        if (!$aktivitas) {
             $aktivitas = Aktivitas::create([
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'status_pelaksanaan' => 'berjalan',

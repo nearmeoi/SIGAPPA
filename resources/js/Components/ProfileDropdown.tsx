@@ -30,6 +30,13 @@ const getRoleBadge = (user: User | null): RoleBadge | null => {
         };
     }
 
+    if (role === 'direktur') {
+        return {
+            label: 'Direktur',
+            className: 'bg-violet-100 text-violet-700 font-bold',
+        };
+    }
+
     return {
         label: isDosen ? 'Akun Dosen' : 'Akun Masyarakat',
         className: isDosen ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700',
@@ -101,8 +108,8 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
 
     if (!user) {
         return (
-            <Link 
-                href="/login" 
+            <Link
+                href="/login"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-poltekpar-primary text-white font-medium rounded-lg hover:bg-poltekpar-navy transition-colors duration-200"
             >
                 <i className="fa-solid fa-right-to-bracket"></i>
@@ -116,9 +123,8 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
             {/* Trigger Button */}
             <button
                 type="button"
-                className={`flex items-center gap-3 p-2 pr-4 bg-white rounded-full transition-all duration-200 hover:shadow-soft focus:outline-none ${
-                    isOpen ? 'shadow-soft' : ''
-                }`}
+                className={`flex items-center gap-3 p-2 pr-4 bg-white rounded-full transition-all duration-200 hover:shadow-soft focus:outline-none ${isOpen ? 'shadow-soft' : ''
+                    }`}
                 onClick={toggleDropdown}
                 aria-label="Buka menu profil"
                 aria-haspopup="menu"
@@ -126,10 +132,10 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
             >
                 <span className={`flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-poltekpar-primary to-poltekpar-navy text-white font-bold`}>
                     {avatarSrc ? (
-                        <img 
-                            src={avatarSrc} 
-                            alt={user.name || 'Profil pengguna'} 
-                            className="w-full h-full rounded-full object-cover" 
+                        <img
+                            src={avatarSrc}
+                            alt={user.name || 'Profil pengguna'}
+                            className="w-full h-full rounded-full object-cover"
                         />
                     ) : (
                         <span>{getInitials(user.name)}</span>
@@ -139,9 +145,9 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
 
             {/* Dropdown Panel */}
             {isOpen && (
-                <div 
-                    className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200" 
-                    role="menu" 
+                <div
+                    className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200"
+                    role="menu"
                     aria-label="Menu profil pengguna"
                 >
                     {/* Header */}
@@ -158,31 +164,41 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
                     {/* Menu Items */}
                     <div className="py-2">
                         {['admin', 'superadmin', 'secret_account'].includes(userRole || '') ? (
-                            <Link 
-                                href="/admin/dashboard" 
-                                className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150" 
-                                role="menuitem" 
+                            <Link
+                                href="/admin/dashboard"
+                                className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150"
+                                role="menuitem"
                                 onClick={closeDropdown}
                             >
                                 <i className="fa-solid fa-gauge-high text-lg text-poltekpar-primary"></i>
                                 <span className="font-semibold">Panel Admin</span>
                             </Link>
+                        ) : userRole === 'direktur' ? (
+                            <Link
+                                href="/direktur/dashboard"
+                                className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150"
+                                role="menuitem"
+                                onClick={closeDropdown}
+                            >
+                                <i className="fa-solid fa-gauge-high text-lg text-poltekpar-primary"></i>
+                                <span className="font-semibold">Panel Direktur</span>
+                            </Link>
                         ) : (
-                            <Link 
+                            <Link
                                 href="/cek-status"
-                                className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150" 
-                                role="menuitem" 
+                                className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150"
+                                role="menuitem"
                                 onClick={closeDropdown}
                             >
                                 <i className="fa-solid fa-rectangle-list text-lg text-poltekpar-primary"></i>
                                 <span className="font-medium">Status Pengajuan</span>
                             </Link>
                         )}
-                        
-                        <Link 
-                            href="/profile/edit" 
-                            className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150" 
-                            role="menuitem" 
+
+                        <Link
+                            href="/profile/edit"
+                            className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150"
+                            role="menuitem"
                             onClick={closeDropdown}
                         >
                             <i className="fa-solid fa-user-pen text-lg"></i>
