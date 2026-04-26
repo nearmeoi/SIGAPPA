@@ -1,0 +1,56 @@
+/* resources/css/developer-appreciation.css */
+
+.dev-crew-hero {
+    background: radial-gradient(circle at 50% 0%, rgba(79, 70, 229, 0.08) 0%, transparent 70%);
+}
+
+.dev-card {
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dev-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+}
+
+.dev-photo-ring {
+    padding: 3px;
+    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+}
+
+.doc-card {
+    transition: all 0.3s ease;
+}
+
+.doc-card:hover {
+    border-color: #e2e8f0;
+}
+
+.doc-image-container {
+    overflow: hidden;
+    position: relative;
+}
+
+.doc-image-container img {
+    transition: transform 0.6s ease;
+}
+
+.doc-card:hover .doc-image-container img {
+    transform: scale(1.05);
+}
+
+.glass-pill {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}

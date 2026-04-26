@@ -1,0 +1,109 @@
+.testimonial-sidebar-container {
+    margin: 24px 0 32px 0;
+    padding: 0;
+    width: 100%;
+}
+
+.testimonial-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.testimonial-card {
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.testimonial-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
+}
+
+.testimonial-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.testimonial-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #15325F;
+    background-image: linear-gradient(135deg, #15325F 0%, #0D1F3C 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(4, 107, 210, 0.3);
+}
+
+.testimonial-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.testimonial-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.2;
+}
+
+.testimonial-role {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.testimonial-rating-box {
+    background-color: #fef3c7;
+    color: #d97706;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.testimonial-stars-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: 10px;
+}
+
+.star-icon {
+    flex-shrink: 0;
+}
+
+.testimonial-date {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-style: italic;
+    font-weight: 500;
+}
+
+.testimonial-text {
+    font-size: 0.85rem;
+    color: #334155;
+    line-height: 1.6;
+    margin: 0;
+    font-style: italic;
+    position: relative;
+    padding-left: 10px;
+    border-left: 3px solid #e2e8f0;
+}

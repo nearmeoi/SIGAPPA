@@ -1,0 +1,508 @@
+/* =================================================================
+   Akun Masyarakat - Layout & Form Styles
+   ================================================================= */
+
+/* 1. Static Layout Indicator (Akun Masyarakat) */
+/* Desktop: Placed above the map, inside the boxed section. */
+.akun-masyarakat-desktop-indicator {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+    color: #059669;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.akun-masyarakat-desktop-indicator i {
+    font-size: 18px;
+    background: #059669;
+    color: white;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+@media (min-width: 769px) {
+    .akun-masyarakat-desktop-indicator {
+        display: flex;
+    }
+
+    /* Hide the old floating badge on desktop if it still exists */
+    .dashboard-role-indicator.role-indicator-masyarakat {
+        display: none !important;
+    }
+}
+
+/* Mobile: Placed in the Hamburger Menu / Left Sidebar top */
+.akun-masyarakat-mobile-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+    color: #059669;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.akun-masyarakat-mobile-indicator i {
+    font-size: 16px;
+    color: #059669;
+}
+
+@media (min-width: 769px) {
+    .akun-masyarakat-mobile-indicator {
+        display: none;
+    }
+}
+
+
+/* 2. General Submission Form Overlay (Mobile First Modal) */
+.masyarakat-form-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: flex-end;
+    /* Mobile first: slide from bottom */
+    justify-content: center;
+}
+
+.masyarakat-form-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.3s ease;
+}
+
+.masyarakat-form-modal {
+    position: relative;
+    width: 100%;
+    max-height: 90vh;
+    background: #ffffff;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    animation: slideUpModal 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    background-color: #f8fafc;
+}
+
+@media (min-width: 768px) {
+    .masyarakat-form-overlay {
+        align-items: center;
+        padding: 20px;
+    }
+
+    .masyarakat-form-modal {
+        width: 100%;
+        max-width: 600px;
+        max-height: 85vh;
+        border-radius: 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+}
+
+@keyframes slideUpModal {
+    from {
+        transform: translateY(100%);
+        opacity: 0.5;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Modal Header */
+.masyarakat-form-header {
+    padding: 24px 24px 20px;
+    background: #ffffff;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 1px solid #e2e8f0;
+    position: relative;
+    text-align: center;
+}
+
+@media (min-width: 768px) {
+    .masyarakat-form-header {
+        border-radius: 20px 20px 0 0;
+        text-align: left;
+    }
+}
+
+.masyarakat-form-header h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 6px 0;
+}
+
+.masyarakat-form-header p {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0;
+}
+
+.masyarakat-form-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.masyarakat-form-close:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.masyarakat-form-close:active {
+    transform: scale(0.95);
+}
+
+/* Modal Body & Form */
+.masyarakat-form-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    /* Custom scrollbar */
+}
+
+.masyarakat-form-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.masyarakat-form-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.masyarakat-form-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.custom-submission-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 8px;
+}
+
+.required {
+    color: #ef4444;
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.input-wrapper:focus-within {
+    border-color: #15325F;
+    box-shadow: 0 0 0 3px rgba(4, 107, 210, 0.1);
+}
+
+.input-wrapper.align-top {
+    align-items: flex-start;
+}
+
+.input-icon {
+    width: 44px;
+    display: flex;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 1rem;
+}
+
+.input-wrapper.align-top .input-icon {
+    margin-top: 14px;
+}
+
+.input-wrapper input,
+.input-wrapper textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 16px 12px 0;
+    color: #0f172a;
+    font-size: 0.95rem;
+    outline: none;
+    width: 100%;
+}
+
+.input-wrapper textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+@media (min-width: 600px) {
+    .form-row-2 {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.field-error {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 6px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.input-wrapper.error-border {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2;
+}
+
+.input-wrapper.error-border .input-icon {
+    color: #ef4444;
+}
+
+.field-error::before {
+    content: "\f071";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+/* File Dropzone - Tap Friendly */
+.file-label {
+    margin-bottom: 8px !important;
+}
+
+.file-dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 20px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    position: relative;
+}
+
+.file-dropzone:hover {
+    border-color: #15325F;
+    background: #f0f7ff;
+}
+
+.file-dropzone.file-selected {
+    border-style: solid;
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+.hidden-input {
+    display: none;
+}
+
+.dropzone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+@media (min-width: 480px) {
+    .dropzone-inner {
+        flex-direction: row;
+        justify-content: center;
+        text-align: left;
+    }
+}
+
+.dropzone-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.file-dropzone:hover .dropzone-icon-wrapper {
+    background: #e0f2fe;
+    color: #0ea5e9;
+}
+
+.icon-upload {
+    color: #64748b;
+}
+
+.icon-pdf {
+    color: #10b981;
+}
+
+.file-dropzone.file-selected .dropzone-icon-wrapper {
+    background: #d1fae5;
+}
+
+.upload-title {
+    font-weight: 600;
+    color: #0f172a;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.upload-subtitle {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #065f46;
+    font-size: 0.95rem;
+    word-break: break-all;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (min-width: 480px) {
+    .file-name {
+        max-width: 300px;
+    }
+}
+
+.file-size {
+    font-size: 0.8rem;
+    color: #047857;
+    margin-top: 2px;
+}
+
+.upload-progress {
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: #0ea5e9;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Form Actions */
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.btn-form-cancel {
+    flex: 1;
+    padding: 14px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-form-cancel:hover {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.btn-form-submit {
+    flex: 2;
+    padding: 14px;
+    background: #15325F;
+    border: none;
+    color: white;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(4, 107, 210, 0.2);
+}
+
+.btn-form-submit:hover {
+    background: #0D1F3C;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(4, 107, 210, 0.3);
+}
+
+.btn-form-submit:active {
+    transform: translateY(0);
+}
+
+.btn-form-submit:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}

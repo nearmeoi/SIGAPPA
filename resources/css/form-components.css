@@ -1,0 +1,312 @@
+/* Premium Form Validation & Toast Notifications */
+
+/* Global Input Defaults */
+.fintech-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1e293b;
+    background-color: #f8fafc;
+    transition: all 0.3s ease;
+}
+
+.fintech-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.fintech-input:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* Form Error States */
+.form-group.has-error label {
+    color: #ef4444;
+    /* Clean red */
+}
+
+.form-group.has-error .fintech-input {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+    /* Light red tint */
+}
+
+.form-group.has-error .fintech-input:focus {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.form-error-message {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #ef4444;
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 4px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Mandatory Field Indicator */
+.required-star {
+    color: #ef4444;
+    margin-left: 4px;
+    font-weight: 700;
+}
+
+/* Processing Button State */
+.btn-loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+    position: relative;
+    color: transparent !important;
+    /* Hide text while loading */
+}
+
+.btn-loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin-top: -10px;
+    margin-left: -10px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: button-spin 0.8s linear infinite;
+}
+
+@keyframes button-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Toast Component */
+.fintech-toast {
+    position: fixed;
+    bottom: 18px;
+    right: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #ffffff;
+    padding: 12px 16px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05);
+    z-index: 9999;
+    transform: translateX(120%);
+    opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+    border-left: 4px solid #10b981;
+    /* Green accent */
+}
+
+.fintech-toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.fintech-toast.error {
+    border-left-color: #ef4444;
+}
+
+.toast-icon {
+    font-size: 16px;
+}
+
+.toast-icon.success {
+    color: #10b981;
+}
+
+.toast-icon.error {
+    color: #ef4444;
+}
+
+.toast-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.toast-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.toast-message {
+    font-size: 11px;
+    color: #64748b;
+    margin: 2px 0 0;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 8px;
+    transition: color 0.2s ease;
+}
+
+.toast-close:hover {
+    color: #475569;
+}
+
+.fintech-feedback-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.fintech-feedback-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.56);
+    backdrop-filter: blur(5px);
+}
+
+.fintech-feedback-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 380px);
+    padding: 22px 20px 18px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+    border: 1px solid rgba(226, 232, 240, 0.92);
+    box-shadow: 0 32px 70px -36px rgba(15, 23, 42, 0.42);
+    text-align: center;
+    animation: fintechFeedbackIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fintech-feedback-dialog.success {
+    border-color: rgba(187, 247, 208, 0.95);
+}
+
+.fintech-feedback-dialog.error {
+    border-color: rgba(254, 202, 202, 0.95);
+}
+
+.fintech-feedback-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 1.5rem;
+}
+
+.fintech-feedback-icon.success {
+    color: #15803d;
+    background: linear-gradient(135deg, #dcfce7, #f0fdf4);
+    box-shadow: inset 0 0 0 1px rgba(187, 247, 208, 0.98);
+}
+
+.fintech-feedback-icon.error {
+    color: #b91c1c;
+    background: linear-gradient(135deg, #fee2e2, #fef2f2);
+    box-shadow: inset 0 0 0 1px rgba(254, 202, 202, 0.98);
+}
+
+.fintech-feedback-copy h3 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.fintech-feedback-copy p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.85rem;
+    line-height: 1.7;
+}
+
+.fintech-feedback-button {
+    width: 100%;
+    margin-top: 18px;
+    min-height: 40px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #15325F, #1E4A8C);
+    color: #ffffff;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 20px 28px -24px rgba(4, 107, 210, 0.85);
+}
+
+.fintech-feedback-button:hover {
+    filter: brightness(1.03);
+}
+
+.form-validation-alert {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(253, 230, 138, 0.95);
+    background: linear-gradient(135deg, #fffbeb, #fff7ed);
+    color: #9a3412;
+}
+
+.form-validation-alert i {
+    margin-top: 2px;
+    color: #d97706;
+}
+
+.form-validation-alert strong {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 0.78rem;
+    color: #7c2d12;
+}
+
+.form-validation-alert p {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    color: #9a3412;
+}
+
+@keyframes fintechFeedbackIn {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}

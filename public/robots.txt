@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /admin
+Disallow: /secret
+Disallow: /profile
+
+Sitemap: https://sigappa.poltekparmakassar.ac.id/sitemap.xml

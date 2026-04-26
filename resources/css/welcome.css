@@ -1,0 +1,366 @@
+/* ============================================
+   SIGAPPA Welcome Page — Modern Portal UI
+   ============================================ */
+
+.welcome-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 0% 0%, #0d1e3a 0%, #0a1128 100%);
+    padding: 32px 24px;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Background Decorations */
+.welcome-glow {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(140px);
+    pointer-events: none;
+    opacity: 0.15;
+}
+.welcome-glow--1 { width: 800px; height: 800px; top: -150px; left: -150px; background: #3b82f6; }
+.welcome-glow--2 { width: 600px; height: 600px; bottom: -100px; right: -100px; background: #f59e0b; }
+
+.welcome-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 850px;
+    z-index: 20;
+}
+
+/* Main Card */
+.welcome-main-card {
+    display: flex;
+    width: 100%;
+    min-height: 460px;
+    background-color: #ffffff;
+    border-radius: 32px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 
+        0 40px 100px -30px rgba(0, 0, 0, 0.6),
+        0 10px 20px -5px rgba(0, 0, 0, 0.2);
+    animation: welcomeCardEntrance 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes welcomeCardEntrance {
+    0% { opacity: 0; transform: translateY(40px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* LEFT: Image Cover */
+.welcome-hero-image {
+    position: relative;
+    flex: 1.1;
+    background-image: url('/images/welcome-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+.welcome-hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(10, 17, 40, 0.9) 0%, rgba(10, 17, 40, 0.4) 40%, transparent 100%);
+}
+
+.welcome-hero-badge {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    color: #ffffff;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-transform: uppercase;
+}
+
+/* RIGHT: Content Side */
+.welcome-portal-side {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 30px 40px;
+    background-color: #ffffff;
+    justify-content: center;
+    text-align: center;
+}
+
+.welcome-portal-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.welcome-logo-container {
+    margin-bottom: 20px;
+    padding: 8px;
+    background: #fdfdfd;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    border: 1px solid #f1f5f9;
+}
+
+.welcome-portal-logo {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+
+.welcome-hero-brand {
+    font-size: 3.5rem;
+    font-weight: 950;
+    color: #facc15;
+    line-height: 0.85;
+    margin: 0;
+    letter-spacing: -0.06em;
+}
+
+.welcome-hero-divider {
+    width: 32px;
+    height: 4px;
+    background: #eab308;
+    margin: 20px auto 0;
+    border-radius: 2px;
+}
+
+.welcome-system-name {
+    color: #1e293b;
+    font-size: 0.85rem;
+    font-weight: 800;
+    line-height: 1.5;
+    max-width: 360px;
+    margin: 20px auto 10px;
+    text-transform: uppercase;
+}
+
+.welcome-institution-name {
+    color: #94a3b8;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.welcome-action-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 300px;
+    margin-top: 30px;
+}
+
+.welcome-btn-main {
+    padding: 16px 32px;
+    background-color: #1e40af;
+    color: #ffffff;
+    border-radius: 18px;
+    font-size: 1rem;
+    font-weight: 800;
+    text-decoration: none;
+    transition: all 0.4s;
+}
+
+.welcome-btn-sub {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px;
+    color: #64748b;
+    border-radius: 18px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid #e2e8f0;
+}
+
+.welcome-bottom-footer {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* ============================================
+   RESPONSIVE SCALING (MOBILE)
+   ============================================ */
+
+@media (max-width: 640px) {
+    .welcome-page {
+        padding: 40px 30px; /* Jarak lebar dari pinggir layar */
+    }
+
+    .welcome-wrapper {
+        max-width: 340px; /* Lebar dibatasi agar kotak */
+        gap: 20px;
+    }
+
+    .welcome-main-card {
+        flex-direction: column;
+        min-height: auto;
+        border-radius: 30px;
+    }
+
+    .welcome-hero-image {
+        min-height: 140px; /* Tinggi gambar pendek */
+        flex: none;
+    }
+
+    .welcome-hero-badge {
+        top: 15px;
+        left: 15px;
+        font-size: 0.6rem;
+        padding: 4px 10px;
+    }
+
+    .welcome-portal-side {
+        padding: 24px 20px; /* Padding konten rapat */
+    }
+
+    .welcome-logo-container {
+        margin-bottom: 15px;
+    }
+
+    .welcome-portal-logo {
+        width: 48px;
+        height: 48px;
+    }
+
+    .welcome-hero-greeting {
+        font-size: 0.8rem;
+        display: block;
+        margin-bottom: 5px;
+        color: #64748b;
+    }
+
+    .welcome-hero-brand {
+        font-size: 2.8rem;
+    }
+
+    .welcome-hero-divider {
+        margin: 12px auto 0;
+    }
+
+    .welcome-system-name {
+        font-size: 0.65rem;
+        margin: 15px auto 5px;
+    }
+
+    .welcome-institution-name {
+        font-size: 0.75rem;
+    }
+
+    .welcome-action-group {
+        margin-top: 20px;
+        gap: 8px;
+    }
+
+    .welcome-btn-main {
+        padding: 12px;
+        font-size: 0.9rem;
+        border-radius: 12px;
+    }
+
+    .welcome-btn-sub {
+        padding: 10px;
+        font-size: 0.8rem;
+        border-radius: 12px;
+    }
+
+    .welcome-bottom-footer {
+        font-size: 0.65rem;
+        line-height: 1.5;
+    }
+}
+
+/* External Portals Quick Access */
+.welcome-external-portals {
+    margin-top: 24px;
+    width: 100%;
+    max-width: 340px;
+}
+
+.welcome-external-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 14px;
+}
+
+.welcome-external-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.welcome-external-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 8px 16px;
+    border-radius: 14px;
+    border: 1px solid #f1f5f9;
+    background: #fdfdfd;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.welcome-external-item:hover {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.welcome-external-icon {
+    width: 34px;
+    height: 34px;
+    background: #f1f5f9;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e40af;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.welcome-external-item:hover .welcome-external-icon {
+    background: #1e40af;
+    color: #ffffff;
+}
+
+.welcome-external-text {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #334155;
+}
+
+.welcome-external-divider {
+    width: 1px;
+    height: 24px;
+    background: #e2e8f0;
+}
+
+@media (max-width: 640px) {
+    .welcome-external-portals {
+        margin-top: 16px;
+    }
+}

@@ -1,0 +1,69 @@
+name: Deploy SIGAPPA to Production
+
+on:
+  push:
+    branches: [ main, finalisasi ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 103.175.204.247
+          username: devel
+          key: ${{ secrets.SSH_KEY }}
+          port: 2244
+          script: |
+            cd /var/www/html/sigappa
+            
+            # Force update from GitHub (dynamically using branch name)
+            git fetch origin ${{ github.ref_name }}
+            git reset --hard origin/${{ github.ref_name }}
+
+            # Frontend Build
+            export NODE_OPTIONS="--max-old-space-size=1024"
+            if [ -f "package-lock.json" ]; then
+                npm ci || npm install
+            else
+                npm install
+            fi
+            
+            # Build output will go to ../build based on vite.config.js
+            npm run build || (rm -rf node_modules package-lock.json && npm install && npm run build)
+
+            # Ensure the build artifacts are in the correct flattened location (/var/www/html/build)
+            # vite.config.js build.outDir is '../build', so it goes to /var/www/html/build
+            # We don't need to move it if it's already there, but we should make sure it's clean.
+            
+            # Clean and Optimize Laravel
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+            php artisan migrate --force
+            
+            # AGGRESSIVE CACHE CLEARING
+            # We use || true to ignore errors if some files are owned by www-data
+            php artisan cache:clear || true
+            php artisan config:clear
+            php artisan route:clear
+            php artisan view:clear
+            
+            # RE-OPTIMIZE
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Reset Permissions
+            chmod -R 775 storage bootstrap/cache || true
+
+            echo "DEBUG INFO:"
+            pwd
+            ls -la ../build/assets/app-*.js || echo "No app.js found in ../build/assets/"
+            
+            echo "VERIFYING MANIFEST:"
+            cat ../build/manifest.json || echo "Manifest not found!"
+
+            echo "Deployment Berhasil dengan Build Frontend! 🚀"

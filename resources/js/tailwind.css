@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+    body {
+        @apply bg-white text-slate-900 font-sans antialiased;
+    }
+}
+
+/* Custom component styles */
+@layer components {
+    /* Button variants */
+    .btn-primary {
+        @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-poltekpar-primary text-white font-semibold rounded-lg shadow-soft hover:bg-poltekpar-navy transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-poltekpar-primary focus:ring-offset-2;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-poltekpar-primary font-semibold rounded-lg border-2 border-poltekpar-primary shadow-soft hover:bg-poltekpar-light transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-poltekpar-primary focus:ring-offset-2;
+    }
+
+    /* Card variants */
+    .card-soft {
+        @apply bg-white rounded-xl shadow-soft border border-slate-100 p-6;
+    }
+
+    /* Input variants */
+    .input-field {
+        @apply w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-poltekpar-primary focus:border-transparent transition-all duration-200;
+    }
+
+    /* Link variants */
+    .link-primary {
+        @apply text-poltekpar-primary font-medium hover:text-poltekpar-navy transition-colors duration-200;
+    }
+}
+
+/* Custom utility styles */
+@layer utilities {
+    .text-balance {
+        text-wrap: balance;
+    }
+}
