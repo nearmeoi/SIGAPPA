@@ -75,12 +75,17 @@ scp -P 2244 -r ../build devel@103.175.204.247:/var/www/html/
 ---
 
 ## 6. Persiapan di VPS (Lakukan Sekali)
-Agar script CI/CD berjalan lancar tanpa error *Permission Denied* di masa depan, pastikan Anda pernah menjalankan perintah ini sekali saja di terminal VPS Anda:
+Agar ke depannya file yang dibuat oleh web server (www-data) otomatis bisa dibaca/tulis oleh user `devel`, jalankan perintah ACL (Access Control List) ini sekali saja di terminal VPS Anda:
 
 ```bash
-# Pastikan user devel masuk ke group www-data
-sudo usermod -aG www-data devel
+# Masuk ke folder aplikasi
+cd /var/www/html/sigappa
 
-# Berikan kepemilikan group ke www-data untuk folder build & sigappa
-sudo chgrp -R www-data /var/www/html/sigappa/storage /var/www/html/sigappa/bootstrap/cache /var/www/html/build
+# Berikan akses penuh secara default untuk devel dan www-data di folder storage & cache
+sudo setfacl -R -m u:www-data:rwx -m u:devel:rwx storage bootstrap/cache
+sudo setfacl -dR -m u:www-data:rwx -m u:devel:rwx storage bootstrap/cache
+
+# Lakukan hal yang sama untuk folder build
+sudo setfacl -R -m u:www-data:rwx -m u:devel:rwx /var/www/html/build
+sudo setfacl -dR -m u:www-data:rwx -m u:devel:rwx /var/www/html/build
 ```
