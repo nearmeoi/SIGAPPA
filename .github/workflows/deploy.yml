@@ -52,12 +52,8 @@ jobs:
 
             # Reset Permissions secara cerdas
             echo "Setting permissions..."
-            # 1. Pastikan semua FOLDER di storage & bootstrap bisa diakses (775)
-            find storage bootstrap/cache -type d -exec chmod 775 {} +
-            
-            # 2. Pastikan file yang DIMILIKI user 'devel' saja yang di-chmod (664)
-            # Ini akan menghilangkan pesan "Operation not permitted"
-            find storage bootstrap/cache -type f -user $(whoami) -exec chmod 664 {} +
+            # Pastikan folder storage & bootstrap bisa diakses (silence error jika ada file milik root/www-data)
+            chmod -R 775 storage bootstrap/cache 2>/dev/null || true
             
             # 3. Khusus untuk folder build aset
             chmod -R 775 ../build || true
