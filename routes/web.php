@@ -18,6 +18,7 @@ use App\Http\Controllers\Direktur\DirekturController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Secret\AppreciationController;
+use App\Http\Controllers\Secret\SiteSettingController;
 use App\Http\Controllers\User\PengajuanUserController;
 use App\Mail\UndanganMail;
 use App\Models\Aktivitas;
@@ -226,6 +227,9 @@ Route::middleware('auth')->group(function () {
     // Secret routes
     // ─────────────────────────────────────────
     Route::prefix('secret')->name('secret.')->middleware('secret')->group(function () {
+        Route::get('/settings', [SiteSettingController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [SiteSettingController::class, 'update'])->name('settings.update');
+
         Route::get('/appreciation', [AppreciationController::class, 'index'])->name('appreciation.index');
 
         Route::post('/appreciation/dev', [AppreciationController::class, 'storeDev'])->name('appreciation.dev.store');

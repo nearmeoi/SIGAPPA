@@ -58,6 +58,7 @@ const navItems: NavItem[] = [
     { label: 'Atur Template', href: '/admin/templates', icon: FileText },
     { label: 'Kontak', href: '/admin/kontak', icon: Phone },
     { label: 'Data Historis', href: '/admin/historis', icon: Database, superadminOnly: true },
+    { label: 'Pengaturan Situs', href: '/secret/settings', icon: Layout, secretOnly: true },
     { label: 'Kelola Halaman Developer', href: '/secret/appreciation', icon: User, secretOnly: true },
 ];
 
