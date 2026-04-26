@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import AdminLayout from '../../Layouts/AdminLayout';
 import {
     FileText,
@@ -11,6 +11,9 @@ import {
     Play,
     Zap,
     Trophy,
+    AlertCircle,
+    ArrowRight,
+    UserCheck,
 } from 'lucide-react';
 import PkmMapDashboardCard from '../../Components/PkmMapDashboardCard';
 import { PkmData } from '../../types';
@@ -22,6 +25,7 @@ interface DashboardProps {
         pengajuanDiproses: number;
         pengajuanBaru: number;
         pengajuanReviu: number;
+        pengajuanDiajukan: number;
         pengajuanDiterima: number;
         pengajuanDitolak: number;
         pengajuanDirevisi: number;
@@ -41,6 +45,7 @@ export default function Dashboard({
         pengajuanDiproses: 0,
         pengajuanBaru: 0,
         pengajuanReviu: 0,
+        pengajuanDiajukan: 0,
         pengajuanDiterima: 0,
         pengajuanDitolak: 0,
         pengajuanDirevisi: 0,
@@ -50,6 +55,8 @@ export default function Dashboard({
     },
     pkmMapData = [],
 }: DashboardProps) {
+    const { auth }: any = usePage().props;
+    const isDirektur = auth.user.role === 'direktur';
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -72,6 +79,7 @@ export default function Dashboard({
     const pengajuanCards = [
         { label: 'Pengajuan', value: stats.pengajuanBaru, icon: FileText, color: 'text-poltekpar-primary', bg: 'bg-poltekpar-primary/10', iconBg: 'bg-poltekpar-primary', trend: 'Membutuhkan tindakan', filter: 'pengajuan' },
         { label: 'Reviu', value: stats.pengajuanReviu, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50', iconBg: 'bg-amber-500', trend: 'Sedang direviu', filter: 'reviu' },
+        { label: 'Menunggu Pimpinan', value: stats.pengajuanDiajukan, icon: UserCheck, color: 'text-violet-600', bg: 'bg-violet-50', iconBg: 'bg-violet-500', trend: 'Menunggu verifikasi', filter: 'diajukan' },
         { label: 'Diterima', value: stats.pengajuanDiterima, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', iconBg: 'bg-emerald-500', trend: 'Sudah disetujui', filter: 'diterima' },
         { label: 'Ditolak', value: stats.pengajuanDitolak, icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50', iconBg: 'bg-rose-500', trend: 'Tidak memenuhi syarat', filter: 'ditolak' },
         { label: 'Revisi', value: stats.pengajuanDirevisi, icon: RotateCcw, color: 'text-orange-600', bg: 'bg-orange-50', iconBg: 'bg-orange-500', trend: 'Menunggu perbaikan', filter: 'direvisi' },
@@ -122,10 +130,43 @@ export default function Dashboard({
 
     return (
         <AdminLayout title="System Overview">
+            {/* Direktur Notification Banner */}
+            {isDirektur && stats.pengajuanDiajukan > 0 && (
+                <div className="mb-8 relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-95 group-hover:scale-105 transition-transform duration-700"></div>
+                    <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-violet-400/20 rounded-full blur-3xl"></div>
+
+                    <div className="relative z-10 px-6 py-8 sm:px-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+                        <div className="flex items-start gap-5">
+                            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-xl">
+                                <AlertCircle className="text-white" size={32} />
+                            </div>
+                            <div className="text-white">
+                                <h2 className="text-xl sm:text-2xl font-black tracking-tight mb-1">
+                                    {stats.pengajuanDiajukan} Pengajuan Menunggu Verifikasi
+                                </h2>
+                                <p className="text-violet-100 text-sm sm:text-base font-medium opacity-90">
+                                    Ada pengajuan baru yang telah disiapkan oleh Admin dan memerlukan keputusan Anda.
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => handleCardClick('pengajuan', 'diajukan')}
+                            className="whitespace-nowrap px-8 py-4 bg-white text-violet-700 rounded-2xl font-black text-sm uppercase tracking-wider shadow-2xl shadow-violet-900/20 hover:bg-violet-50 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 group/btn"
+                        >
+                            Verifikasi Sekarang
+                            <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Pengajuan Stats */}
             <div className="mb-4">
                 <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Status Pengajuan</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
                     {pengajuanCards.map((card, index) => (
                         <button
                             key={index}

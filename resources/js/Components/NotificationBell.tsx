@@ -54,6 +54,9 @@ const statusBadge = (status: string): { label: string; className: string } => {
     if (status === 'direvisi') {
         return { label: 'Perlu Revisi', className: 'bg-amber-100 text-amber-700' };
     }
+    if (status === 'diajukan') {
+        return { label: 'Menunggu Verifikasi', className: 'bg-violet-100 text-violet-700 font-black' };
+    }
     return { label: status, className: 'bg-slate-100 text-slate-600' };
 };
 
@@ -138,7 +141,7 @@ export default function NotificationBell() {
                 saveToStorage(result);
                 detectNewNotifications(result.items);
             })
-            .catch(() => {})
+            .catch(() => { })
             .finally(() => {
                 isFetching.current = false;
             });
@@ -186,7 +189,7 @@ export default function NotificationBell() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({ ids: [item.id_pengajuan] }),
-        }).catch(() => {});
+        }).catch(() => { });
 
         setIsOpen(false);
         router.visit(`/admin/pengajuan/${item.id_pengajuan}`);
@@ -198,7 +201,7 @@ export default function NotificationBell() {
         fetch('/admin/api/notifications/mark-all-read', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
-        }).catch(() => {});
+        }).catch(() => { });
     };
 
     return (
@@ -206,9 +209,8 @@ export default function NotificationBell() {
             <button
                 type="button"
                 onClick={() => setIsOpen(prev => !prev)}
-                className={`relative p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors duration-200 ${
-                    hasNewNotif ? 'animate-shake' : ''
-                }`}
+                className={`relative p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors duration-200 ${hasNewNotif ? 'animate-shake' : ''
+                    }`}
                 aria-label="Notifikasi"
             >
                 <Bell size={20} className={unreadCount > 0 ? 'text-poltekpar-primary' : ''} />
@@ -256,9 +258,8 @@ export default function NotificationBell() {
                                     <button
                                         key={item.id_pengajuan}
                                         onClick={() => handleItemClick(item)}
-                                        className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors duration-150 ${
-                                            isUnread ? 'bg-blue-50/50' : ''
-                                        }`}
+                                        className={`w-full text-left px-4 py-3 border-b border-slate-50 hover:bg-slate-50 transition-colors duration-150 ${isUnread ? 'bg-blue-50/50' : ''
+                                            }`}
                                     >
                                         <div className="flex items-start gap-3">
                                             {isUnread && (

@@ -20,50 +20,39 @@ jobs:
           port: 2244
           script: |
             cd /var/www/html/sigappa
-            
-            # Force update from GitHub (dynamically using branch name)
+
+            # 1. Update Source Code
             git fetch origin ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
 
-            # Frontend Build
-            export NODE_OPTIONS="--max-old-space-size=1024"
-            if [ -f "package-lock.json" ]; then
-                npm ci || npm install
-            else
-                npm install
-            fi
-            
-            # Build output will go to ../build based on vite.config.js
-            npm run build || (rm -rf node_modules package-lock.json && npm install && npm run build)
-
-            # Ensure the build artifacts are in the correct flattened location (/var/www/html/build)
-            # vite.config.js build.outDir is '../build', so it goes to /var/www/html/build
-            # We don't need to move it if it's already there, but we should make sure it's clean.
-            
-            # Clean and Optimize Laravel
+            # 2. Backend Dependencies & Database
             composer install --no-interaction --prefer-dist --optimize-autoloader
             php artisan migrate --force
-            
-            # AGGRESSIVE CACHE CLEARING
-            # We use || true to ignore errors if some files are owned by www-data
-            php artisan cache:clear || true
-            php artisan config:clear
-            php artisan route:clear
-            php artisan view:clear
-            
-            # RE-OPTIMIZE
+
+            # 3. Frontend Build
+            # Kita build di VPS karena keterbatasan setup saat ini,
+            # gunakan --max-old-space-size untuk hemat RAM VPS
+            export NODE_OPTIONS="--max-old-space-size=1024"
+            npm install
+            npm run build
+
+            # 4. Sinkronisasi Aset ke Web Root
+            # Ini CRITICAL karena VPS Anda menggunakan folder /build di luar sigappa
+            echo "Syncing build assets to web root..."
+            cp -r public/build/* ../build/
+
+            # 5. Optimasi Laravel & Perbaikan Permission
+            # Kita hapus file log lama jika ada masalah permission
+            rm -f storage/logs/laravel.log || true
+
+            # Clear & Cache
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
 
-            # Reset Permissions
-            chmod -R 775 storage bootstrap/cache || true
+            # Pastikan folder storage & bootstrap bisa ditulis oleh www-data
+            chmod -R 775 storage bootstrap/cache
+            # Pastikan file build bisa dibaca web server
+            chmod -R 775 ../build
 
-            echo "DEBUG INFO:"
-            pwd
-            ls -la ../build/assets/app-*.js || echo "No app.js found in ../build/assets/"
-            
-            echo "VERIFYING MANIFEST:"
-            cat ../build/manifest.json || echo "Manifest not found!"
-
-            echo "Deployment Berhasil dengan Build Frontend! 🚀"
+            echo "Deployment Berhasil! SIGAPPA sudah live. 🚀"

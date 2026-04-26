@@ -71,3 +71,16 @@ scp -P 2244 -r ../build devel@103.175.204.247:/var/www/html/
 - **Port:** `2244`
 - **User:** `devel`
 - **Path Utama:** `/var/www/html/sigappa`
+
+---
+
+## 6. Persiapan di VPS (Lakukan Sekali)
+Agar script CI/CD berjalan lancar tanpa error *Permission Denied* di masa depan, pastikan Anda pernah menjalankan perintah ini sekali saja di terminal VPS Anda:
+
+```bash
+# Pastikan user devel masuk ke group www-data
+sudo usermod -aG www-data devel
+
+# Berikan kepemilikan group ke www-data untuk folder build & sigappa
+sudo chgrp -R www-data /var/www/html/sigappa/storage /var/www/html/sigappa/bootstrap/cache /var/www/html/build
+```

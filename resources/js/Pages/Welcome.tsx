@@ -40,7 +40,7 @@ export default function Welcome() {
                         {/* Right Column: Refined Typography Hierarchy */}
                         <div className="welcome-portal-side">
                             <div className="welcome-portal-inner">
-                                
+
                                 {/* 1. Brand Logo */}
                                 <div className="welcome-logo-container">
                                     <img
@@ -52,7 +52,7 @@ export default function Welcome() {
 
                                 {/* 2. Hero Typography Group */}
                                 <div className="welcome-hero-group">
-                                    <span className="welcome-hero-greeting">Selamat Datang Kembali di.</span>
+                                    <span className="welcome-hero-greeting">Selamat Datang Kembali di. (Test CI/CD)</span>
                                     <h1 className="welcome-hero-brand" title="SIGAPPA - Sistem Informasi Geospasial Politeknik Pariwisata Makassar">SIGAPPA</h1>
                                     <div className="welcome-hero-divider"></div>
                                 </div>

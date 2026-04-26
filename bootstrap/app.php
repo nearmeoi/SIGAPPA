@@ -12,11 +12,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
@@ -25,6 +27,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => AdminMiddleware::class,
             'direktur' => DirekturMiddleware::class,
             'secret' => SecretMiddleware::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'evaluasi-sistem',
+            'testimoni/public', // Might as well allow testimoni too
+            'kumpul-arsip/*', // And public archives
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

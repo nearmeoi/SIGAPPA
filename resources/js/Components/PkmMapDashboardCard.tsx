@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import LandingCharts from '@/Components/LandingCharts';
@@ -44,6 +44,13 @@ function FlyToMarker({ lat, lng }: { lat: number | null; lng: number | null }) {
             map.flyTo([lat, lng], 15, { duration: 1.5, easeLinearity: 0.25 });
         }
     }, [lat, lng, map]);
+    return null;
+}
+
+function MapClickHandler({ onClick }: { onClick: () => void }) {
+    useMapEvents({
+        click: () => onClick(),
+    });
     return null;
 }
 
@@ -158,8 +165,9 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
         });
     }, [pkmData, searchKeyword, selectedStatuses, selectedTypes, selectedYear]);
 
-    const mappablePkmData = useMemo(() => (
-        filteredPkmData
+    const mappablePkmData = useMemo(() => {
+        const sourceData = selectedPkm ? [selectedPkm] : filteredPkmData;
+        return sourceData
             .flatMap((pkm) => {
                 const results = [];
                 const mainLat = parseCoordinate(pkm.lat);
@@ -168,7 +176,8 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                     results.push({ pkm, lat: mainLat, lng: mainLng });
                 }
 
-                if (pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
+                // Show additional locations only if this specific PKM is selected
+                if (selectedPkm && selectedPkm.id === pkm.id && pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
                     pkm.lokasi_tambahan.forEach(loc => {
                         const tLat = parseCoordinate(loc.latitude || loc.lat);
                         const tLng = parseCoordinate(loc.longitude || loc.lng);
@@ -178,8 +187,8 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                     });
                 }
                 return results;
-            })
-    ), [filteredPkmData]);
+            });
+    }, [filteredPkmData, selectedPkm]);
 
     const typesMeta = useMemo(() => extractDynamicPkmTypes(pkmData), [pkmData]);
 
@@ -221,6 +230,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
             <div className="bg-white rounded-2xl sm:rounded-[32px] lg:rounded-[40px] shadow-2xl shadow-sigappa-navy/5 border border-slate-100 overflow-hidden mb-6 sm:mb-8 p-3 sm:p-4 md:p-6">
                 <div className="relative w-full h-[380px] sm:h-[500px] md:h-[650px] lg:h-[75vh] min-h-[380px] rounded-2xl sm:rounded-[24px] lg:rounded-[32px] border border-slate-100 overflow-hidden z-10 shadow-inner">
                     <MapContainer center={[-2.5, 118]} zoom={5} className="w-full h-full" zoomControl={false}>
+                        <MapClickHandler onClick={() => setSelectedPkm(null)} />
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
                         {mappablePkmData.map(({ pkm, lat, lng }, index) => {
                             const typeMeta = typesMeta.find(t => t.key === normalizeTypeKey(pkm?.jenis_pkm));

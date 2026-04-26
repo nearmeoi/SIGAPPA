@@ -339,12 +339,12 @@ Route::middleware('auth')->group(function () {
         Route::delete('/evaluasi-sistem/bulk', [EvaluasiSistemController::class, 'bulkDestroy'])->name('evaluasi-sistem.bulk_destroy');
         Route::delete('/evaluasi-sistem/{id}', [EvaluasiSistemController::class, 'destroy'])->name('evaluasi-sistem.destroy');
 
-        // Notifications API
         Route::get('/api/notifications', function () {
             $counts = Pengajuan::selectRaw("
                 SUM(status_pengajuan = 'diproses')  as pengajuan_baru,
                 SUM(status_pengajuan = 'direvisi')  as perlu_direvisi,
-                SUM(status_pengajuan = 'diterima')  as diterima
+                SUM(status_pengajuan = 'diterima')  as diterima,
+                SUM(status_pengajuan = 'diajukan')  as diajukan
             ")->first();
 
             $kegiatanBerjalan = Aktivitas::where('status_pelaksanaan', 'berjalan')->count();
@@ -360,6 +360,7 @@ Route::middleware('auth')->group(function () {
                     'pengajuan_baru' => (int) ($counts->pengajuan_baru ?? 0),
                     'perlu_direvisi' => (int) ($counts->perlu_direvisi ?? 0),
                     'pengajuan_diterima' => (int) ($counts->diterima ?? 0),
+                    'pengajuan_diajukan' => (int) ($counts->diajukan ?? 0),
                     'kegiatan_berjalan' => $kegiatanBerjalan,
                 ],
                 'items' => $items,
