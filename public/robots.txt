@@ -1,4 +1,6 @@
 User-agent: *
+Content-Signal: search=yes,ai-train=yes
+Allow: /
 Disallow: /admin
 Disallow: /secret
 Disallow: /profile

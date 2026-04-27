@@ -6,12 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <link rel="icon" type="image/png" href="{{ asset('logo-poltekpar.png') }}">
-  <title inertia>{{ config('app.name', 'SIGAPPA') }}</title>
+  <title inertia>{{ config('app.name', 'SIGAPPA Poltekpar Makassar') }}</title>
 
   <!-- SEO Meta Tags -->
   <meta name="google-site-verification" content="agJTvy1ftzsZejX7UQBlgbQdZjhHRZl_cZ9ZdWraX6Q" />
   <meta name="description"
-    content="SIGAPPA: Portal Geospasial PKM & Layanan Pariwisata Terpadu Poltekpar Makassar. Ajukan permohonan pengabdian masyarakat secara digital dan transparan.">
+    content="SIGAPPA - Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar">
   <meta name="keywords"
     content="SIGAPPA, SIGAPPA Poltekpar, SIGAPPA Poltekpar Makassar, Peta PKM Poltekpar, Geospasial Pariwisata Makassar, Pengabdian Masyarakat Poltekpar, SIGAPPA Makassar, Geospasial Poltekpar">
   <meta name="author" content="Politeknik Pariwisata Makassar">
@@ -21,28 +21,36 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ url('/') }}">
   <meta property="og:site_name" content="SIGAPPA">
-  <meta property="og:title" content="SIGAPPA - Portal Geospasial & Layanan PKM Poltekpar Makassar">
+  <meta property="og:title" content="SIGAPPA Poltekpar Makassar">
   <meta property="og:description"
-    content="Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar.">
+    content="SIGAPPA - Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar">
   <meta property="og:image" content="{{ asset('logo-poltekpar.png') }}">
 
-  <!-- Structured Data for Site Name -->
+  <!-- Structured Data for AI & Search Engines -->
   <script type="application/ld+json">
     {
       "@@context": "https://schema.org",
-      "@@type": "WebSite",
-      "name": "SIGAPPA",
-      "alternateName": ["SIGAPPA Poltekpar", "Sistem Informasi Geospasial Poltekpar"],
-      "url": "https://sigappa.poltekparmakassar.ac.id/"
+      "@@type": "WebApplication",
+      "name": "SIGAPPA Poltekpar Makassar",
+      "alternateName": "SIGAPPA",
+      "url": "https://sigappa.poltekparmakassar.ac.id/",
+      "description": "SIGAPPA - Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar",
+      "applicationCategory": "Geospatial Information System",
+      "operatingSystem": "Web Browser",
+      "author": {
+        "@@type": "Organization",
+        "name": "Politeknik Pariwisata Makassar",
+        "logo": "https://sigappa.poltekparmakassar.ac.id/logo-poltekpar.png"
+      }
     }
     </script>
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="{{ url('/') }}">
-  <meta property="twitter:title" content="SIGAPPA - Politeknik Pariwisata Makassar">
+  <meta property="twitter:title" content="SIGAPPA Poltekpar Makassar">
   <meta property="twitter:description"
-    content="Portal Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar.">
+    content="SIGAPPA - Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar">
   <meta property="twitter:image" content="{{ asset('logo-poltekpar.png') }}">
 
   <!-- Fonts: Plus Jakarta Sans -->

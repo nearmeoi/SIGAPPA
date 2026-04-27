@@ -15,7 +15,6 @@ URLS_TO_INDEX = [
     'https://sigappa.poltekparmakassar.ac.id/beranda',
     'https://sigappa.poltekparmakassar.ac.id/panduan',
     'https://sigappa.poltekparmakassar.ac.id/testimoni',
-    'https://sigappa.poltekparmakassar.ac.id/developer-crew'
 ]
 
 def fast_index():
