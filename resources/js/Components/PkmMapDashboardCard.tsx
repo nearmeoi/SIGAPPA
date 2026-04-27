@@ -37,13 +37,13 @@ function MapSizeInvalidator({ watchKey }: { watchKey: string }): null {
     return null;
 }
 
-function FlyToMarker({ lat, lng }: { lat: number | null; lng: number | null }) {
+function FlyToMarker({ lat, lng, trigger, zoom = 15 }: { lat: number | null; lng: number | null; trigger?: number; zoom?: number }) {
     const map = useMap();
     useEffect(() => {
-        if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
-            map.flyTo([lat, lng], 15, { duration: 1.5, easeLinearity: 0.25 });
+        if (lat !== null && lng !== null && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+            map.flyTo([Number(lat), Number(lng)], zoom, { duration: 1.5, easeLinearity: 0.25 });
         }
-    }, [lat, lng, map]);
+    }, [lat, lng, map, zoom, trigger]);
     return null;
 }
 
@@ -140,6 +140,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
     const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
     const [isLegendPanelOpen, setIsLegendPanelOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number; trigger: number } | null>(null);
 
     useEffect(() => {
         const syncViewport = () => setIsMobile(window.innerWidth < 768);
@@ -153,6 +154,14 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
             setIsLegendPanelOpen(false);
         }
     }, [isMobile]);
+
+    const handleFlyTo = (lat: any, lng: any) => {
+        const nLat = parseCoordinate(lat);
+        const nLng = parseCoordinate(lng);
+        if (nLat !== null && nLng !== null) {
+            setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
+        }
+    };
 
     const filteredPkmData = useMemo(() => {
         const keyword = searchKeyword.toLowerCase();
@@ -176,16 +185,17 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                     results.push({ pkm, lat: mainLat, lng: mainLng });
                 }
 
-                // Show additional locations only if this specific PKM is selected
-                if (selectedPkm && selectedPkm.id === pkm.id && pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
-                    pkm.lokasi_tambahan.forEach(loc => {
-                        const tLat = parseCoordinate(loc.latitude || loc.lat);
-                        const tLng = parseCoordinate(loc.longitude || loc.lng);
-                        if (tLat !== null && tLng !== null) {
-                            results.push({ pkm, lat: tLat, lng: tLng });
+                // Only show additional markers if a PKM is selected to avoid clutter in global view
+                if (selectedPkm && pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
+                    pkm.lokasi_tambahan.forEach((loc: any) => {
+                        const lat = parseCoordinate(loc.latitude);
+                        const lng = parseCoordinate(loc.longitude);
+                        if (lat !== null && lng !== null) {
+                            results.push({ pkm, lat, lng });
                         }
                     });
                 }
+
                 return results;
             });
     }, [filteredPkmData, selectedPkm]);
@@ -238,7 +248,11 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                             return <Marker key={`${pkm.id}-${index}`} position={[lat, lng]} icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review)} eventHandlers={{ click: () => setSelectedPkm(pkm) }} />;
                         })}
                         <MapSizeInvalidator watchKey={watchKey} />
-                        <FlyToMarker lat={selectedLat} lng={selectedLng} />
+                        <FlyToMarker 
+                            lat={flyToTarget?.lat ?? selectedLat} 
+                            lng={flyToTarget?.lng ?? selectedLng} 
+                            trigger={flyToTarget?.trigger} 
+                        />
                     </MapContainer>
                     <div className="absolute top-3 left-3 right-3 md:top-6 md:left-6 md:right-6 z-[1000] flex items-start justify-between gap-2">
                         <div className="relative">
@@ -323,8 +337,58 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                     <div className="space-y-6">
 
                                         <div className="flex flex-col gap-3 text-[12px] font-bold text-slate-400 uppercase tracking-widest">
-                                            <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-sigappa-primary/10 text-sigappa-primary flex items-center justify-center"><i className="fa-solid fa-location-dot"></i></div>{[selectedPkm.desa, selectedPkm.kecamatan, selectedPkm.kabupaten, selectedPkm.provinsi].filter(Boolean).join(', ') || '-'}</div>
-                                            <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-sigappa-primary/10 text-sigappa-primary flex items-center justify-center"><i className="fa-solid fa-calendar"></i></div>Tahun {selectedPkm.tahun}</div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 mt-1 rounded-lg bg-poltekpar-primary/10 text-poltekpar-primary flex items-center justify-center shrink-0">
+                                                    <i className="fa-solid fa-location-dot"></i>
+                                                </div>
+                                                <div className="flex flex-col gap-2 flex-1 min-w-0">
+                                                    <div className="leading-tight mt-1 flex flex-col gap-1.5">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="flex items-start gap-2 min-w-0">
+                                                                {(selectedPkm.lokasi_tambahan && Array.isArray(selectedPkm.lokasi_tambahan) && selectedPkm.lokasi_tambahan.length > 0) && (
+                                                                    <span className="text-poltekpar-primary font-black text-[9px] bg-poltekpar-primary/10 px-2 py-0.5 rounded-md shrink-0">
+                                                                        {(selectedPkm.lokasi_tambahan && Array.isArray(selectedPkm.lokasi_tambahan) && selectedPkm.lokasi_tambahan.length > 0) ? 'Lokasi 1' : 'Lokasi'}
+                                                                    </span>
+                                                                )}
+                                                                <span className="text-[11px] leading-relaxed">{[selectedPkm.desa, selectedPkm.kecamatan, selectedPkm.kabupaten, selectedPkm.provinsi].filter(Boolean).join(', ') || '-'}</span>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const nLat = parseCoordinate(selectedPkm.lat);
+                                                                    const nLng = parseCoordinate(selectedPkm.lng);
+                                                                    if (nLat !== null && nLng !== null) {
+                                                                        setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
+                                                                    }
+                                                                }}
+                                                                className="flex-shrink-0 text-[10px] font-black text-poltekpar-primary bg-white border border-poltekpar-primary/20 px-2 py-1 rounded-lg hover:bg-poltekpar-primary hover:text-white transition-all shadow-sm flex items-center gap-1.5"
+                                                            >
+                                                                <i className="fa-solid fa-eye"></i> Lihat
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    {selectedPkm.lokasi_tambahan && Array.isArray(selectedPkm.lokasi_tambahan) && selectedPkm.lokasi_tambahan.map((loc: any, idx: number) => (
+                                                        <div key={idx} className="flex items-start justify-between gap-3 pt-2 border-t border-slate-100/50">
+                                                            <div className="flex items-start gap-2 min-w-0">
+                                                                <span className="text-slate-500 font-black text-[9px] bg-slate-100 px-2 py-0.5 rounded-md shrink-0">Lokasi {idx + 2}</span>
+                                                                <span className="text-[11px] leading-relaxed text-slate-500">{[loc.kelurahan_desa || loc.desa, loc.kecamatan, loc.kota_kabupaten || loc.kabupaten, loc.provinsi].filter(Boolean).join(', ') || '-'}</span>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    const nLat = parseCoordinate(loc.latitude);
+                                                                    const nLng = parseCoordinate(loc.longitude);
+                                                                    if (nLat !== null && nLng !== null) {
+                                                                        setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
+                                                                    }
+                                                                }}
+                                                                className="flex-shrink-0 text-[10px] font-black text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-100 transition-all shadow-sm flex items-center gap-1.5"
+                                                            >
+                                                                <i className="fa-solid fa-eye"></i> Lihat
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-poltekpar-primary/10 text-poltekpar-primary flex items-center justify-center shrink-0"><i className="fa-solid fa-calendar"></i></div>Tahun {selectedPkm.tahun}</div>
                                         </div>
                                         <div className="flex flex-wrap gap-2 pt-2">
                                             {hasSelectedCoordinates && (

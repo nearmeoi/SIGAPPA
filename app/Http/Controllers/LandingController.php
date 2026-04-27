@@ -56,7 +56,7 @@ class LandingController extends Controller
                 'desa' => $p->kelurahan_desa ?? '',
                 'lat' => (float) ($p->latitude ?? 0),
                 'lng' => (float) ($p->longitude ?? 0),
-                'lokasi_tambahan' => is_array($p->lokasi_tambahan) ? $p->lokasi_tambahan : [],
+                'lokasi_tambahan' => is_string($p->lokasi_tambahan) ? json_decode($p->lokasi_tambahan, true) : (is_array($p->lokasi_tambahan) ? $p->lokasi_tambahan : []),
                 'total_anggaran' => $p->total_anggaran ?? 0,
                 'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
                     'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,

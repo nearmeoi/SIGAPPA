@@ -490,7 +490,9 @@ export default function MasyarakatSubmissionCard({
                                 </h4>
                                 <div className="space-y-4">
                                     <div className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 shadow-sm">
-                                        <div className="text-[10px] font-black text-poltekpar-primary uppercase tracking-tighter mb-4 px-2 py-0.5 bg-blue-50 w-fit rounded-md border border-blue-100">Titik 1 (Utama)</div>
+                                        <div className="text-[10px] font-black text-poltekpar-primary uppercase tracking-tighter mb-4 px-2 py-0.5 bg-blue-50 w-fit rounded-md border border-blue-100">
+                                            {(selectedDetail as any).lokasi_tambahan && JSON.parse(typeof (selectedDetail as any).lokasi_tambahan === 'string' ? (selectedDetail as any).lokasi_tambahan : JSON.stringify((selectedDetail as any).lokasi_tambahan)).length > 0 ? 'Lokasi 1' : 'Lokasi'}
+                                        </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
                                             <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
                                                 <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Provinsi</span>
@@ -523,7 +525,7 @@ export default function MasyarakatSubmissionCard({
                                             if (Array.isArray(parsed)) {
                                                 return parsed.map((loc, i) => (
                                                     <div key={i} className="bg-slate-50/50 p-6 rounded-2xl border border-slate-100 shadow-sm">
-                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-4 px-2 py-0.5 bg-slate-100 w-fit rounded-md border border-slate-200 text-center">Titik {i + 2}</div>
+                                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-4 px-2 py-0.5 bg-slate-100 w-fit rounded-md border border-slate-200 text-center">Lokasi {i + 2}</div>
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
                                                             <div className="flex flex-col gap-1 pb-2 border-b border-slate-100/60">
                                                                 <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Provinsi</span>
@@ -821,7 +823,7 @@ export default function MasyarakatSubmissionCard({
                         <div key={lokasi.id_ui} className="bg-slate-50 border border-slate-200 rounded-xl p-4 relative">
                             <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => toggleLocationCollapse(lokasi.id_ui)}>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                    Titik Lokasi {idx + 1} {idx === 0 && '(Utama)'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
+                                    {data.lokasi_list.length > 1 ? `Lokasi ${idx + 1}` : 'Lokasi'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
                                 </span>
                                 <div className="flex items-center gap-2">
                                     {idx > 0 && (

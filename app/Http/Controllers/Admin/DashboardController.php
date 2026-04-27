@@ -85,6 +85,7 @@ class DashboardController extends Controller
                 'desa' => $p->kelurahan_desa ?? '',
                 'lat' => (float) ($p->latitude ?? 0),
                 'lng' => (float) ($p->longitude ?? 0),
+                'lokasi_tambahan' => is_string($p->lokasi_tambahan) ? json_decode($p->lokasi_tambahan, true) : (is_array($p->lokasi_tambahan) ? $p->lokasi_tambahan : []),
                 'total_anggaran' => (float) ($p->total_anggaran ?? 0),
                 'tim_kegiatan' => $p->timKegiatan
                     ->map(fn($tim) => [

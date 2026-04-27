@@ -126,6 +126,7 @@ export default function Dashboard({
         arsip_laporan: pkm.arsip_laporan || null,
         dokumentasi: pkm.dokumentasi || null,
         tambahan: pkm.tambahan || [],
+        lokasi_tambahan: pkm.lokasi_tambahan || [],
     }));
 
     return (

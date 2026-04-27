@@ -77,13 +77,16 @@ interface DraftState {
     tahun_pelaksanaan: string;
     is_tahun_saja: boolean;
     id_jenis_pkm: number;
-    provinsi: string;
-    kota_kabupaten: string;
-    kecamatan: string;
-    kelurahan_desa: string;
-    alamat_lengkap: string;
-    latitude: number | null;
-    longitude: number | null;
+    lokasi_list: {
+        id_ui: number;
+        provinsi: string;
+        kota_kabupaten: string;
+        kecamatan: string;
+        kelurahan_desa: string;
+        alamat_lengkap: string;
+        latitude: number | null;
+        longitude: number | null;
+    }[];
     total_anggaran: string;
     sumber_dana: string;
     dana_perguruan_tinggi: string;
@@ -193,13 +196,39 @@ const buildDraft = (pengajuan: Pengajuan, ketuaId?: number): DraftState => ({
     tahun_pelaksanaan: getYearValue(pengajuan.tgl_mulai),
     is_tahun_saja: !!(pengajuan as any).is_tahun_saja,
     id_jenis_pkm: pengajuan.jenis_pkm?.id_jenis_pkm || 1,
-    provinsi: pengajuan.provinsi || '',
-    kota_kabupaten: pengajuan.kota_kabupaten || '',
-    kecamatan: pengajuan.kecamatan || '',
-    kelurahan_desa: pengajuan.kelurahan_desa || '',
-    alamat_lengkap: pengajuan.alamat_lengkap || '',
-    latitude: pengajuan.latitude ?? null,
-    longitude: pengajuan.longitude ?? null,
+    lokasi_list: (() => {
+        const arr = [{
+            id_ui: Date.now(),
+            provinsi: pengajuan.provinsi || '',
+            kota_kabupaten: pengajuan.kota_kabupaten || '',
+            kecamatan: pengajuan.kecamatan || '',
+            kelurahan_desa: pengajuan.kelurahan_desa || '',
+            alamat_lengkap: pengajuan.alamat_lengkap || '',
+            latitude: pengajuan.latitude ?? null,
+            longitude: pengajuan.longitude ?? null,
+        }];
+        try {
+            const tambahanStr = (pengajuan as any).lokasi_tambahan;
+            if (tambahanStr) {
+                const parsed = typeof tambahanStr === 'string' ? JSON.parse(tambahanStr) : tambahanStr;
+                if (Array.isArray(parsed)) {
+                    parsed.forEach((loc, i) => {
+                        arr.push({
+                            id_ui: Date.now() + i + 1,
+                            provinsi: loc.provinsi || '',
+                            kota_kabupaten: loc.kota_kabupaten || '',
+                            kecamatan: loc.kecamatan || '',
+                            kelurahan_desa: loc.kelurahan_desa || '',
+                            alamat_lengkap: loc.alamat_lengkap || '',
+                            latitude: loc.latitude ? Number(loc.latitude) : null,
+                            longitude: loc.longitude ? Number(loc.longitude) : null,
+                        });
+                    });
+                }
+            }
+        } catch { }
+        return arr;
+    })(),
     total_anggaran: String(pengajuan.total_anggaran || 0),
     sumber_dana: pengajuan.sumber_dana || '',
     dana_perguruan_tinggi: String(pengajuan.dana_perguruan_tinggi || 0),
@@ -524,6 +553,11 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     const [confirmDialog, setConfirmDialog] = useState<DialogState>({ open: false, title: '', message: '', action: () => undefined, variant: 'warning', confirmLabel: 'Ya, Lanjutkan', cancelLabel: 'Batal' });
     const [editingSection, setEditingSection] = useState<string | null>(null);
     const [draft, setDraft] = useState<DraftState>(() => buildDraft(pengajuan, ketua?.id_tim));
+    const [collapsedLocations, setCollapsedLocations] = useState<Record<number, boolean>>({});
+
+    const toggleLocationCollapse = (idUi: number) => {
+        setCollapsedLocations(prev => ({ ...prev, [idUi]: !prev[idUi] }));
+    };
     const st = statusConfig[pengajuan.status_pengajuan] || statusConfig.diproses;
     const isDosen = getType(pengajuan) === 'dosen';
     const canEditTanggalPengajuan = (props as any).auth?.user?.role === 'superadmin';
@@ -860,47 +894,72 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                         <Card
                             title="Lokasi Kegiatan"
                             action={sectionActions('location', {
-                                provinsi: draft.provinsi,
-                                kota_kabupaten: draft.kota_kabupaten,
-                                kecamatan: draft.kecamatan,
-                                kelurahan_desa: draft.kelurahan_desa,
-                                alamat_lengkap: draft.alamat_lengkap,
-                                latitude: draft.latitude,
-                                longitude: draft.longitude,
+                                lokasi_list: JSON.stringify(draft.lokasi_list)
                             })}
                             icon={<MapPin size={16} className="text-slate-400" />}
                         >
                             <div className="space-y-4">
                                 {editingSection === 'location' ? (
-                                    <>
-                                        <div className="rounded-xl overflow-hidden border border-zinc-200">
-                                            <MapLocationPicker
-                                                latitude={draft.latitude ?? null}
-                                                longitude={draft.longitude ?? null}
-                                                onChange={(lat, lng, addr) => {
-                                                    setDraft(prev => ({
-                                                        ...prev,
-                                                        latitude: lat,
-                                                        longitude: lng,
-                                                        ...(addr && {
-                                                            provinsi: addr.provinsi || prev.provinsi,
-                                                            kota_kabupaten: addr.kotaKabupaten || prev.kota_kabupaten,
-                                                            kecamatan: addr.kecamatan || prev.kecamatan,
-                                                            kelurahan_desa: addr.kelurahanDesa || prev.kelurahan_desa,
-                                                            alamat_lengkap: addr.address || prev.alamat_lengkap
-                                                        })
-                                                    }));
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
-                                            <EditField label="Provinsi" value={draft.provinsi} onChange={(v) => setDraftField('provinsi', v)} />
-                                            <EditField label="Kota/Kabupaten" value={draft.kota_kabupaten} onChange={(v) => setDraftField('kota_kabupaten', v)} />
-                                            <EditField label="Kecamatan" value={draft.kecamatan} onChange={(v) => setDraftField('kecamatan', v)} />
-                                            <EditField label="Kelurahan/Desa" value={draft.kelurahan_desa} onChange={(v) => setDraftField('kelurahan_desa', v)} />
-                                            <EditField label="Alamat Lengkap" value={draft.alamat_lengkap} onChange={(v) => setDraftField('alamat_lengkap', v)} wide textarea />
-                                        </div>
-                                    </>
+                                    <div className="space-y-6">
+                                        {draft.lokasi_list.map((lokasi, idx) => (
+                                            <div key={lokasi.id_ui} className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative shadow-sm">
+                                                <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => toggleLocationCollapse(lokasi.id_ui)}>
+                                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                                        {draft.lokasi_list.length > 1 ? `Lokasi ${idx + 1}` : 'Lokasi'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
+                                                    </span>
+                                                    <div className="flex items-center gap-2">
+                                                        {idx > 0 && (
+                                                            <button type="button" onClick={(e) => { e.stopPropagation(); setDraft(prev => ({ ...prev, lokasi_list: prev.lokasi_list.filter((_, i) => i !== idx) })); }} className="w-8 h-8 flex justify-center items-center rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shadow-sm">
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button type="button" className="w-8 h-8 flex justify-center items-center rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors shadow-sm">
+                                                            <i className={`fa-solid fa-chevron-${collapsedLocations[lokasi.id_ui] ? 'down' : 'up'}`}></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {!collapsedLocations[lokasi.id_ui] && (
+                                                    <div className="animate-in slide-in-from-top-2 duration-300">
+                                                        <div className="rounded-xl overflow-hidden border border-zinc-200 mb-4">
+                                                            <MapLocationPicker
+                                                                latitude={lokasi.latitude ?? null}
+                                                                longitude={lokasi.longitude ?? null}
+                                                                onChange={(lat, lng, addr) => {
+                                                                    setDraft(prev => {
+                                                                        const newList = [...prev.lokasi_list];
+                                                                        newList[idx] = {
+                                                                            ...newList[idx],
+                                                                            latitude: lat,
+                                                                            longitude: lng,
+                                                                            ...(addr && {
+                                                                                provinsi: addr.provinsi || newList[idx].provinsi,
+                                                                                kota_kabupaten: addr.kotaKabupaten || newList[idx].kota_kabupaten,
+                                                                                kecamatan: addr.kecamatan || newList[idx].kecamatan,
+                                                                                kelurahan_desa: addr.kelurahanDesa || newList[idx].kelurahan_desa,
+                                                                                alamat_lengkap: addr.address || newList[idx].alamat_lengkap
+                                                                            })
+                                                                        };
+                                                                        return { ...prev, lokasi_list: newList };
+                                                                    });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                                            <EditField label="Provinsi" value={lokasi.provinsi} onChange={(v) => { setDraft(prev => { const newList = [...prev.lokasi_list]; newList[idx].provinsi = v; return { ...prev, lokasi_list: newList }; }); }} />
+                                                            <EditField label="Kota/Kabupaten" value={lokasi.kota_kabupaten} onChange={(v) => { setDraft(prev => { const newList = [...prev.lokasi_list]; newList[idx].kota_kabupaten = v; return { ...prev, lokasi_list: newList }; }); }} />
+                                                            <EditField label="Kecamatan" value={lokasi.kecamatan} onChange={(v) => { setDraft(prev => { const newList = [...prev.lokasi_list]; newList[idx].kecamatan = v; return { ...prev, lokasi_list: newList }; }); }} />
+                                                            <EditField label="Kelurahan/Desa" value={lokasi.kelurahan_desa} onChange={(v) => { setDraft(prev => { const newList = [...prev.lokasi_list]; newList[idx].kelurahan_desa = v; return { ...prev, lokasi_list: newList }; }); }} />
+                                                            <EditField label="Alamat Lengkap" value={lokasi.alamat_lengkap} onChange={(v) => { setDraft(prev => { const newList = [...prev.lokasi_list]; newList[idx].alamat_lengkap = v; return { ...prev, lokasi_list: newList }; }); }} wide textarea />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <button type="button" onClick={() => setDraft(prev => ({ ...prev, lokasi_list: [...prev.lokasi_list, { id_ui: Date.now(), provinsi: '', kota_kabupaten: '', kecamatan: '', kelurahan_desa: '', alamat_lengkap: '', latitude: null, longitude: null }] }))} className="w-full py-3 bg-poltekpar-primary/10 hover:bg-poltekpar-primary hover:text-white text-poltekpar-primary rounded-xl text-sm font-bold border border-poltekpar-primary/20 hover:border-poltekpar-primary transition-all flex justify-center items-center gap-2 mt-4">
+                                            <Plus size={16} /> Tambah Lokasi Lainnya
+                                        </button>
+                                    </div>
                                 ) : (() => {
                                     let additionalLocations: any[] = [];
                                     try {
@@ -916,7 +975,11 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative mt-4 shadow-sm">
                                                 <div className="absolute -top-3 left-4 bg-blue-100 text-blue-700 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-blue-200 shadow-sm flex items-center gap-1.5">
                                                     <MapPin size={12} />
-                                                    Titik 1 (Utama) {pengajuan.kota_kabupaten ? `- ${pengajuan.kota_kabupaten}` : ''}
+                                                    {(() => {
+                                                        const tambahan = pengajuan.lokasi_tambahan;
+                                                        const parsed = tambahan ? (typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan) : [];
+                                                        return Array.isArray(parsed) && parsed.length > 0 ? 'Lokasi 1' : 'Lokasi';
+                                                    })()} {pengajuan.kota_kabupaten ? `- ${pengajuan.kota_kabupaten}` : ''}
                                                 </div>
                                                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
                                                     <Field label="Provinsi" value={pengajuan.provinsi} />
@@ -939,7 +1002,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                                 <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative mt-6 shadow-sm">
                                                     <div className="absolute -top-3 left-4 bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-slate-300 shadow-sm flex items-center gap-1.5">
                                                         <MapPin size={12} />
-                                                        Titik {idx + 2} {loc.kota_kabupaten ? `- ${loc.kota_kabupaten}` : ''}
+                                                        Lokasi {idx + 2} {loc.kota_kabupaten ? `- ${loc.kota_kabupaten}` : ''}
                                                     </div>
                                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
                                                         <Field label="Provinsi" value={loc.provinsi} />

@@ -131,6 +131,7 @@ class PengajuanController extends Controller
             'surat_permohonan' => $p->surat_permohonan,
             'rab' => $p->rab,
             'rab_items' => $p->rab_items,
+            'lokasi_tambahan' => $p->lokasi_tambahan,
             'admin_read_at' => $p->admin_read_at,
             'direktur_approved_at' => $p->direktur_approved_at?->format('d M Y, H:i'),
             'user' => $p->user ? [
@@ -245,6 +246,25 @@ class PengajuanController extends Controller
         if ($request->has('rab_items')) {
             $validated['rab_items'] = $this->normalizeRabItems($request->input('rab_items', []));
             $validated['total_anggaran'] = collect($validated['rab_items'])->sum('total');
+        }
+
+        if ($request->has('lokasi_list')) {
+            $lokasiListStr = $request->input('lokasi_list', '[]');
+            $lokasiListStr = $lokasiListStr ?: '[]';
+            $lokasiList = json_decode($lokasiListStr, true);
+            if (is_array($lokasiList) && !empty($lokasiList)) {
+                $primaryLokasi = $lokasiList[0];
+                $lokasiTambahan = array_slice($lokasiList, 1);
+                
+                $validated['provinsi'] = $primaryLokasi['provinsi'] ?? null;
+                $validated['kota_kabupaten'] = $primaryLokasi['kota_kabupaten'] ?? null;
+                $validated['kecamatan'] = $primaryLokasi['kecamatan'] ?? null;
+                $validated['kelurahan_desa'] = $primaryLokasi['kelurahan_desa'] ?? null;
+                $validated['alamat_lengkap'] = $primaryLokasi['alamat_lengkap'] ?? null;
+                $validated['latitude'] = $primaryLokasi['latitude'] ?? null;
+                $validated['longitude'] = $primaryLokasi['longitude'] ?? null;
+                $validated['lokasi_tambahan'] = $lokasiTambahan;
+            }
         }
 
         if ($request->hasFile('file_surat_permohonan')) {

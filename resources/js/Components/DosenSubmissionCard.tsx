@@ -566,7 +566,13 @@ export default function DosenSubmissionCard({
                                 <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Lokasi PKM</h4>
                                 <div className="space-y-3">
                                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed shadow-sm">
-                                        <p className="font-bold text-poltekpar-primary text-[10px] uppercase mb-1">Titik 1 (Utama)</p>
+                                        <p className="font-bold text-poltekpar-primary text-[10px] uppercase mb-1">
+                                            {(() => {
+                                                const tambahan = (selectedDetail as any).lokasi_tambahan;
+                                                const parsed = tambahan ? (typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan) : [];
+                                                return Array.isArray(parsed) && parsed.length > 0 ? 'Lokasi 1' : 'Lokasi';
+                                            })()}
+                                        </p>
                                         {selectedDetail.alamat_lengkap && <p className="mb-0.5">{selectedDetail.alamat_lengkap}</p>}
                                         <p>{[selectedDetail.kelurahan_desa, selectedDetail.kecamatan, selectedDetail.kota_kabupaten, selectedDetail.provinsi].filter(Boolean).join(', ')}</p>
                                     </div>
@@ -578,7 +584,7 @@ export default function DosenSubmissionCard({
                                             if (Array.isArray(parsed)) {
                                                 return parsed.map((loc, i) => (
                                                     <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed shadow-sm">
-                                                        <p className="font-bold text-slate-400 text-[10px] uppercase mb-1">Titik {i + 2}</p>
+                                                        <p className="font-bold text-slate-400 text-[10px] uppercase mb-1">Lokasi {i + 2}</p>
                                                         {loc.alamat_lengkap && <p className="mb-0.5">{loc.alamat_lengkap}</p>}
                                                         <p>{[loc.kelurahan_desa, loc.kecamatan, loc.kota_kabupaten, loc.provinsi].filter(Boolean).join(', ')}</p>
                                                     </div>
@@ -797,7 +803,7 @@ export default function DosenSubmissionCard({
                         <div key={lokasi.id_ui} className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative">
                             <div className="flex justify-between items-center mb-4 cursor-pointer" onClick={() => toggleLocationCollapse(lokasi.id_ui)}>
                                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                    Titik Lokasi {idx + 1} {idx === 0 && '(Utama)'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
+                                    {data.lokasi_list.length > 1 ? `Lokasi Kegiatan ${idx + 1}` : 'Lokasi Kegiatan'} {lokasi.kota_kabupaten ? ` - ${lokasi.kota_kabupaten}` : ''}
                                 </span>
                                 <div className="flex items-center gap-2">
                                     {idx > 0 && (
@@ -869,7 +875,7 @@ export default function DosenSubmissionCard({
                     ))}
 
                     <button type="button" onClick={() => setData('lokasi_list', [...data.lokasi_list, { id_ui: Date.now(), provinsi: '', kota_kabupaten: '', kecamatan: '', kelurahan_desa: '', alamat_lengkap: '', latitude: null, longitude: null }])} className="w-full py-3 bg-poltekpar-primary/10 hover:bg-poltekpar-primary hover:text-white text-poltekpar-primary rounded-xl text-sm font-bold border border-poltekpar-primary/20 hover:border-poltekpar-primary transition-all flex justify-center items-center gap-2">
-                        <i className="fa-solid fa-plus"></i> Tambah Titik Lokasi Lainnya
+                        <i className="fa-solid fa-plus"></i> Tambah Lokasi Lainnya
                     </button>
                 </div>
             </div>
