@@ -340,20 +340,48 @@ Route::middleware('auth')->group(function () {
         Route::delete('/evaluasi-sistem/{id}', [EvaluasiSistemController::class, 'destroy'])->name('evaluasi-sistem.destroy');
 
         Route::get('/api/notifications', function () {
+            $user = auth()->user();
+            $role = strtolower($user->role ?? '');
+            $isDirektur = $role === 'direktur';
+            $isAdmin = in_array($role, ['admin', 'superadmin', 'secret_account']);
+
             $counts = Pengajuan::selectRaw("
                 SUM(status_pengajuan = 'diproses')  as pengajuan_baru,
                 SUM(status_pengajuan = 'direvisi')  as perlu_direvisi,
                 SUM(status_pengajuan = 'diterima')  as diterima,
-                SUM(status_pengajuan = 'diajukan')  as diajukan
+                SUM(status_pengajuan = 'diajukan')  as diajukan,
+                SUM(status_pengajuan = 'diajukan' AND admin_read_at IS NULL) as diajukan_baru
             ")->first();
 
             $kegiatanBerjalan = Aktivitas::where('status_pelaksanaan', 'berjalan')->count();
 
-            $items = Pengajuan::notifikasi()
-                ->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'created_at', 'admin_read_at')
+            $query = Pengajuan::query();
+            if ($isDirektur) {
+                // Direktur melihat pengajuan yang diajukan ke mereka atau sedang dalam proses revisi mereka
+                $query->whereIn('status_pengajuan', ['diajukan', 'revisi_direktur']);
+                $unreadCount = Pengajuan::whereIn('status_pengajuan', ['diajukan', 'revisi_direktur'])
+                    ->whereNull('admin_read_at')
+                    ->count();
+            } else {
+                // Admin dapat notif untuk: Baru, Direvisi, Diterima, Ditolak, Selesai
+                $query->whereIn('status_pengajuan', ['diproses', 'direvisi', 'diterima', 'ditolak', 'selesai']);
+                $unreadCount = Pengajuan::whereIn('status_pengajuan', ['diproses', 'direvisi', 'diterima', 'ditolak', 'selesai'])
+                    ->whereNull('admin_read_at')
+                    ->count();
+            }
+
+            $items = $query->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'created_at', 'admin_read_at')
                 ->orderBy('created_at', 'desc')
-                ->limit(10)
-                ->get();
+                ->limit(15)
+                ->get()
+                ->map(fn($p) => [
+                    'id_pengajuan' => $p->id_pengajuan,
+                    'judul_kegiatan' => $p->judul_kegiatan,
+                    'status_pengajuan' => $p->status_pengajuan,
+                    'catatan_admin' => ($isAdmin && in_array($p->status_pengajuan, ['diterima', 'ditolak', 'direvisi'])) ? $p->catatan_direktur : $p->catatan_admin,
+                    'created_at' => $p->created_at->toISOString(),
+                    'admin_read_at' => $p->admin_read_at ? $p->admin_read_at->toISOString() : null,
+                ]);
 
             return response()->json([
                 'counts' => [
@@ -361,6 +389,7 @@ Route::middleware('auth')->group(function () {
                     'perlu_direvisi' => (int) ($counts->perlu_direvisi ?? 0),
                     'pengajuan_diterima' => (int) ($counts->diterima ?? 0),
                     'pengajuan_diajukan' => (int) ($counts->diajukan ?? 0),
+                    'unread_count' => $unreadCount,
                     'kegiatan_berjalan' => $kegiatanBerjalan,
                 ],
                 'items' => $items,
@@ -374,14 +403,25 @@ Route::middleware('auth')->group(function () {
             ]);
 
             Pengajuan::whereIn('id_pengajuan', $validated['ids'])
-                ->notifikasi()
                 ->update(['admin_read_at' => now()]);
 
             return response()->json(['success' => true]);
         })->name('api.notifications.mark-read');
 
         Route::post('/api/notifications/mark-all-read', function () {
-            Pengajuan::belumDibaca()->update(['admin_read_at' => now()]);
+            $user = auth()->user();
+            $role = strtolower($user->role ?? '');
+            $isDirektur = $role === 'direktur';
+
+            $query = Pengajuan::whereNull('admin_read_at');
+
+            if ($isDirektur) {
+                $query->whereIn('status_pengajuan', ['diajukan', 'revisi_direktur']);
+            } else {
+                $query->whereIn('status_pengajuan', ['diproses', 'direvisi', 'diterima', 'ditolak', 'selesai']);
+            }
+
+            $query->update(['admin_read_at' => now()]);
 
             return response()->json(['success' => true]);
         })->name('api.notifications.mark-all-read');

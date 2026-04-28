@@ -42,7 +42,9 @@ interface Submission {
     nama_pengusul?: string;
     email_pengusul?: string;
     kebutuhan?: string;
-    tim_kegiatan?: { nama: string; peran: string }[];
+    tim_kegiatan?: { nama: string; peran: string; institusi?: string }[];
+    aktivitas?: { status_pelaksanaan: string; catatan_pelaksanaan?: string };
+    logs?: { id: number; status_lama: string | null; status_baru: string; catatan: string | null; created_at: string }[];
 }
 
 interface DosenSubmissionCardProps {
@@ -56,6 +58,15 @@ interface DosenSubmissionCardProps {
     onlyShowStatus?: boolean;
     jenisPkmOptions?: { value: number; label: string }[];
     editSubmission?: Submission | null;
+    pagination?: {
+        links: { url: string | null; label: string; active: boolean }[];
+        current_page: number;
+        last_page: number;
+        total: number;
+    } | null;
+    filters?: {
+        search?: string;
+    };
 }
 
 interface RabItem {
@@ -118,6 +129,7 @@ const getSubmissionStatusStyle = (status: string) => {
     const styles: Record<string, { label: string; icon: string; bg: string; color: string }> = {
         diproses: { label: 'Diproses', icon: 'fa-clock', bg: '#dbeafe', color: '#1E4A8C' },
         ditangguhkan: { label: 'Revisi', icon: 'fa-file-pen', bg: '#fef3c7', color: '#b45309' },
+        'Menunggu Keputusan Direktur': { label: 'Menunggu Keputusan Direktur', icon: 'fa-user-tie', bg: '#ede9fe', color: '#5b21b6' },
         ditolak: { label: 'Ditolak', icon: 'fa-circle-xmark', bg: '#fee2e2', color: '#b91c1c' },
         diterima: { label: 'Diterima', icon: 'fa-circle-check', bg: '#dcfce7', color: '#15803d' },
         berlangsung: { label: 'Berlangsung', icon: 'fa-person-walking', bg: '#fef3c7', color: '#b45309' },
@@ -139,11 +151,30 @@ export default function DosenSubmissionCard({
     onlyShowStatus = false,
     jenisPkmOptions = [],
     editSubmission = null,
+    pagination = null,
+    filters = {},
 }: DosenSubmissionCardProps) {
     const [mainTab, setMainTab] = useState('pengajuan');
     const [expandedHubSections, setExpandedHubSections] = useState({ kegiatan: false, riwayat: false });
     const [expandedActivityId, setExpandedActivityId] = useState<number | null>(pkmListData[0]?.id ?? null);
     const [selectedDetail, setSelectedDetail] = useState<Submission | null>(null);
+    const [selectedStatusLog, setSelectedStatusLog] = useState<Submission | null>(null);
+
+    const [searchValue, setSearchValue] = useState(filters.search || '');
+
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(() => {
+            if (searchValue !== (filters.search || '')) {
+                router.get(
+                    window.location.pathname,
+                    { search: searchValue },
+                    { preserveState: true, preserveScroll: true, replace: true }
+                );
+            }
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchValue]);
     const [isMockSubmitting, setIsMockSubmitting] = useState(false);
     const [feedbackDialog, setFeedbackDialog] = useState<{ show: boolean; type: 'success' | 'error'; title: string; message: string }>({ show: false, type: 'success', title: '', message: '' });
     const [pegawaiOptions, setPegawaiOptions] = useState<{ dosen: string[], staff: string[] }>({ dosen: [], staff: [] });
@@ -509,84 +540,251 @@ export default function DosenSubmissionCard({
         onUpdateSubmissionStatus?.('belum_diajukan');
     };
 
+    const getFullUrl = (path: string | null | undefined) => {
+        if (!path) return '';
+        if (path.startsWith('blob:') || path.startsWith('http')) return path;
+        const origin = window.location.origin;
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `${origin}${cleanPath}`;
+    };
+
     const renderDetailModal = () => {
         if (!selectedDetail) return null;
         const style = getSubmissionStatusStyle(selectedDetail.status);
 
         return (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-300 text-left">
                 <div className="absolute inset-0" onClick={() => setSelectedDetail(null)}></div>
-                <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                    {/* Modal Header */}
-                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-poltekpar-primary text-white flex items-center justify-center shadow-md">
-                                <i className="fa-solid fa-file-invoice text-lg"></i>
+                <div
+                    className="bg-white rounded-[2rem] shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-400 flex flex-col max-h-[90vh] relative z-10 border border-white/20"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {/* Header: Modern & Sleek */}
+                    <div className="relative shrink-0 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-poltekpar-primary to-poltekpar-navy opacity-95"></div>
+                        <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                        <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-sky-400/20 rounded-full blur-2xl"></div>
+                        
+                        <div className="relative px-6 py-6 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white/15 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/30 shadow-inner shrink-0">
+                                    <i className="fa-solid fa-file-invoice text-xl text-white"></i>
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="px-2 py-0.5 rounded-md bg-white/20 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest border border-white/20">
+                                            #{selectedDetail.kode_unik || selectedDetail.id}
+                                        </span>
+                                        <span 
+                                            className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border"
+                                            style={{ backgroundColor: style.bg, color: style.color, borderColor: `${style.color}30` }}
+                                        >
+                                            {style.label}
+                                        </span>
+                                    </div>
+                                    <h3 className="text-lg font-black text-white leading-tight truncate max-w-[200px] sm:max-w-[300px]">{selectedDetail.judul}</h3>
+                                    <p className="text-white/60 text-[10px] font-medium">Diajukan {selectedDetail.tanggal}</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="text-base font-bold text-slate-900 line-clamp-1">{selectedDetail.judul}</h3>
-                                <p className="text-[11px] text-slate-500 font-medium">{selectedDetail.tanggal}</p>
-                            </div>
+                            <button 
+                                onClick={() => setSelectedDetail(null)} 
+                                className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-90 shrink-0"
+                            >
+                                <i className="fa-solid fa-xmark text-lg"></i>
+                            </button>
                         </div>
-                        <button onClick={() => setSelectedDetail(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-400 transition-colors">
-                            <i className="fa-solid fa-xmark"></i>
-                        </button>
                     </div>
 
-                    {/* Modal Body */}
-                    <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                        <div className="flex flex-col items-center p-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/30">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Status Pengajuan</span>
-                            <div className="px-4 py-1.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-sm" style={{ backgroundColor: style.bg, color: style.color }}>
-                                <i className={`fa-solid ${style.icon}`}></i>
-                                {style.label}
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-4">
+                    {/* Content Area: Single Column Vertical Flow */}
+                    <div className="p-5 sm:p-7 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30 text-[13px]">
+                        <div className="space-y-7">
+                            
+                            {/* Section: Submitter Info */}
                             <section>
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Informasi Umum</h4>
-                                <div className="space-y-2 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100/60">
-                                    <p><span className="text-slate-500">Nama Pengusul:</span> <span className="text-slate-900 font-semibold">{selectedDetail.nama_pengusul || '-'}</span></p>
-                                    <p><span className="text-slate-500">Kategori:</span> <span className="text-slate-900 font-semibold">{selectedDetail.jenis_pkm || '-'}</span></p>
-                                    <p><span className="text-slate-500">Instansi:</span> <span className="text-slate-900 font-semibold">{selectedDetail.instansi_mitra || '-'}</span></p>
-                                    <p><span className="text-slate-500">Email:</span> <span className="text-slate-900 font-semibold">{selectedDetail.email_pengusul || '-'}</span></p>
-                                    <p><span className="text-slate-500">WhatsApp:</span> <span className="text-slate-900 font-semibold">{selectedDetail.no_telepon || '-'}</span></p>
-                                </div>
-                            </section>
-
-                            <section>
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Kebutuhan PKM</h4>
-                                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed italic">
-                                    "{selectedDetail.kebutuhan || selectedDetail.ringkasan || '-'}"
-                                </div>
-                            </section>
-
-                            <section>
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Lokasi PKM</h4>
-                                <div className="space-y-3">
-                                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed shadow-sm">
-                                        <p className="font-bold text-poltekpar-primary text-[10px] uppercase mb-1">
-                                            {(() => {
-                                                const tambahan = (selectedDetail as any).lokasi_tambahan;
-                                                const parsed = tambahan ? (typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan) : [];
-                                                return Array.isArray(parsed) && parsed.length > 0 ? 'Lokasi 1' : 'Lokasi';
-                                            })()}
-                                        </p>
-                                        {selectedDetail.alamat_lengkap && <p className="mb-0.5">{selectedDetail.alamat_lengkap}</p>}
-                                        <p>{[selectedDetail.kelurahan_desa, selectedDetail.kecamatan, selectedDetail.kota_kabupaten, selectedDetail.provinsi].filter(Boolean).join(', ')}</p>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-poltekpar-primary border border-blue-100">
+                                        <i className="fa-solid fa-user-tie text-sm"></i>
                                     </div>
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Informasi Pengusul</h4>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Ketua Pengusul</label>
+                                            <p className="text-sm font-bold text-slate-900">{selectedDetail.nama_pengusul || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Kategori PKM</label>
+                                            <p className="text-sm font-bold text-slate-900">{selectedDetail.jenis_pkm || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Email</label>
+                                            <p className="text-sm font-bold text-slate-900 truncate">{selectedDetail.email_pengusul || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">WhatsApp</label>
+                                            <div className="flex items-center gap-2">
+                                                <i className="fa-brands fa-whatsapp text-green-500"></i>
+                                                <p className="text-sm font-bold text-slate-900">{selectedDetail.no_telepon || '-'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Section: Tim Pelaksana */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100">
+                                        <i className="fa-solid fa-users text-sm"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Tim Pelaksana</h4>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                                    {selectedDetail.tim_kegiatan && selectedDetail.tim_kegiatan.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {selectedDetail.tim_kegiatan.map((t, i) => (
+                                                <div key={i} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100/50">
+                                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-400 shadow-sm shrink-0 font-bold text-xs uppercase">
+                                                        {t.nama.charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-[11px] font-bold text-slate-900 truncate">{t.nama}</p>
+                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                            <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tight bg-poltekpar-primary/10 text-poltekpar-primary">
+                                                                {t.peran}
+                                                            </span>
+                                                            {t.institusi && <span className="text-[9px] text-slate-400 truncate max-w-[80px]">{t.institusi}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400 italic text-center py-4">Belum ada tim yang didaftarkan</p>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* Section: RAB */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-600 border border-rose-100">
+                                        <i className="fa-solid fa-receipt text-sm"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Rencana Anggaran Biaya</h4>
+                                </div>
+                                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                        <thead className="bg-slate-50/80 border-b border-slate-100">
+                                            <tr>
+                                                <th className="px-5 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Keterangan Item</th>
+                                                <th className="px-5 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px] text-right">Biaya</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {(() => {
+                                                const rab = (selectedDetail as any).rab_items || [];
+                                                if (Array.isArray(rab) && rab.length > 0) {
+                                                    return rab.map((item, i) => (
+                                                        <tr key={i} className="hover:bg-slate-50/30 transition-colors">
+                                                            <td className="px-5 py-3">
+                                                                <p className="font-bold text-slate-700">{item.nama_item}</p>
+                                                                <p className="text-[10px] text-slate-400 mt-0.5">{item.jumlah} Unit x Rp {Number(item.harga).toLocaleString()}</p>
+                                                            </td>
+                                                            <td className="px-5 py-3 text-right font-black text-slate-900">
+                                                                Rp {Number(item.total).toLocaleString()}
+                                                            </td>
+                                                        </tr>
+                                                    ));
+                                                }
+                                                return <tr><td colSpan={2} className="px-5 py-8 text-center text-slate-300 italic">Data RAB tidak tersedia</td></tr>;
+                                            })()}
+                                        </tbody>
+                                        <tfoot className="bg-slate-50/50">
+                                            <tr className="border-t-2 border-slate-100">
+                                                <td className="px-5 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Total Anggaran</td>
+                                                <td className="px-5 py-4 text-right">
+                                                    <span className="px-3 py-1.5 bg-poltekpar-primary text-white text-sm font-black rounded-xl shadow-lg shadow-poltekpar-primary/20">
+                                                        Rp {Number(selectedDetail.total_anggaran || 0).toLocaleString()}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </section>
+
+                            {/* Section: Sumber Dana */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center text-sky-600 border border-sky-100">
+                                        <i className="fa-solid fa-hand-holding-dollar text-sm"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Sumber Dana</h4>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-2 gap-3">
+                                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/60 flex flex-col gap-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Internal PT</span>
+                                        <span className="text-[11px] font-black text-slate-900">Rp {Number(selectedDetail.dana_perguruan_tinggi || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/60 flex flex-col gap-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Pemerintah</span>
+                                        <span className="text-[11px] font-black text-slate-900">Rp {Number(selectedDetail.dana_pemerintah || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/60 flex flex-col gap-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lembaga DN</span>
+                                        <span className="text-[11px] font-black text-slate-900">Rp {Number(selectedDetail.dana_lembaga_dalam || 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100/60 flex flex-col gap-1">
+                                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Lembaga LN</span>
+                                        <span className="text-[11px] font-black text-slate-900">Rp {Number(selectedDetail.dana_lembaga_luar || 0).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Section: Locations */}
+                            <section>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100">
+                                        <i className="fa-solid fa-map-pin text-sm"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Lokasi Kegiatan</h4>
+                                </div>
+                                <div className="space-y-4">
+                                    {/* Primary Location (Lokasi 1) */}
+                                    <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden transition-all hover:border-emerald-200 group">
+                                        <div className="absolute top-0 right-0 px-3 py-1 bg-emerald-500 text-[8px] text-white font-black uppercase tracking-[0.2em] rounded-bl-xl shadow-sm">LOKASI 1</div>
+                                        <div className="space-y-2">
+                                            <p className="text-[11px] font-bold text-slate-900 leading-snug pr-12">
+                                                {[selectedDetail.kelurahan_desa, selectedDetail.kecamatan, selectedDetail.kota_kabupaten, selectedDetail.provinsi].filter(Boolean).join(', ') || '-'}
+                                            </p>
+                                            <div className="pt-2 border-t border-slate-50 flex items-start gap-2">
+                                                <i className="fa-solid fa-location-dot text-emerald-400 text-[10px] mt-1 group-hover:animate-bounce"></i>
+                                                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{selectedDetail.alamat_lengkap || '-'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Additional Locations (Lokasi 2, 3, etc.) */}
                                     {(() => {
                                         try {
                                             const tambahan = (selectedDetail as any).lokasi_tambahan;
                                             if (!tambahan) return null;
                                             const parsed = typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan;
-                                            if (Array.isArray(parsed)) {
+                                            if (Array.isArray(parsed) && parsed.length > 0) {
                                                 return parsed.map((loc, i) => (
-                                                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-600 leading-relaxed shadow-sm">
-                                                        <p className="font-bold text-slate-400 text-[10px] uppercase mb-1">Lokasi {i + 2}</p>
-                                                        {loc.alamat_lengkap && <p className="mb-0.5">{loc.alamat_lengkap}</p>}
-                                                        <p>{[loc.kelurahan_desa, loc.kecamatan, loc.kota_kabupaten, loc.provinsi].filter(Boolean).join(', ')}</p>
+                                                    <div key={i} className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 relative overflow-hidden transition-all hover:border-emerald-200 group">
+                                                        <div className="absolute top-0 right-0 px-3 py-1 bg-slate-400 text-[8px] text-white font-black uppercase tracking-[0.2em] rounded-bl-xl shadow-sm">LOKASI {i + 2}</div>
+                                                        <div className="space-y-2">
+                                                            <p className="text-[11px] font-bold text-slate-900 leading-snug pr-12">
+                                                                {[loc.kelurahan_desa, loc.kecamatan, loc.kota_kabupaten, loc.provinsi].filter(Boolean).join(', ') || '-'}
+                                                            </p>
+                                                            <div className="pt-2 border-t border-slate-50 flex items-start gap-2">
+                                                                <i className="fa-solid fa-location-dot text-slate-300 text-[10px] mt-1 group-hover:text-emerald-400 transition-colors"></i>
+                                                                <p className="text-[10px] text-slate-400 leading-relaxed truncate">{loc.alamat_lengkap || '-'}</p>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 ));
                                             }
@@ -596,129 +794,226 @@ export default function DosenSubmissionCard({
                                 </div>
                             </section>
 
+                            {/* Section: Documents */}
                             <section>
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Tim Pelaksana</h4>
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60 space-y-2">
-                                    {selectedDetail.tim_kegiatan && selectedDetail.tim_kegiatan.length > 0 ? (
-                                        selectedDetail.tim_kegiatan.filter(t => t.peran !== 'Ketua/Dosen Pengusul').map((t, i) => (
-                                            <div key={i} className="flex flex-col mb-1.5 pb-1.5 border-b border-slate-100 last:border-0 last:mb-0 last:pb-0">
-                                                <span className="text-slate-900 font-semibold text-sm">{t.nama}</span>
-                                                <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{t.peran === 'Dosen' ? 'Dosen Terlibat' : t.peran === 'Staff' ? 'Staf Terlibat' : 'Mahasiswa Terlibat'}</span>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100">
+                                        <i className="fa-solid fa-folder-open text-sm"></i>
+                                    </div>
+                                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Berkas Lampiran</h4>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {selectedDetail.surat_permohonan && (
+                                        <a href={getFullUrl(selectedDetail.surat_permohonan)} target="_blank" className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-poltekpar-primary group transition-all border border-slate-100 hover:border-poltekpar-primary shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-poltekpar-primary group-hover:scale-110 transition-transform shadow-sm">
+                                                    <i className="fa-solid fa-file-pdf text-lg"></i>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-black text-slate-700 group-hover:text-white uppercase tracking-tight truncate max-w-[80px]">Surat</p>
+                                                    <p className="text-[9px] text-slate-400 group-hover:text-white/60 font-bold">Wajib</p>
+                                                </div>
                                             </div>
-                                        ))
-                                    ) : <p className="text-xs text-slate-400 italic">Data tim belum diatur.</p>}
-                                </div>
-                            </section>
-
-                            <section>
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Anggaran & Sumber Dana</h4>
-                                <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100/60">
-                                    <div className="p-2.5 bg-blue-50/50 rounded-lg flex justify-between items-center border border-blue-100/50">
-                                        <span className="text-[10px] font-bold text-blue-700 uppercase">Total RAB</span>
-                                        <span className="text-sm font-black text-poltekpar-primary">Rp {Number(selectedDetail.total_anggaran || 0).toLocaleString('id-ID')}</span>
-                                    </div>
-                                    {selectedDetail.rab_items && selectedDetail.rab_items.length > 0 && (
-                                        <div className="pt-2 text-sm border-t border-slate-100/50">
-                                            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-2 block">Rincian Komponen RAB</span>
-                                            <ul className="space-y-1.5 list-disc pl-4 text-slate-700">
-                                                {selectedDetail.rab_items.map((item, i) => (
-                                                    <li key={i}><span className="font-semibold">{item.nama_item}</span> ({item.jumlah} &times; Rp {Number(item.harga || 0).toLocaleString('id-ID')}) <br /><span className="font-bold text-poltekpar-primary">Rp {Number(item.total || 0).toLocaleString('id-ID')}</span></li>
-                                                ))}
-                                            </ul>
-                                        </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-white mr-1"></i>
+                                        </a>
                                     )}
-                                    <div className="pt-2 border-t border-slate-100/50 space-y-1.5">
-                                        <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1 block">Sumber Dana</span>
-                                        {(selectedDetail.dana_perguruan_tinggi || selectedDetail.dana_pemerintah || selectedDetail.dana_lembaga_dalam || selectedDetail.dana_lembaga_luar) ? (
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {selectedDetail.dana_perguruan_tinggi ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Perguruan Tinggi</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_perguruan_tinggi).toLocaleString('id-ID')}</span></div> : null}
-                                                {selectedDetail.dana_pemerintah ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Pemerintah</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_pemerintah).toLocaleString('id-ID')}</span></div> : null}
-                                                {selectedDetail.dana_lembaga_dalam ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Lembaga Dalam Negeri</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_lembaga_dalam).toLocaleString('id-ID')}</span></div> : null}
-                                                {selectedDetail.dana_lembaga_luar ? <div className="p-2 bg-white rounded-lg border border-slate-100"><span className="text-[9px] font-bold text-slate-400 uppercase block">Lembaga Luar Negeri</span><span className="text-xs font-bold text-slate-800">Rp {Number(selectedDetail.dana_lembaga_luar).toLocaleString('id-ID')}</span></div> : null}
+                                    {selectedDetail.proposal && (
+                                        <a href={getFullUrl(selectedDetail.proposal)} target="_blank" className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-sky-600 group transition-all border border-slate-100 hover:border-sky-600 shadow-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-sky-600 group-hover:scale-110 transition-transform shadow-sm">
+                                                    <i className="fa-solid fa-file-contract text-lg"></i>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[11px] font-black text-slate-700 group-hover:text-white uppercase tracking-tight truncate max-w-[80px]">Proposal</p>
+                                                    <p className="text-[9px] text-slate-400 group-hover:text-white/60 font-bold">Utama</p>
+                                                </div>
                                             </div>
-                                        ) : <p className="text-xs text-slate-400 italic">Belum ada data sumber dana.</p>}
-                                    </div>
-                                </div>
-                            </section>
-
-                            <section>
-                                <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Dokumen & Tautan</h4>
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100/60 flex flex-col gap-3">
-                                    <div className="flex flex-col gap-2">
-                                        {selectedDetail.surat_permohonan ? (
-                                            <a href={selectedDetail.surat_permohonan} target="_blank" className="flex items-center gap-2 p-2 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg transition-colors border border-slate-200 shadow-sm">
-                                                <i className="fa-solid fa-file-contract text-poltekpar-primary w-4 text-center"></i> SURAT PERMOHONAN
-                                            </a>
-                                        ) : <span className="text-xs text-slate-400 flex items-center gap-1.5"><i className="fa-solid fa-triangle-exclamation"></i> Kosong</span>}
-                                        {selectedDetail.proposal && (
-                                            <a href={selectedDetail.proposal} target="_blank" className="flex items-center gap-2 p-2 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-bold rounded-lg transition-colors border border-slate-200 shadow-sm">
-                                                <i className="fa-solid fa-file-pdf text-poltekpar-primary w-4 text-center"></i> PROPOSAL
-                                            </a>
-                                        )}
-                                    </div>
-                                    {selectedDetail.rab && (
-                                        <div className="space-y-2 pt-2 border-t border-slate-200">
-                                            {(() => {
-                                                try {
-                                                    const arr = JSON.parse(selectedDetail.rab);
-                                                    if (Array.isArray(arr)) {
-                                                        return arr.map((item, i) => (
-                                                            <p key={i} className="text-[12px] bg-white p-2 rounded-lg border border-slate-100">
-                                                                <span className="text-slate-500 font-bold text-[10px] uppercase block mb-0.5">{item.name || `Tautan Tambahan ${i + 1}`}: </span>
-                                                                <a href={item.url} target="_blank" className="text-poltekpar-primary font-medium hover:underline break-all">{item.url}</a>
-                                                            </p>
-                                                        ));
-                                                    }
-                                                } catch (e) { }
-
-                                                return selectedDetail.rab.split(',').map((link, i) => {
-                                                    const url = link.trim();
-                                                    if (!url) return null;
-                                                    return (
-                                                        <p key={i} className="text-[12px] bg-white p-2 rounded-lg border border-slate-100">
-                                                            <span className="text-slate-500 font-bold text-[10px] uppercase block mb-0.5">Tautan Tambahan {i + 1}: </span>
-                                                            <a href={url} target="_blank" className="text-poltekpar-primary font-medium hover:underline break-all">{url}</a>
-                                                        </p>
-                                                    );
-                                                });
-                                            })()}
-                                        </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-white mr-1"></i>
+                                        </a>
                                     )}
+                                    {(() => {
+                                        try {
+                                            const rab = (selectedDetail as any).rab;
+                                            const parsed = rab ? (typeof rab === 'string' ? JSON.parse(rab) : rab) : [];
+                                            if (Array.isArray(parsed)) {
+                                                return parsed.map((link, i) => (
+                                                    <a key={i} href={getFullUrl(link.url)} target="_blank" className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 hover:bg-indigo-600 group transition-all border border-slate-100 hover:border-indigo-600 shadow-sm">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform shadow-sm">
+                                                                <i className="fa-solid fa-link text-lg"></i>
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-[11px] font-black text-slate-700 group-hover:text-white uppercase tracking-tight truncate max-w-[80px]">{link.name || link.label || `Tautan ${i + 1}`}</p>
+                                                                <p className="text-[9px] text-slate-400 group-hover:text-white/60 font-bold">Eksternal</p>
+                                                            </div>
+                                                        </div>
+                                                        <i className="fa-solid fa-external-link text-slate-300 group-hover:text-white mr-1 text-[10px]"></i>
+                                                    </a>
+                                                ));
+                                            }
+                                        } catch (e) { }
+                                        return null;
+                                    })()}
                                 </div>
                             </section>
+
+                            {/* Section: Catatan Admin (If any) */}
+                            {selectedDetail.catatan && (
+                                <section className="animate-in slide-in-from-bottom-2">
+                                    <div className="bg-amber-50 border-2 border-amber-100/50 p-5 rounded-3xl relative overflow-hidden group">
+                                        <div className="absolute right-[-10px] top-[-10px] text-amber-200/20 text-6xl group-hover:scale-110 transition-transform">
+                                            <i className="fa-solid fa-quote-right"></i>
+                                        </div>
+                                        <div className="flex items-start gap-3 relative z-10">
+                                            <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center text-amber-700 shrink-0">
+                                                <i className="fa-solid fa-comment-dots text-sm"></i>
+                                            </div>
+                                            <div>
+                                                <h5 className="text-[10px] font-black text-amber-700 uppercase tracking-[0.2em] mb-1">Catatan Admin</h5>
+                                                <p className="text-sm text-amber-900 font-bold italic leading-relaxed">{selectedDetail.catatan}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
                         </div>
+                    </div>
 
-                        {selectedDetail.catatan && (
-                            <section>
-                                <h4 className="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                                    <i className="fa-solid fa-comment-dots"></i> Catatan Admin
-                                </h4>
-                                <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
-                                    <p className="text-sm text-amber-800 italic leading-relaxed">{selectedDetail.catatan}</p>
+                    {/* Footer: Action Bar */}
+                    <div className="px-8 py-5 bg-white border-t border-slate-100 flex flex-wrap items-center justify-end gap-4 shrink-0">
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            {selectedDetail.status === 'direvisi' && (
+                                <button
+                                    onClick={handleEditPengajuan}
+                                    className="flex-1 sm:flex-none px-6 py-2.5 bg-poltekpar-primary text-white text-xs font-black rounded-xl hover:bg-poltekpar-navy transition-all shadow-lg shadow-poltekpar-primary/20 flex items-center justify-center gap-2"
+                                >
+                                    <i className="fa-solid fa-pen-to-square"></i> EDIT PENGAJUAN
+                                </button>
+                            )}
+                            {['diterima', 'berlangsung', 'selesai'].includes(selectedDetail.status) && (
+                                <a target="_blank" rel="noopener noreferrer" href={`/kumpul-arsip/${selectedDetail.kode_unik || selectedDetail.id}`} className="flex-1 sm:flex-none px-6 py-2.5 bg-amber-500 text-white text-xs font-black rounded-xl hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2">
+                                    <i className="fa-solid fa-folder-open"></i> KUMPUL ARSIP
+                                </a>
+                            )}
+                            <button 
+                                onClick={() => setSelectedDetail(null)} 
+                                className="flex-1 sm:flex-none px-6 py-2.5 bg-slate-100 text-slate-600 text-xs font-black rounded-xl hover:bg-slate-200 transition-all"
+                            >
+                                TUTUP
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderStatusLogModal = () => {
+        if (!selectedStatusLog) return null;
+
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-300 text-left">
+                <div className="absolute inset-0" onClick={() => setSelectedStatusLog(null)}></div>
+                <div
+                    className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-400 flex flex-col max-h-[85vh] relative z-10 border border-white/20"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="relative shrink-0 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-poltekpar-primary to-poltekpar-navy opacity-95"></div>
+                        <div className="px-8 py-6 text-white relative">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white/15 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/30 shadow-inner">
+                                    <i className="fa-solid fa-clock-rotate-left text-xl text-white"></i>
                                 </div>
-                            </section>
+                                <div>
+                                    <h3 className="text-xl font-black">Lacak Status</h3>
+                                    <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mt-0.5 line-clamp-1">{selectedStatusLog.judul}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedStatusLog(null)}
+                                className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-90"
+                            >
+                                <i className="fa-solid fa-xmark text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
+                        {selectedStatusLog.logs && selectedStatusLog.logs.length > 0 ? (
+                            <div className="space-y-0 pl-1">
+                                {selectedStatusLog.logs.map((log, i) => {
+                                    const stBaru = getSubmissionStatusStyle(log.status_baru);
+                                    const stLama = log.status_lama ? getSubmissionStatusStyle(log.status_lama) : null;
+                                    const isLast = i === (selectedStatusLog.logs?.length || 0) - 1;
+
+                                    return (
+                                        <div key={log.id} className="flex gap-6 pb-8 relative last:pb-0 group">
+                                            {!isLast && (
+                                                <div className="absolute left-[9px] top-6 bottom-0 w-[2px] bg-gradient-to-b from-slate-200 to-transparent group-hover:from-poltekpar-primary/30 transition-colors" />
+                                            )}
+                                            <div className="relative">
+                                                <div
+                                                    className="w-5 h-5 rounded-full shrink-0 mt-1 border-4 border-white z-10 shadow-sm relative group-hover:scale-125 transition-transform"
+                                                    style={{ backgroundColor: stBaru.color }}
+                                                />
+                                                {i === 0 && (
+                                                    <div className="absolute inset-[-4px] rounded-full bg-poltekpar-primary/10 animate-ping opacity-20" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0 -mt-0.5">
+                                                <div className="flex items-center gap-2 flex-wrap mb-2">
+                                                    {stLama && (
+                                                        <span
+                                                            className="text-[9px] font-black px-2 py-0.5 rounded-md border border-slate-100 bg-white text-slate-400 uppercase tracking-wider"
+                                                        >
+                                                            {stLama.label}
+                                                        </span>
+                                                    )}
+                                                    {stLama && <i className="fa-solid fa-arrow-right text-slate-300 text-[8px]"></i>}
+                                                    <span
+                                                        className="text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm border uppercase tracking-wider"
+                                                        style={{ backgroundColor: stBaru.bg, color: stBaru.color, borderColor: `${stBaru.color}20` }}
+                                                    >
+                                                        {stBaru.label}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-slate-400 mb-2">
+                                                    <i className="fa-regular fa-calendar-check text-[10px]"></i>
+                                                    <p className="text-[11px] font-bold">{log.created_at}</p>
+                                                </div>
+                                                {log.catatan && (
+                                                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-3 relative overflow-hidden group/note hover:border-poltekpar-primary/20 transition-colors">
+                                                        <div className="absolute right-[-10px] top-[-10px] text-slate-50 text-4xl group-hover/note:text-poltekpar-primary/5 transition-colors">
+                                                            <i className="fa-solid fa-quote-right"></i>
+                                                        </div>
+                                                        <i className="fa-solid fa-comment-dots text-slate-200 mt-1 text-xs shrink-0 relative z-10"></i>
+                                                        <p className="text-[12px] text-slate-600 font-medium leading-relaxed relative z-10">{log.catatan}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-200 mb-4 border-4 border-white shadow-inner">
+                                    <i className="fa-solid fa-timeline text-4xl"></i>
+                                </div>
+                                <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest">Belum Ada Riwayat</h4>
+                                <p className="text-xs text-slate-400 mt-1">Status pengajuan Anda saat ini sedang dalam antrean.</p>
+                            </div>
                         )}
                     </div>
 
-                    {/* Modal Footer */}
-                    <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap justify-end gap-3">
-                        {selectedDetail.status === 'direvisi' && (
-                            <button
-                                onClick={() => {
-                                    setSelectedDetail(null);
-                                    router.visit(`/pengajuan?edit=${selectedDetail.kode_unik ?? selectedDetail.id}`);
-                                }}
-                                className="px-6 py-2 bg-poltekpar-primary text-white text-sm font-bold rounded-xl hover:bg-poltekpar-primary/90 transition-colors shadow-sm flex items-center gap-2"
-                            >
-                                <i className="fa-solid fa-pen-to-square"></i> Edit Pengajuan
-                            </button>
-                        )}
-                        {['diterima', 'berlangsung', 'selesai'].includes(selectedDetail.status) && (
-                            <a target="_blank" rel="noopener noreferrer" href={`/kumpul-arsip/${selectedDetail.kode_unik || selectedDetail.id}`} className="px-6 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 transition-colors shadow-sm flex items-center gap-2">
-                                <i className="fa-solid fa-folder-open"></i> Kumpul Arsip Laporan
-                            </a>
-                        )}
-                        <button onClick={() => setSelectedDetail(null)} className="px-6 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-50 transition-colors shadow-sm">Tutup</button>
+                    <div className="px-8 py-5 bg-white border-t border-slate-100 shrink-0 flex justify-center">
+                        <button
+                            onClick={() => setSelectedStatusLog(null)}
+                            className="w-full py-3 bg-slate-100 text-slate-600 text-xs font-black rounded-2xl hover:bg-slate-200 transition-all active:scale-95 border border-slate-200/50 uppercase tracking-widest"
+                        >
+                            Selesai & Tutup
+                        </button>
                     </div>
                 </div>
             </div>
@@ -735,7 +1030,10 @@ export default function DosenSubmissionCard({
                 {expandedHubSections.kegiatan && (
                     <div className="border-t border-slate-100 divide-y divide-slate-100">
                         {pkmListData.map(a => (
-                            <div key={a.id} className="p-4"><strong className="text-sm font-semibold text-slate-900 block">{a.nama}</strong><p className="text-xs text-slate-500">{a.tahun} • {a.kabupaten}</p></div>
+                            <div key={a.id} className="p-4">
+                                <strong className="text-sm font-semibold text-slate-900 block">{a.nama}</strong>
+                                <p className="text-xs text-slate-500">{a.tahun} • {a.kabupaten}</p>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -743,11 +1041,26 @@ export default function DosenSubmissionCard({
         </div>
     );
 
+
     const renderSubmissionForm = () => (
-        <div className="p-5 space-y-6">
+        <div className="p-4 space-y-6">
+            {/* Notifikasi Catatan Revisi */}
+            {editSubmission && editSubmission.status === 'direvisi' && editSubmission.catatan && (
+                <div className="bg-amber-50 border-2 border-amber-200/50 rounded-2xl p-5 flex gap-4 items-start shadow-sm animate-in slide-in-from-top-4 duration-500">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
+                        <i className="fa-solid fa-triangle-exclamation text-lg"></i>
+                    </div>
+                    <div>
+                        <h4 className="text-[13px] font-black text-amber-800 uppercase tracking-wider mb-1">Catatan Revisi dari Admin</h4>
+                        <p className="text-sm text-amber-700 leading-relaxed font-bold italic">"{editSubmission.catatan}"</p>
+                        <p className="text-[10px] text-amber-600/70 mt-2 font-bold uppercase tracking-widest">Silakan perbaiki data usulan Anda sesuai dengan catatan tersebut.</p>
+                    </div>
+                </div>
+            )}
+
             {/* Informasi Ketua */}
             <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Informasi Ketua Pengusul</h4>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100/50 w-fit rounded-md border border-slate-200/60 mb-2">Informasi Ketua Pengusul</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="text-[13px] font-bold text-slate-600 mb-1 block">Nama Lengkap <span className="text-red-500">*</span></label>
@@ -770,7 +1083,7 @@ export default function DosenSubmissionCard({
 
             {/* Judul & Kebutuhan */}
             <div className="space-y-4">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Detail Kegiatan</h4>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100/50 w-fit rounded-md border border-slate-200/60 mb-2">Detail Kegiatan</h4>
                 <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
@@ -796,7 +1109,7 @@ export default function DosenSubmissionCard({
 
             {/* Lokasi */}
             <div className="space-y-6">
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Lokasi Kegiatan PKM</h4>
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100/50 w-fit rounded-md border border-slate-200/60 mb-2">Lokasi Kegiatan PKM</h4>
 
                 <div className="space-y-6">
                     {data.lokasi_list.map((lokasi, idx) => (
@@ -881,8 +1194,8 @@ export default function DosenSubmissionCard({
             </div>
 
             {/* Tim */}
-            < div className="space-y-4" >
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Tim Pelaksana</h4>
+            <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100/50 w-fit rounded-md border border-slate-200/60 mb-2">Tim Pelaksana</h4>
                 {
                     (['tim_dosen', 'tim_staff', 'tim_mahasiswa'] as const).map(type => (
                         <div key={type}>
@@ -905,10 +1218,10 @@ export default function DosenSubmissionCard({
                         </div>
                     ))
                 }
-            </div >
+            </div>
 
             {/* RAB */}
-            < div className="space-y-4" >
+            <div className="space-y-4">
                 <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Rencana Anggaran Biaya (RAB)</h4>
                 {
                     data.rab_items.map((item, idx) => (
@@ -949,11 +1262,11 @@ export default function DosenSubmissionCard({
                         Total RAB: Rp {totalRAB.toLocaleString('id-ID')}
                     </div>
                 </div>
-            </div >
+            </div>
 
             {/* Sumber Dana */}
-            < div className="space-y-4" >
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Sumber Dana</h4>
+            <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest px-2 py-1 bg-slate-100/50 w-fit rounded-md border border-slate-200/60 mb-2">Sumber Dana</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {[
                         { label: 'Perguruan Tinggi', key: 'dana_perguruan_tinggi' },
@@ -977,11 +1290,11 @@ export default function DosenSubmissionCard({
                         </div>
                     ))}
                 </div>
-            </div >
+            </div>
 
             {/* Dokumen */}
-            < div className="space-y-4" >
-                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <div className="space-y-4">
+                <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 px-2 py-1 bg-slate-100/50 w-fit rounded-md border border-slate-200/60 mb-2">
                     <i className="fa-solid fa-link text-poltekpar-primary"></i> Dokumen & Tautan
                 </h4>
                 <div className="space-y-4">
@@ -1050,51 +1363,65 @@ export default function DosenSubmissionCard({
             </div >
 
             {/* Submit */}
-            < div className="pt-2" >
+            <div className="pt-2">
                 <button type="submit" disabled={isMockSubmitting} className="w-full py-3 bg-gradient-to-r from-poltekpar-primary to-poltekpar-navy text-white font-bold rounded-xl shadow-lg shadow-poltekpar-primary/20 disabled:opacity-50 transition-all hover:-translate-y-0.5 active:scale-[0.98] flex items-center justify-center gap-2">
                     {isMockSubmitting ? 'Mengirim...' : 'Kirim Pengajuan'}
                 </button>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 
     if (onlyShowStatus) {
         return (
             <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
                 <div className="p-6">
-                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <h3 className="text-sm font-bold text-slate-900 border-l-4 border-poltekpar-primary pl-3">Daftar Riwayat Pengajuan</h3>
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-                                className="flex bg-white hover:bg-slate-50 transition-colors border border-slate-200 rounded-xl items-center shadow-sm overflow-hidden group w-full sm:w-[220px]"
-                            >
-                                <div className="pl-3.5 pr-1.5 py-2 text-slate-400 group-hover:text-poltekpar-primary transition-colors flex items-center justify-center">
-                                    <i className="fa-solid fa-filter text-xs"></i>
-                                </div>
-                                <div className="flex-1 text-left py-2 pl-1.5 text-[11px] font-bold text-slate-700 truncate">
-                                    {sortOption === 'default' ? 'Prioritas (Revisi & Diproses)' :
-                                        sortOption === 'status' ? 'Berdasarkan Status' :
-                                            sortOption === 'waktu_terbaru' ? 'Waktu (Terbaru)' : 'Waktu (Terlama)'}
-                                </div>
-                                <div className={`pr-3.5 text-slate-400 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`}>
-                                    <i className="fa-solid fa-chevron-down text-[10px]"></i>
-                                </div>
-                            </button>
-
-                            {isSortMenuOpen && (
-                                <>
-                                    <div className="fixed inset-0 z-40" onClick={() => setIsSortMenuOpen(false)}></div>
-                                    <div className="absolute top-11 right-0 w-full sm:w-[220px] bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <button onClick={() => { setSortOption('default'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors ${sortOption === 'default' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-solid fa-star text-amber-400 mr-2 opacity-70"></i>Prioritas (Revisi & Diproses)</button>
-                                        <button onClick={() => { setSortOption('status'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors border-t border-slate-50 ${sortOption === 'status' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-solid fa-list-check text-indigo-400 mr-2 opacity-70"></i>Berdasarkan Status</button>
-                                        <button onClick={() => { setSortOption('waktu_terbaru'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors border-t border-slate-50 ${sortOption === 'waktu_terbaru' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-regular fa-clock text-sky-400 mr-2 opacity-70"></i>Waktu (Terbaru)</button>
-                                        <button onClick={() => { setSortOption('waktu_terlama'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors border-t border-slate-50 ${sortOption === 'waktu_terlama' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-solid fa-clock-rotate-left text-slate-400 mr-2 opacity-70"></i>Waktu (Terlama)</button>
+                    <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1 max-w-md relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i className="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Cari judul pengajuan..."
+                                value={searchValue}
+                                onChange={(e) => setSearchValue(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-poltekpar-primary/20 focus:border-poltekpar-primary transition-all bg-slate-50/50"
+                            />
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <button
+                                    onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
+                                    className="flex bg-white hover:bg-slate-50 transition-colors border border-slate-200 rounded-xl items-center shadow-sm overflow-hidden group w-full sm:w-[220px]"
+                                >
+                                    <div className="pl-3.5 pr-1.5 py-2 text-slate-400 group-hover:text-poltekpar-primary transition-colors flex items-center justify-center">
+                                        <i className="fa-solid fa-filter text-xs"></i>
                                     </div>
-                                </>
-                            )}
+                                    <div className="flex-1 text-left py-2 pl-1.5 text-[11px] font-bold text-slate-700 truncate">
+                                        {sortOption === 'default' ? 'Prioritas (Revisi & Diproses)' :
+                                            sortOption === 'status' ? 'Berdasarkan Status' :
+                                                sortOption === 'waktu_terbaru' ? 'Waktu (Terbaru)' : 'Waktu (Terlama)'}
+                                    </div>
+                                    <div className={`pr-3.5 text-slate-400 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`}>
+                                        <i className="fa-solid fa-chevron-down text-[10px]"></i>
+                                    </div>
+                                </button>
+
+                                {isSortMenuOpen && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setIsSortMenuOpen(false)}></div>
+                                        <div className="absolute top-11 right-0 w-full sm:w-[220px] bg-white border border-slate-100 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                            <button onClick={() => { setSortOption('default'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors ${sortOption === 'default' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-solid fa-star text-amber-400 mr-2 opacity-70"></i>Prioritas (Revisi & Diproses)</button>
+                                            <button onClick={() => { setSortOption('status'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors border-t border-slate-50 ${sortOption === 'status' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-solid fa-list-check text-indigo-400 mr-2 opacity-70"></i>Berdasarkan Status</button>
+                                            <button onClick={() => { setSortOption('waktu_terbaru'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors border-t border-slate-50 ${sortOption === 'waktu_terbaru' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-regular fa-clock text-sky-400 mr-2 opacity-70"></i>Waktu (Terbaru)</button>
+                                            <button onClick={() => { setSortOption('waktu_terlama'); setIsSortMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-[11px] font-bold transition-colors border-t border-slate-50 ${sortOption === 'waktu_terlama' ? 'bg-poltekpar-primary/10 text-poltekpar-primary' : 'text-slate-600 hover:bg-slate-50'}`}><i className="fa-solid fa-clock-rotate-left text-slate-400 mr-2 opacity-70"></i>Waktu (Terlama)</button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
+
                     <div className="hidden sm:block border border-slate-200 rounded-2xl overflow-hidden overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[600px]">
                             <thead className="bg-slate-50 border-b border-slate-100">
@@ -1102,7 +1429,7 @@ export default function DosenSubmissionCard({
                                     <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-left">Nama Pengajuan</th>
                                     <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-left">Tanggal</th>
                                     <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Status</th>
-                                    <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Aksi</th>
+                                    <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -1123,9 +1450,18 @@ export default function DosenSubmissionCard({
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-5 text-center">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button type="button" className="px-4 py-1.5 bg-slate-100 hover:bg-poltekpar-primary hover:text-white text-slate-600 text-[11px] font-bold rounded-lg transition-all" onClick={() => setSelectedDetail(item)}>DETAIL</button>
+                                                <td className="px-6 py-5 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button type="button" className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5" onClick={() => setSelectedDetail(item)}>
+                                                            <i className="fa-solid fa-circle-info text-[9px]"></i> DETAIL
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="px-4 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 text-[11px] font-bold rounded-lg transition-all flex items-center gap-1.5"
+                                                            onClick={() => setSelectedStatusLog(item)}
+                                                        >
+                                                            <i className="fa-solid fa-clock-rotate-left text-[9px]"></i> LACAK STATUS
+                                                        </button>
                                                         {item.status === 'direvisi' && (
                                                             <button
                                                                 type="button"
@@ -1145,7 +1481,7 @@ export default function DosenSubmissionCard({
                                         <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-sm font-bold italic">
                                             <div className="flex flex-col items-center gap-3">
                                                 <i className="fa-solid fa-folder-open text-4xl text-slate-200"></i>
-                                                Belum ada riwayat pengajuan.
+                                                {searchValue ? `Tidak ditemukan hasil untuk "${searchValue}"` : 'Belum ada riwayat pengajuan.'}
                                             </div>
                                         </td>
                                     </tr>
@@ -1175,10 +1511,17 @@ export default function DosenSubmissionCard({
                                         <div className="flex gap-2">
                                             <button
                                                 type="button"
-                                                className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl active:bg-slate-100 transition-colors"
+                                                className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2"
                                                 onClick={() => setSelectedDetail(item)}
                                             >
-                                                DETAIL
+                                                <i className="fa-solid fa-circle-info text-[10px]"></i> DETAIL
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="flex-1 py-2 bg-sky-50 text-sky-600 text-xs font-bold rounded-xl active:bg-sky-100 transition-colors flex items-center justify-center gap-2"
+                                                onClick={() => setSelectedStatusLog(item)}
+                                            >
+                                                <i className="fa-solid fa-clock-rotate-left text-[10px]"></i> LACAK
                                             </button>
                                             {item.status === 'direvisi' && (
                                                 <button
@@ -1196,13 +1539,35 @@ export default function DosenSubmissionCard({
                         ) : (
                             <div className="py-10 text-center text-slate-400 text-xs font-bold italic bg-slate-50 rounded-2xl border border-dashed border-slate-200">
                                 <i className="fa-solid fa-folder-open text-3xl text-slate-200 mb-2 block"></i>
-                                Belum ada riwayat pengajuan.
+                                {searchValue ? `Tidak ditemukan hasil untuk "${searchValue}"` : 'Belum ada riwayat pengajuan.'}
                             </div>
                         )}
                     </div>
+
+                    {/* Pagination Links */}
+                    {pagination && pagination.links.length > 3 && (
+                        <div className="mt-8 flex flex-wrap justify-center gap-2">
+                            {pagination.links.map((link, i) => (
+                                <button
+                                    key={i}
+                                    disabled={!link.url || link.active}
+                                    onClick={() => link.url && router.get(link.url, {}, { preserveState: true, preserveScroll: true })}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all border ${
+                                        link.active 
+                                            ? 'bg-poltekpar-primary text-white border-poltekpar-primary shadow-md' 
+                                            : !link.url 
+                                                ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:border-poltekpar-primary hover:text-poltekpar-primary'
+                                    }`}
+                                    dangerouslySetInnerHTML={{ __html: link.label }}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
                 <ActionFeedbackDialog show={feedbackDialog.show} type={feedbackDialog.type} title={feedbackDialog.title} message={feedbackDialog.message} onClose={() => setFeedbackDialog({ ...feedbackDialog, show: false })} />
                 {renderDetailModal()}
+                {renderStatusLogModal()}
             </div>
         );
     }
@@ -1234,6 +1599,7 @@ export default function DosenSubmissionCard({
 
             <ActionFeedbackDialog show={feedbackDialog.show} type={feedbackDialog.type} title={feedbackDialog.title} message={feedbackDialog.message} onClose={() => setFeedbackDialog({ ...feedbackDialog, show: false })} />
             {renderDetailModal()}
+            {renderStatusLogModal()}
         </div>
     );
 }

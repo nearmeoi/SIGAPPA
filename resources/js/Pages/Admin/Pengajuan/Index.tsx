@@ -52,6 +52,7 @@ interface IndexProps {
 
 const STATUS_BADGE: Record<string, { label: string; text: string; bg: string; dot: string }> = {
     diproses: { label: 'Diproses', text: 'text-blue-700', bg: 'bg-blue-50', dot: 'bg-blue-400' },
+    revisi_direktur: { label: 'Revisi (Dir)', text: 'text-orange-700', bg: 'bg-orange-50', dot: 'bg-orange-400' },
     diajukan: { label: 'Ke Direktur', text: 'text-violet-700', bg: 'bg-violet-50', dot: 'bg-violet-400' },
     diterima: { label: 'Diterima', text: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-400' },
     direvisi: { label: 'Revisi', text: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-400' },
@@ -62,6 +63,7 @@ const TABS = [
     { id: '', label: 'Semua' },
     { id: 'pengajuan', label: 'Pengajuan' },
     { id: 'reviu', label: 'Reviu' },
+    { id: 'revisi_direktur', label: 'Dari Direktur' },
     { id: 'diajukan', label: 'Ke Direktur' },
     { id: 'direvisi', label: 'Revisi' },
     { id: 'diterima', label: 'Diterima' },
@@ -276,8 +278,8 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                             key={t.id}
                             onClick={() => handleTabChange(t.id)}
                             className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${tab === t.id
-                                    ? 'bg-white text-zinc-900 shadow-sm'
-                                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
+                                ? 'bg-white text-zinc-900 shadow-sm'
+                                : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
                                 }`}
                         >
                             {t.label}

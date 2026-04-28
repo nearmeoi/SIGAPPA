@@ -21,62 +21,100 @@ class PengajuanUserController extends Controller
     {
         $user = $request->user();
         $role = $user ? ($user->role ?? 'masyarakat') : 'masyarakat';
+        $search = $request->input('search');
 
-        // Ambil pengajuan milik user dari database
-        $userSubmissions = $user
+        // Ambil pengajuan milik user dari database dengan pagination dan search
+        $submissionsPaginator = $user
             ? Pengajuan::where('id_user', $user->id_user)
-                ->with(['timKegiatan.pegawai', 'jenisPkm', 'user', 'aktivitas'])
+                ->when($search, function ($query, $search) {
+                    $query->where('judul_kegiatan', 'like', "%{$search}%");
+                })
+                ->with(['timKegiatan.pegawai', 'jenisPkm', 'user', 'aktivitas', 'logs'])
                 ->latest()
-                ->get()
-                ->map(fn($p) => [
-                    'id' => $p->id_pengajuan,
-                    'kode_unik' => $p->kode_unik,
-                    'judul' => $p->judul_kegiatan,
-                    'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
-                    'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
-                    'status' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'ditolak'])
-                        ? $p->status_pengajuan
+                ->paginate(10)
+                ->withQueryString()
+            : null;
+
+        $userSubmissions = $submissionsPaginator ? collect($submissionsPaginator->items())->map(fn($p) => [
+            'id' => $p->id_pengajuan,
+            'kode_unik' => $p->kode_unik,
+            'judul' => $p->judul_kegiatan,
+            'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
+            'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
+            'status' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'ditolak'])
+                ? $p->status_pengajuan
+                : ($p->status_pengajuan === 'diajukan' ? 'Menunggu Keputusan Direktur'
+                    : ($p->status_pengajuan === 'revisi_direktur' ? 'diproses'
                         : ($p->aktivitas
                             ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
                                 : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'diterima'))
-                            : $p->status_pengajuan),
-                    'catatan' => $p->catatan_admin,
-                    'instansi_mitra' => $p->instansi_mitra,
-                    'no_telepon' => $p->no_telepon,
-                    'provinsi' => $p->provinsi,
-                    'kota_kabupaten' => $p->kota_kabupaten,
-                    'kecamatan' => $p->kecamatan,
-                    'kelurahan_desa' => $p->kelurahan_desa,
-                    'alamat_lengkap' => $p->alamat_lengkap,
-                    'latitude' => $p->latitude,
-                    'longitude' => $p->longitude,
-                    'lokasi_tambahan' => $p->lokasi_tambahan,
-                    'tgl_mulai' => $p->tgl_mulai ? $p->tgl_mulai->format('Y-m-d') : null,
-                    'tgl_selesai' => $p->tgl_selesai ? $p->tgl_selesai->format('Y-m-d') : null,
-                    'is_tahun_saja' => $p->is_tahun_saja,
-                    'proposal' => $p->proposal,
-                    'surat_permohonan' => $p->surat_permohonan,
-                    'rab' => $p->rab,
-                    'rab_items' => $p->rab_items ?? [],
-                    'sumber_dana' => $p->sumber_dana,
-                    'total_anggaran' => $p->total_anggaran,
-                    'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
-                    'dana_pemerintah' => $p->dana_pemerintah,
-                    'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
-                    'dana_lembaga_luar' => $p->dana_lembaga_luar,
-                    'tipe_pengusul' => $this->resolveSubmitterType($p),
-                    'jenis_pkm' => $p->jenisPkm ? $p->jenisPkm->nama_jenis : null,
-                    'nama_pengusul' => $this->resolveSubmitterName($p),
-                    'email_pengusul' => $this->resolveSubmitterEmail($p),
-                    'kebutuhan' => $p->kebutuhan,
-                    'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
-                        'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
-                        'peran' => $t->peran_tim,
-                    ]),
-                ])
-                ->values()
-                ->toArray()
-            : [];
+                            : $p->status_pengajuan))),
+            'catatan' => $p->logs->whereIn('status_baru', [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK])
+                ->first()?->catatan,
+            'instansi_mitra' => $p->instansi_mitra,
+            'no_telepon' => $p->no_telepon,
+            'provinsi' => $p->provinsi,
+            'kota_kabupaten' => $p->kota_kabupaten,
+            'kecamatan' => $p->kecamatan,
+            'kelurahan_desa' => $p->kelurahan_desa,
+            'alamat_lengkap' => $p->alamat_lengkap,
+            'latitude' => $p->latitude,
+            'longitude' => $p->longitude,
+            'lokasi_tambahan' => $p->lokasi_tambahan,
+            'tgl_mulai' => $p->tgl_mulai ? $p->tgl_mulai->format('Y-m-d') : null,
+            'tgl_selesai' => $p->tgl_selesai ? $p->tgl_selesai->format('Y-m-d') : null,
+            'is_tahun_saja' => $p->is_tahun_saja,
+            'proposal' => $p->proposal,
+            'surat_permohonan' => $p->surat_permohonan,
+            'aktivitas' => $p->aktivitas ? [
+                'status_pelaksanaan' => $p->aktivitas->status_pelaksanaan,
+                'catatan_pelaksanaan' => $p->aktivitas->catatan_pelaksanaan,
+            ] : null,
+            'logs' => $p->logs->map(function ($log) {
+                $stBaru = $log->status_baru;
+                $stLama = $log->status_lama;
+
+                // Mask internal statuses for User Timeline
+                if ($stBaru === Pengajuan::STATUS_REVISI_DIREKTUR)
+                    $stBaru = Pengajuan::STATUS_DIPROSES;
+                if ($stLama === Pengajuan::STATUS_REVISI_DIREKTUR)
+                    $stLama = Pengajuan::STATUS_DIPROSES;
+
+                if ($stBaru === Pengajuan::STATUS_DIAJUKAN)
+                    $stBaru = 'Menunggu Keputusan Direktur';
+                if ($stLama === Pengajuan::STATUS_DIAJUKAN)
+                    $stLama = 'Menunggu Keputusan Direktur';
+
+                // Only show notes for specific user-facing statuses
+                $userFacingStatuses = [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK, Pengajuan::STATUS_DITERIMA, Pengajuan::STATUS_SELESAI];
+                $catatan = in_array($log->status_baru, $userFacingStatuses) ? $log->catatan : null;
+
+                return [
+                    'id' => $log->id,
+                    'status_lama' => $stLama,
+                    'status_baru' => $stBaru,
+                    'catatan' => $catatan,
+                    'created_at' => $log->created_at?->format('d M Y, H:i'),
+                ];
+            })->values(),
+            'rab' => $p->rab,
+            'rab_items' => $p->rab_items ?? [],
+            'sumber_dana' => $p->sumber_dana,
+            'total_anggaran' => $p->total_anggaran,
+            'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
+            'dana_pemerintah' => $p->dana_pemerintah,
+            'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
+            'dana_lembaga_luar' => $p->dana_lembaga_luar,
+            'tipe_pengusul' => $this->resolveSubmitterType($p),
+            'jenis_pkm' => $p->jenisPkm ? $p->jenisPkm->nama_jenis : null,
+            'nama_pengusul' => $this->resolveSubmitterName($p),
+            'email_pengusul' => $this->resolveSubmitterEmail($p),
+            'kebutuhan' => $p->kebutuhan,
+            'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
+                'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
+                'peran' => $t->peran_tim,
+            ]),
+        ])->toArray() : [];
 
         $jenisPkmOptions = JenisPkm::select('id_jenis_pkm', 'nama_jenis')
             ->get()
@@ -86,8 +124,17 @@ class PengajuanUserController extends Controller
             'role' => $role,
             'initialView' => $request->routeIs('pengajuan.status') ? 'status' : 'form',
             'userSubmissions' => $userSubmissions,
+            'pagination' => $submissionsPaginator ? [
+                'links' => $submissionsPaginator->linkCollection()->toArray(),
+                'current_page' => $submissionsPaginator->currentPage(),
+                'last_page' => $submissionsPaginator->lastPage(),
+                'total' => $submissionsPaginator->total(),
+            ] : null,
             'jenisPkmOptions' => $jenisPkmOptions,
             'editSubmissionKode' => $request->string('edit')->toString() ?: null,
+            'filters' => [
+                'search' => $search,
+            ]
         ]);
     }
 
@@ -235,6 +282,9 @@ class PengajuanUserController extends Controller
             TimKegiatan::insert($rows);
         }
 
+        // Realtime notification
+        broadcast(new \App\Events\NotificationUpdated('new', 'Pengajuan baru masuk'));
+
         return redirect()->back()
             ->with('success', 'Pengajuan PKM berhasil dikirim! Silakan tunggu konfirmasi dari admin.');
     }
@@ -347,6 +397,9 @@ class PengajuanUserController extends Controller
             'admin_read_at' => null,
         ]);
 
+        // Realtime notification
+        broadcast(new \App\Events\NotificationUpdated('updated', "Pengajuan {$pengajuan->judul_kegiatan} telah diperbarui"));
+
         TimKegiatan::where('id_pengajuan', $pengajuan->id_pengajuan)->delete();
 
         $pegawai = Pegawai::where('id_user', $user->id_user)->first();
@@ -402,6 +455,9 @@ class PengajuanUserController extends Controller
             'status_pengajuan' => 'diproses',
             'admin_read_at' => null,
         ]);
+
+        // Realtime notification
+        broadcast(new \App\Events\NotificationUpdated('updated', "Pengajuan {$pengajuan->judul_kegiatan} telah dikirim ulang"));
 
         return redirect()->back()
             ->with('success', 'Pengajuan berhasil dikirim ulang untuk ditinjau admin.');
@@ -480,6 +536,9 @@ class PengajuanUserController extends Controller
             'status_pengajuan' => 'diproses',
             'admin_read_at' => null,
         ]);
+
+        // Realtime notification
+        broadcast(new \App\Events\NotificationUpdated('updated', "Pengajuan dari {$request->institution} telah diperbarui"));
 
         return redirect()->back()
             ->with('success', 'Pengajuan PKM berhasil diperbarui!');

@@ -127,6 +127,7 @@ class PengajuanController extends Controller
             'longitude' => $p->longitude,
             'status_pengajuan' => $p->status_pengajuan,
             'catatan_admin' => $p->catatan_admin,
+            'catatan_direktur' => $p->catatan_direktur,
             'proposal' => $p->proposal,
             'surat_permohonan' => $p->surat_permohonan,
             'rab' => $p->rab,
@@ -146,8 +147,8 @@ class PengajuanController extends Controller
             ] : null,
             'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
                 'id_tim' => $t->id_tim,
-                'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
-                'peran' => $t->peran_tim,
+                'nama_mahasiswa' => $t->nama_mahasiswa,
+                'peran_tim' => $t->peran_tim,
                 'pegawai' => $t->pegawai ? [
                     'id_pegawai' => $t->pegawai->id_pegawai,
                     'nama_pegawai' => $t->pegawai->nama_pegawai,
@@ -226,8 +227,8 @@ class PengajuanController extends Controller
                 'sometimes',
                 'nullable',
                 $request->user()?->role === 'superadmin'
-                ? 'in:diproses,direvisi,diterima,ditolak,selesai'
-                : 'in:diproses,direvisi',
+                ? 'in:diproses,direvisi,diterima,ditolak,selesai,revisi_direktur'
+                : 'in:diproses,direvisi,revisi_direktur',
             ],
             'catatan_admin' => 'sometimes|nullable|string|max:1000',
             'proposal' => 'sometimes|nullable|string|max:2048',
@@ -255,7 +256,7 @@ class PengajuanController extends Controller
             if (is_array($lokasiList) && !empty($lokasiList)) {
                 $primaryLokasi = $lokasiList[0];
                 $lokasiTambahan = array_slice($lokasiList, 1);
-                
+
                 $validated['provinsi'] = $primaryLokasi['provinsi'] ?? null;
                 $validated['kota_kabupaten'] = $primaryLokasi['kota_kabupaten'] ?? null;
                 $validated['kecamatan'] = $primaryLokasi['kecamatan'] ?? null;
@@ -401,7 +402,7 @@ class PengajuanController extends Controller
     public function updateStatus(Request $request, int $id)
     {
         $request->validate([
-            'status_pengajuan' => 'required|in:' . Pengajuan::STATUS_DIAJUKAN . ',' . Pengajuan::STATUS_SELESAI,
+            'status_pengajuan' => 'required|in:' . Pengajuan::STATUS_DIAJUKAN . ',' . Pengajuan::STATUS_SELESAI . ',' . Pengajuan::STATUS_DIREVISI,
             'catatan_admin' => 'nullable|string|max:1000',
         ]);
 
@@ -434,6 +435,12 @@ class PengajuanController extends Controller
 
         DB::transaction(function () use ($pengajuan, $statusBaru, $statusLama, $request) {
             $pengajuan->status_pengajuan = $statusBaru;
+
+            // Jika dikirim ke Direktur, reset status "dibaca" agar Direktur dapat notif baru
+            if ($statusBaru === Pengajuan::STATUS_DIAJUKAN) {
+                $pengajuan->admin_read_at = null;
+            }
+
             if ($request->filled('catatan_admin')) {
                 $pengajuan->catatan_admin = $request->catatan_admin;
             }
@@ -448,6 +455,9 @@ class PengajuanController extends Controller
                 'changed_by_name' => auth()->user()?->name,
             ]);
         });
+
+        // Realtime notification
+        broadcast(new \App\Events\NotificationUpdated('updated', "Status pengajuan {$pengajuan->judul_kegiatan} diperbarui"));
 
         return redirect()->back()->with('success', 'Status pengajuan berhasil diperbarui.');
     }
@@ -494,61 +504,58 @@ class PengajuanController extends Controller
             'mahasiswa_terlibat.*' => 'nullable|string|max:255',
         ]);
 
-        $pengajuan = Pengajuan::with('timKegiatan')->findOrFail($id);
+        $pengajuan = Pengajuan::findOrFail($id);
 
-        TimKegiatan::where('id_pengajuan', $pengajuan->id_pengajuan)->delete();
+        // Ambil mapping nama pegawai ke id_pegawai untuk otomatisasi linking
+        $pegawaiMap = Pegawai::pluck('id_pegawai', 'nama_pegawai');
 
-        $rows = [];
-        $now = now();
+        DB::transaction(function () use ($pengajuan, $request, $pegawaiMap) {
+            // Gunakan forceDelete agar tidak menumpuk soft deletes saat sync berulang
+            TimKegiatan::where('id_pengajuan', $pengajuan->id_pengajuan)->forceDelete();
 
-        $ketuaName = trim($request->input('ketua_tim', ''));
-        if ($ketuaName !== '') {
-            $rows[] = [
-                'id_pengajuan' => $pengajuan->id_pengajuan,
-                'id_pegawai' => null,
-                'nama_mahasiswa' => $ketuaName,
-                'peran_tim' => 'Ketua',
-                'created_at' => $now,
-                'updated_at' => $now,
+            $rows = [];
+            $now = now();
+
+            // 1. Ketua
+            $ketuaName = trim($request->input('ketua_tim', ''));
+            if ($ketuaName !== '') {
+                $idPegawai = $pegawaiMap->get($ketuaName);
+                $rows[] = [
+                    'id_pengajuan' => $pengajuan->id_pengajuan,
+                    'id_pegawai' => $idPegawai,
+                    'nama_mahasiswa' => $idPegawai ? null : $ketuaName,
+                    'peran_tim' => 'Ketua',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            // 2. Anggota Terlibat
+            $rolesMapping = [
+                'dosen_terlibat' => 'Dosen',
+                'staff_terlibat' => 'Staff',
+                'mahasiswa_terlibat' => 'Mahasiswa',
             ];
-        }
 
-        foreach ($this->normalizeTeamEntries($request->input('dosen_terlibat', [])) as $name) {
-            $rows[] = [
-                'id_pengajuan' => $pengajuan->id_pengajuan,
-                'id_pegawai' => null,
-                'nama_mahasiswa' => $name,
-                'peran_tim' => 'Dosen',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
+            foreach ($rolesMapping as $inputKey => $peran) {
+                $names = $this->normalizeTeamEntries($request->input($inputKey, []));
+                foreach ($names as $name) {
+                    $idPegawai = ($peran === 'Mahasiswa') ? null : $pegawaiMap->get($name);
+                    $rows[] = [
+                        'id_pengajuan' => $pengajuan->id_pengajuan,
+                        'id_pegawai' => $idPegawai,
+                        'nama_mahasiswa' => $idPegawai ? null : $name,
+                        'peran_tim' => $peran,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
 
-        foreach ($this->normalizeTeamEntries($request->input('staff_terlibat', [])) as $name) {
-            $rows[] = [
-                'id_pengajuan' => $pengajuan->id_pengajuan,
-                'id_pegawai' => null,
-                'nama_mahasiswa' => $name,
-                'peran_tim' => 'Staff',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach ($this->normalizeTeamEntries($request->input('mahasiswa_terlibat', [])) as $name) {
-            $rows[] = [
-                'id_pengajuan' => $pengajuan->id_pengajuan,
-                'id_pegawai' => null,
-                'nama_mahasiswa' => $name,
-                'peran_tim' => 'Mahasiswa',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
-        }
-
-        if ($rows !== []) {
-            TimKegiatan::insert($rows);
-        }
+            if ($rows !== []) {
+                TimKegiatan::insert($rows);
+            }
+        });
 
         return redirect()->back()->with('success', 'Tim pelaksana berhasil diperbarui.');
     }

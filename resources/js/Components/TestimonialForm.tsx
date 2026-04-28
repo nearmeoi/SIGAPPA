@@ -85,9 +85,8 @@ export default function TestimonialForm({ onClose }: TestimonialFormProps) {
                     key={i}
                     type="button"
                     onClick={() => setData('rating', i)}
-                    className={`p-1 transition-all duration-200 outline-none ${
-                        i <= data.rating ? 'text-amber-500 scale-110' : 'text-slate-300 scale-100'
-                    } hover:text-amber-400`}
+                    className={`p-1 transition-all duration-200 outline-none ${i <= data.rating ? 'text-amber-500 scale-110' : 'text-slate-300 scale-100'
+                        } hover:text-amber-400`}
                     style={{ fontSize: '32px' }}
                     onMouseEnter={(e) => {
                         if (i > data.rating) e.currentTarget.style.color = '#fbbf24';
@@ -139,9 +138,8 @@ export default function TestimonialForm({ onClose }: TestimonialFormProps) {
                             <label className="block text-sm font-semibold text-slate-700 mb-2">
                                 Nama Lengkap <span className="text-red-500">*</span>
                             </label>
-                            <div className={`flex items-center gap-3 px-4 py-3 border rounded-xl transition-colors ${
-                                errors.nama ? 'border-red-300 bg-red-50' : 'border-slate-200 focus-within:border-poltekpar-primary focus-within:ring-2 focus-within:ring-blue-100'
-                            }`}>
+                            <div className={`flex items-center gap-3 px-4 py-3 border rounded-xl transition-colors ${errors.nama ? 'border-red-300 bg-red-50' : 'border-slate-200 focus-within:border-poltekpar-primary focus-within:ring-2 focus-within:ring-blue-100'
+                                }`}>
                                 <i className="fa-solid fa-user text-slate-400"></i>
                                 <input
                                     type="text"
@@ -159,9 +157,8 @@ export default function TestimonialForm({ onClose }: TestimonialFormProps) {
                             <label className="block text-sm font-semibold text-slate-700 mb-2">
                                 Jabatan / Peran <span className="text-red-500">*</span>
                             </label>
-                            <div className={`flex items-center gap-3 px-4 py-3 border rounded-xl transition-colors ${
-                                errors.jabatan ? 'border-red-300 bg-red-50' : 'border-slate-200 focus-within:border-poltekpar-primary focus-within:ring-2 focus-within:ring-blue-100'
-                            }`}>
+                            <div className={`flex items-center gap-3 px-4 py-3 border rounded-xl transition-colors ${errors.jabatan ? 'border-red-300 bg-red-50' : 'border-slate-200 focus-within:border-poltekpar-primary focus-within:ring-2 focus-within:ring-blue-100'
+                                }`}>
                                 <i className="fa-solid fa-id-card text-slate-400"></i>
                                 <input
                                     type="text"
@@ -188,9 +185,8 @@ export default function TestimonialForm({ onClose }: TestimonialFormProps) {
                             <label className="block text-sm font-semibold text-slate-700 mb-2">
                                 Ulasan / Pesan <span className="text-red-500">*</span>
                             </label>
-                            <div className={`flex items-start gap-3 px-4 py-3 border rounded-xl transition-colors ${
-                                errors.ulasan ? 'border-red-300 bg-red-50' : 'border-slate-200 focus-within:border-poltekpar-primary focus-within:ring-2 focus-within:ring-blue-100'
-                            }`}>
+                            <div className={`flex items-start gap-3 px-4 py-3 border rounded-xl transition-colors ${errors.ulasan ? 'border-red-300 bg-red-50' : 'border-slate-200 focus-within:border-poltekpar-primary focus-within:ring-2 focus-within:ring-blue-100'
+                                }`}>
                                 <i className="fa-solid fa-comment-dots text-slate-400 mt-1"></i>
                                 <textarea
                                     value={data.ulasan}
@@ -227,9 +223,8 @@ export default function TestimonialForm({ onClose }: TestimonialFormProps) {
                             <button
                                 type="submit"
                                 disabled={isSubmitDisabled}
-                                className={`flex-1 px-4 py-3 text-sm font-semibold text-white bg-poltekpar-primary hover:bg-poltekpar-navy rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                                    inertiaProcessing || mockProcessing ? 'opacity-75' : ''
-                                }`}
+                                className={`flex-1 px-4 py-3 text-sm font-semibold text-white bg-poltekpar-primary hover:bg-poltekpar-navy rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${inertiaProcessing || mockProcessing ? 'opacity-75' : ''
+                                    }`}
                             >
                                 {inertiaProcessing || mockProcessing ? (
                                     <>

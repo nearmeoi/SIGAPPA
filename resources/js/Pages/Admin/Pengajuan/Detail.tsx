@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import ConfirmDialog from '../../../Components/ConfirmDialog';
@@ -118,6 +118,7 @@ interface DialogState {
 
 const statusConfig: Record<string, { label: string; text: string; bg: string; dot: string }> = {
     diproses: { label: 'Diproses', text: 'text-blue-700', bg: 'bg-blue-50', dot: 'bg-blue-400' },
+    revisi_direktur: { label: 'Revisi Direktur', text: 'text-orange-700', bg: 'bg-orange-50', dot: 'bg-orange-400' },
     diajukan: { label: 'Diajukan ke Direktur', text: 'text-violet-700', bg: 'bg-violet-50', dot: 'bg-violet-400' },
     diterima: { label: 'Diterima', text: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-400' },
     direvisi: { label: 'Revisi', text: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-400' },
@@ -553,6 +554,10 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     const [confirmDialog, setConfirmDialog] = useState<DialogState>({ open: false, title: '', message: '', action: () => undefined, variant: 'warning', confirmLabel: 'Ya, Lanjutkan', cancelLabel: 'Batal' });
     const [editingSection, setEditingSection] = useState<string | null>(null);
     const [draft, setDraft] = useState<DraftState>(() => buildDraft(pengajuan, ketua?.id_tim));
+
+    useEffect(() => {
+        setDraft(buildDraft(pengajuan, ketua?.id_tim));
+    }, [pengajuan, ketua?.id_tim]);
     const [collapsedLocations, setCollapsedLocations] = useState<Record<number, boolean>>({});
 
     const toggleLocationCollapse = (idUi: number) => {
@@ -1342,8 +1347,14 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                 <p className="text-[12px] text-zinc-500 mt-1">Setelah data pengajuan lengkap dan benar, ajukan ke Direktur untuk keputusan akhir.</p>
                             </div>
                             <div className="p-5">
+                                {pengajuan.status_pengajuan === 'revisi_direktur' && (
+                                    <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-4 shadow-sm">
+                                        <div className="flex items-center gap-1.5 font-bold mb-2"><AlertCircle size={16} className="text-orange-600" /><span className="text-orange-800 text-sm">Catatan Revisi dari Direktur:</span></div>
+                                        <p className="whitespace-pre-wrap pl-6 text-sm text-orange-700">{pengajuan.catatan_direktur || 'Tidak ada catatan spesifik.'}</p>
+                                    </div>
+                                )}
                                 <div className="mb-3">
-                                    <label className="text-xs font-bold text-zinc-700">Catatan untuk Direktur <span className="text-zinc-400 font-normal">(opsional)</span></label>
+                                    <label className="text-xs font-bold text-zinc-700">Catatan untuk {pengajuan.status_pengajuan === 'revisi_direktur' ? 'Pemohon / Direktur' : 'Direktur'} <span className="text-zinc-400 font-normal">(opsional)</span></label>
                                     <textarea
                                         value={catatan}
                                         onChange={e => setCatatan(e.target.value)}
@@ -1360,6 +1371,26 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                             <div>{missing.join(', ')}</div>
                                         </div>
                                     </div>
+                                )}
+                                {pengajuan.status_pengajuan === 'revisi_direktur' && (
+                                    <button
+                                        onClick={() => setConfirmDialog({
+                                            open: true,
+                                            title: 'Kembalikan ke Pemohon?',
+                                            message: 'Pengajuan akan dikembalikan ke form masyarakat/dosen untuk direvisi oleh mereka sesuai dengan catatan. Pastikan Anda telah menulis Catatan untuk Pemohon di atas.',
+                                            action: () => router.put(`/admin/pengajuan/${pengajuan.id_pengajuan}/status`, {
+                                                status_pengajuan: 'direvisi',
+                                                catatan_admin: catatan || null,
+                                            }),
+                                            variant: 'warning',
+                                            confirmLabel: 'Ya, Kembalikan',
+                                            cancelLabel: 'Batal',
+                                        })}
+                                        className="w-full flex items-center justify-center gap-2 py-3 mb-2 rounded-xl text-[14px] font-bold transition-all bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-sm"
+                                    >
+                                        <RotateCcw size={16} />
+                                        Kembalikan ke Pemohon untuk Revisi
+                                    </button>
                                 )}
                                 <button
                                     onClick={() => setConfirmDialog({
@@ -1381,7 +1412,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                         }`}
                                 >
                                     <Send size={16} />
-                                    Ajukan ke Direktur
+                                    {pengajuan.status_pengajuan === 'revisi_direktur' ? 'Kirim Kembali ke Direktur' : 'Ajukan ke Direktur'}
                                 </button>
                             </div>
                         </div>

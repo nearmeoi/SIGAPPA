@@ -86,10 +86,10 @@ export default function ConfirmDialog({
                 </div>
 
                 {/* Text */}
-                <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Inter', system-ui, sans-serif" }}>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
                     {title}
                 </h3>
-                <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px', lineHeight: 1.5, fontFamily: "'Inter', system-ui, sans-serif" }}>
+                <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px', lineHeight: 1.5, fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}>
                     {message}
                 </p>
 
@@ -103,7 +103,7 @@ export default function ConfirmDialog({
                             border: '1px solid #e2e8f0', backgroundColor: 'white',
                             color: '#475569', fontSize: '13px', fontWeight: 600,
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            fontFamily: "'Inter', system-ui, sans-serif",
+                            fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
                             transition: 'all 0.15s',
                             opacity: loading ? 0.6 : 1,
                         }}
@@ -120,7 +120,7 @@ export default function ConfirmDialog({
                             border: 'none', backgroundColor: colors.btn,
                             color: 'white', fontSize: '13px', fontWeight: 600,
                             cursor: loading ? 'not-allowed' : 'pointer',
-                            fontFamily: "'Inter', system-ui, sans-serif",
+                            fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
                             transition: 'all 0.15s',
                             display: 'flex', alignItems: 'center', gap: '6px',
                             opacity: loading ? 0.7 : 1,

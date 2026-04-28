@@ -34,6 +34,8 @@ export interface PengajuanRecord {
     email_pengusul?: string;
     kebutuhan?: string;
     tim_kegiatan?: { nama: string; peran: string }[];
+    aktivitas?: { status_pelaksanaan: string; catatan_pelaksanaan?: string };
+    logs?: { id: number; status_lama: string | null; status_baru: string; catatan: string | null; created_at: string }[];
 }
 
 interface PengajuanProps {
@@ -44,6 +46,15 @@ interface PengajuanProps {
     jenisPkmOptions?: { value: number; label: string }[];
     /** Kode unik pengajuan yang sedang di-edit (dari ?edit=KODE query param) */
     editSubmissionKode?: string | null;
+    pagination?: {
+        links: { url: string | null; label: string; active: boolean }[];
+        current_page: number;
+        last_page: number;
+        total: number;
+    } | null;
+    filters?: {
+        search?: string;
+    };
 }
 
 export default function Pengajuan({
@@ -52,6 +63,8 @@ export default function Pengajuan({
     userSubmissions = null,
     jenisPkmOptions = [],
     editSubmissionKode = null,
+    pagination = null,
+    filters = {},
 }: PengajuanProps) {
     const resolvedRole = role === 'dosen' ? 'dosen' : 'masyarakat';
 
@@ -59,6 +72,10 @@ export default function Pengajuan({
     const [submissions, setSubmissions] = useState<PengajuanRecord[]>(
         () => userSubmissions ?? []
     );
+
+    useEffect(() => {
+        setSubmissions(userSubmissions ?? []);
+    }, [userSubmissions]);
 
     const [activeView, setActiveView] = useState<'form' | 'status'>(
         // If editing a specific submission, force form view
@@ -72,8 +89,10 @@ export default function Pengajuan({
 
     // Sync activeView apabila server mengirim initialView berbeda (navigasi back/forward)
     useEffect(() => {
-        setActiveView(initialView as 'form' | 'status');
-    }, [initialView]);
+        if (!editSubmissionKode) {
+            setActiveView(initialView as 'form' | 'status');
+        }
+    }, [initialView, editSubmissionKode]);
 
     const latestSubmission = submissions[0] ?? null;
     const currentStatus = latestSubmission?.status ?? 'belum_diajukan';
@@ -125,6 +144,8 @@ export default function Pengajuan({
                             jenisPkmOptions={jenisPkmOptions}
                             editSubmission={editSubmission}
                             hideMainTabNav
+                            pagination={pagination}
+                            filters={filters}
                         />
                     ) : (
                         <MasyarakatSubmissionCard
@@ -139,6 +160,8 @@ export default function Pengajuan({
                             editSubmission={editSubmission}
                             hideInlineStatusPanel
                             hideMainTabNav
+                            pagination={pagination}
+                            filters={filters}
                         />
                     )}
                 </div>

@@ -40,6 +40,7 @@ class DirekturController extends Controller
             $pengajuan->status_pengajuan = Pengajuan::STATUS_DITERIMA;
             $pengajuan->catatan_direktur = $request->catatan;
             $pengajuan->direktur_approved_at = now();
+            $pengajuan->admin_read_at = null; // Reset agar Admin dapat notif
             $pengajuan->save();
 
             // Buat aktivitas otomatis ketika diterima
@@ -57,6 +58,9 @@ class DirekturController extends Controller
                 'changed_by_name' => auth()->user()?->name,
             ]);
         });
+
+        // Realtime notification
+        broadcast(new \App\Events\NotificationUpdated('updated', 'Pengajuan disetujui Direktur'));
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengajuan berhasil diterima.');
     }
@@ -78,6 +82,7 @@ class DirekturController extends Controller
         DB::transaction(function () use ($pengajuan, $request) {
             $pengajuan->status_pengajuan = Pengajuan::STATUS_DITOLAK;
             $pengajuan->catatan_direktur = $request->catatan;
+            $pengajuan->admin_read_at = null; // Reset agar Admin dapat notif
             $pengajuan->save();
 
             PengajuanLog::create([
@@ -89,6 +94,8 @@ class DirekturController extends Controller
                 'changed_by_name' => auth()->user()?->name,
             ]);
         });
+
+        broadcast(new \App\Events\NotificationUpdated('updated', 'Pengajuan ditolak Direktur'));
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengajuan ditolak.');
     }
@@ -108,19 +115,22 @@ class DirekturController extends Controller
         $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIAJUKAN)->findOrFail($id);
 
         DB::transaction(function () use ($pengajuan, $request) {
-            $pengajuan->status_pengajuan = Pengajuan::STATUS_DIREVISI;
+            $pengajuan->status_pengajuan = Pengajuan::STATUS_REVISI_DIREKTUR;
             $pengajuan->catatan_direktur = $request->catatan;
+            $pengajuan->admin_read_at = null; // Reset agar Admin dapat notif
             $pengajuan->save();
 
             PengajuanLog::create([
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'status_lama' => Pengajuan::STATUS_DIAJUKAN,
-                'status_baru' => Pengajuan::STATUS_DIREVISI,
+                'status_baru' => Pengajuan::STATUS_REVISI_DIREKTUR,
                 'catatan' => $request->catatan,
                 'changed_by_user_id' => auth()->id(),
                 'changed_by_name' => auth()->user()?->name,
             ]);
         });
+
+        broadcast(new \App\Events\NotificationUpdated('updated', 'Direktur meminta revisi pengajuan'));
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengajuan dikembalikan untuk direvisi.');
     }

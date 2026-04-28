@@ -100,6 +100,8 @@ export default function Dashboard({
                 params.status = filterParam;
             }
         }
+        
+        // Direktur uses the same pengajuan list but filtered
         const url = type === 'pengajuan' ? '/admin/pengajuan' : '/admin/aktivitas';
         router.get(url, params, { preserveState: true });
     };
@@ -134,9 +136,11 @@ export default function Dashboard({
             {/* Direktur Notification Banner */}
             {isDirektur && stats.pengajuanDiajukan > 0 && (
                 <div className="mb-8 relative overflow-hidden group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 opacity-95 group-hover:scale-105 transition-transform duration-700"></div>
+                    {/* Gradient background using Poltekpar colors */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-poltekpar-navy to-poltekpar-primary opacity-95 group-hover:scale-105 transition-transform duration-700"></div>
                     <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-violet-400/20 rounded-full blur-3xl"></div>
+                    {/* Accent circle using Poltekpar gold */}
+                    <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-poltekpar-gold/20 rounded-full blur-3xl"></div>
 
                     <div className="relative z-10 px-6 py-8 sm:px-10 flex flex-col sm:flex-row items-center justify-between gap-6">
                         <div className="flex items-start gap-5">
@@ -147,7 +151,7 @@ export default function Dashboard({
                                 <h2 className="text-xl sm:text-2xl font-black tracking-tight mb-1">
                                     {stats.pengajuanDiajukan} Pengajuan Menunggu Verifikasi
                                 </h2>
-                                <p className="text-violet-100 text-sm sm:text-base font-medium opacity-90">
+                                <p className="text-white/80 text-sm sm:text-base font-medium">
                                     Ada pengajuan baru yang telah disiapkan oleh Admin dan memerlukan keputusan Anda.
                                 </p>
                             </div>
@@ -155,7 +159,7 @@ export default function Dashboard({
 
                         <button
                             onClick={() => handleCardClick('pengajuan', 'diajukan')}
-                            className="whitespace-nowrap px-8 py-4 bg-white text-violet-700 rounded-2xl font-black text-sm uppercase tracking-wider shadow-2xl shadow-violet-900/20 hover:bg-violet-50 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 group/btn"
+                            className="whitespace-nowrap px-8 py-4 bg-white text-poltekpar-primary rounded-2xl font-black text-sm uppercase tracking-wider shadow-2xl shadow-poltekpar-navy/20 hover:bg-slate-50 hover:scale-105 active:scale-95 transition-all flex items-center gap-3 group/btn"
                         >
                             Verifikasi Sekarang
                             <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
