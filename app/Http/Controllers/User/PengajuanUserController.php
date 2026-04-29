@@ -282,8 +282,7 @@ class PengajuanUserController extends Controller
             TimKegiatan::insert($rows);
         }
 
-        // Realtime notification
-        broadcast(new \App\Events\NotificationUpdated('new', 'Pengajuan baru masuk'));
+        try { broadcast(new \App\Events\NotificationUpdated('new', 'Pengajuan baru masuk')); } catch (\Throwable) {}
 
         return redirect()->back()
             ->with('success', 'Pengajuan PKM berhasil dikirim! Silakan tunggu konfirmasi dari admin.');
@@ -624,6 +623,8 @@ class PengajuanUserController extends Controller
             'rab' => $request->input('link_tambahan') ?: '',
             'status_pengajuan' => 'diproses',
         ]);
+
+        try { broadcast(new \App\Events\NotificationUpdated('new', 'Pengajuan baru masuk')); } catch (\Throwable) {}
 
         return redirect()->back()
             ->with('success', 'Pengajuan PKM berhasil dikirim! Silakan tunggu konfirmasi dari admin.');

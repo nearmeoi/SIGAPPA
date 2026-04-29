@@ -38,15 +38,17 @@ class DashboardController extends Controller
             ->whereHas('pengajuan', fn($q) => $q->where('tgl_mulai', '>=', '2025-01-01'))
             ->count();
 
+        $isDirektur = auth()->user()?->role === 'direktur';
+
         $recentPengajuan = Pengajuan::with(['user', 'jenisPkm'])
-            ->where('status_pengajuan', 'diproses')
-            ->latest('created_at')
+            ->where('status_pengajuan', $isDirektur ? 'diajukan' : 'diproses')
+            ->latest('updated_at')
             ->take(5)
             ->get()
             ->map(fn($p) => [
                 'id_pengajuan' => $p->id_pengajuan,
                 'judul_kegiatan' => $p->judul_kegiatan,
-                'created_at' => $p->created_at?->format('d M Y') ?? '-',
+                'created_at' => $p->updated_at?->format('d M Y') ?? '-',
                 'status_pengajuan' => $p->status_pengajuan,
                 'nama_pengusul' => $p->nama_pengusul ?? $p->user?->name,
                 'user' => $p->user ? [

@@ -59,8 +59,7 @@ class DirekturController extends Controller
             ]);
         });
 
-        // Realtime notification
-        broadcast(new \App\Events\NotificationUpdated('updated', 'Pengajuan disetujui Direktur'));
+        try { broadcast(new \App\Events\NotificationUpdated('updated', 'Pengajuan disetujui Direktur')); } catch (\Throwable) {}
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengajuan berhasil diterima.');
     }
@@ -95,7 +94,7 @@ class DirekturController extends Controller
             ]);
         });
 
-        broadcast(new \App\Events\NotificationUpdated('updated', 'Pengajuan ditolak Direktur'));
+        try { broadcast(new \App\Events\NotificationUpdated('updated', 'Pengajuan ditolak Direktur')); } catch (\Throwable) {}
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengajuan ditolak.');
     }
@@ -130,7 +129,7 @@ class DirekturController extends Controller
             ]);
         });
 
-        broadcast(new \App\Events\NotificationUpdated('updated', 'Direktur meminta revisi pengajuan'));
+        try { broadcast(new \App\Events\NotificationUpdated('updated', 'Direktur meminta revisi pengajuan')); } catch (\Throwable) {}
 
         return redirect()->route('admin.dashboard')->with('success', 'Pengajuan dikembalikan untuk direvisi.');
     }

@@ -50,13 +50,15 @@ function timeAgo(dateStr: string): string {
 
 const statusBadge = (status: string): { label: string; className: string } => {
     const base = "px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide";
-    switch(status) {
+    switch (status) {
         case 'diproses':
             return { label: 'PENGAJUAN BARU', className: `${base} bg-blue-100 text-blue-700` };
         case 'direvisi':
             return { label: 'PERLU REVISI', className: `${base} bg-amber-100 text-amber-700` };
         case 'diajukan':
-            return { label: 'VERIFIKASI PIMPINAN', className: `${base} bg-poltekpar-primary text-white` };
+            return { label: 'VERIFIKASI DIREKTUR', className: `${base} bg-poltekpar-primary text-white` };
+        case 'revisi_direktur':
+            return { label: 'REVISI DIREKTUR', className: `${base} bg-orange-100 text-orange-700` };
         case 'diterima':
             return { label: 'DISETUJUI', className: `${base} bg-emerald-100 text-emerald-700` };
         case 'ditolak':
@@ -127,7 +129,7 @@ export default function NotificationBell() {
 
         // Detect truly new items (not just count change)
         const trulyNew = newUnread.filter(i => !prevIds.current.has(i.id_pengajuan));
-        
+
         if (trulyNew.length > 0) {
             // Trigger Flash Notification in Layout
             trulyNew.forEach(item => {
@@ -174,20 +176,17 @@ export default function NotificationBell() {
 
         // Real-time listener using Laravel Echo
         if ((window as any).Echo) {
-            const channel = (window as any).Echo.private('notifications');
-            
-            // Listen with both namespaced and non-namespaced variants as fallback
-            channel.listen('.notification.updated', () => {
-                setTimeout(fetchNotifications, 500);
-            });
-            
-            // Fallback for some Reverb versions/configs
-            channel.listen('NotificationUpdated', () => {
-                setTimeout(fetchNotifications, 500);
-            });
+            (window as any).Echo.private('notifications')
+                .listen('.notification.updated', () => {
+                    setTimeout(fetchNotifications, 500);
+                })
+                .error((err: any) => {
+                    console.warn('[NotificationBell] channel auth error:', err);
+                });
         }
 
-        const interval = setInterval(fetchNotifications, 60000);
+        // Polling setiap 5 detik sebagai fallback jika WebSocket tidak aktif
+        const interval = setInterval(fetchNotifications, 5000);
         return () => {
             clearInterval(interval);
             if ((window as any).Echo) (window as any).Echo.leave('notifications');
@@ -206,13 +205,13 @@ export default function NotificationBell() {
     const handleItemClick = (item: NotificationItem) => {
         setItems(prev => prev.map(n => n.id_pengajuan === item.id_pengajuan ? { ...n, admin_read_at: new Date().toISOString() } : n));
         setData(prev => prev ? { ...prev, counts: { ...prev.counts, unread_count: Math.max(0, prev.counts.unread_count - 1) } } : null);
-        
+
         fetch('/admin/api/notifications/mark-read', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({ ids: [item.id_pengajuan] }),
         }).catch(() => { });
-        
+
         setIsOpen(false);
         router.visit(`${isDirektur ? '/direktur' : '/admin'}/pengajuan/${item.id_pengajuan}`);
     };
@@ -220,7 +219,7 @@ export default function NotificationBell() {
     const handleMarkAllRead = () => {
         setItems(prev => prev.map(n => ({ ...n, admin_read_at: n.admin_read_at ?? new Date().toISOString() })));
         setData(prev => prev ? { ...prev, counts: { ...prev.counts, unread_count: 0 } } : null);
-        
+
         fetch('/admin/api/notifications/mark-all-read', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getCsrfToken() },
@@ -266,7 +265,7 @@ export default function NotificationBell() {
                                     <button
                                         key={item.id_pengajuan}
                                         onClick={() => handleItemClick(item)}
-                                        className={`w-full text-left px-5 py-4 border-b border-slate-50 hover:bg-slate-50 transition-all relative ${isUnread ? 'bg-blue-50/30' : 'bg-white'}`}
+                                        className={`w-full text-left px-5 py-4 hover:bg-slate-50/80 transition-all relative after:absolute after:bottom-0 after:left-4 after:right-4 after:h-px after:bg-slate-200 ${isUnread ? 'bg-blue-50/30' : 'bg-white'}`}
                                     >
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center justify-between gap-2">
@@ -275,14 +274,14 @@ export default function NotificationBell() {
                                                 </span>
                                                 <span className="text-[9px] text-slate-400 font-bold bg-slate-100 px-1.5 py-0.5 rounded">{timeAgo(item.created_at)}</span>
                                             </div>
-                                            
+
                                             <div className="flex gap-2.5">
                                                 {isUnread && <div className="mt-1.5 w-1.5 h-1.5 bg-poltekpar-primary rounded-full flex-shrink-0 animate-pulse" />}
                                                 <p className={`text-sm leading-snug line-clamp-2 ${isUnread ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
                                                     {item.judul_kegiatan}
                                                 </p>
                                             </div>
-                                            
+
                                             <div className="mt-1 flex items-center justify-between">
                                                 <span className={badge.className}>
                                                     {badge.label}

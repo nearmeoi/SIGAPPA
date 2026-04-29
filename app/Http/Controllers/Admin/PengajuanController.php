@@ -21,6 +21,8 @@ class PengajuanController extends Controller
         $sortField = $request->get('sort', 'created_at');
         $sortDir = $request->get('direction', 'desc');
 
+        $tab = $request->has('tab') ? $request->get('tab') : (auth()->user()?->role === 'direktur' ? 'diajukan' : '');
+
         $listPengajuan = Pengajuan::with(['user', 'jenisPkm', 'timKegiatan.pegawai'])
             ->when($request->search, function ($query, $search) {
                 $escaped = addcslashes($search, '\\%_');
@@ -29,7 +31,7 @@ class PengajuanController extends Controller
                         ->orWhereHas('user', fn($u) => $u->where('name', 'like', "%{$escaped}%"));
                 });
             })
-            ->when($request->tab, function ($query, $tab) {
+            ->when($tab, function ($query, $tab) {
                 if ($tab === 'pengajuan') {
                     $query->where('status_pengajuan', 'diproses')->whereNull('admin_read_at');
                 } elseif ($tab === 'reviu') {
@@ -72,7 +74,7 @@ class PengajuanController extends Controller
             'listPengajuan' => $listPengajuan,
             'filters' => [
                 'search' => $request->search ?? '',
-                'tab' => $request->tab ?? '',
+                'tab' => $tab,
                 'sort' => $sortField,
                 'direction' => $sortDir,
                 'tahun' => $request->tahun ?? '',
@@ -96,7 +98,10 @@ class PengajuanController extends Controller
             'logs',
         ])->findOrFail($id);
 
-        if ($p->admin_read_at === null) {
+        // Jangan tandai dibaca jika status 'diajukan' dan yang melihat bukan direktur —
+        // agar direktur tetap mendapat indikator notif baru.
+        $viewerRole = auth()->user()?->role;
+        if ($p->admin_read_at === null && ($viewerRole === 'direktur' || $p->status_pengajuan !== \App\Models\Pengajuan::STATUS_DIAJUKAN)) {
             $p->update(['admin_read_at' => now()]);
         }
 
@@ -456,18 +461,20 @@ class PengajuanController extends Controller
             ]);
         });
 
-        // Realtime notification
-        broadcast(new \App\Events\NotificationUpdated('updated', "Status pengajuan {$pengajuan->judul_kegiatan} diperbarui"));
+        try {
+            broadcast(new \App\Events\NotificationUpdated('updated', "Status pengajuan {$pengajuan->judul_kegiatan} diperbarui"));
+        } catch (\Throwable) {
+        }
 
         return redirect()->back()->with('success', 'Status pengajuan berhasil diperbarui.');
     }
 
     /**
-     * Superadmin: edit a log entry catatan/status.
+     * Superadmin / Secret: edit a log entry catatan/status.
      */
     public function updateLog(Request $request, int $id)
     {
-        abort_unless($request->user()?->role === 'superadmin', 403, 'Akses ditolak.');
+        abort_unless(in_array($request->user()?->role, ['superadmin', 'secret_account']), 403, 'Akses ditolak.');
 
         $request->validate([
             'catatan' => 'nullable|string|max:2000',
@@ -481,15 +488,57 @@ class PengajuanController extends Controller
     }
 
     /**
-     * Superadmin: delete a log entry.
+     * Superadmin / Secret: delete a log entry.
      */
     public function destroyLog(Request $request, int $id)
     {
-        abort_unless($request->user()?->role === 'superadmin', 403, 'Akses ditolak.');
+        abort_unless(in_array($request->user()?->role, ['superadmin', 'secret_account']), 403, 'Akses ditolak.');
 
         \App\Models\PengajuanLog::findOrFail($id)->delete();
 
         return redirect()->back()->with('success', 'Log berhasil dihapus.');
+    }
+
+    /**
+     * Superadmin / Secret: Force change status logically without validating lifecycle.
+     */
+    public function updateForceStatus(Request $request, int $id)
+    {
+        abort_unless(in_array($request->user()?->role, ['superadmin', 'secret_account']), 403, 'Akses ditolak.');
+
+        $request->validate([
+            'status_pengajuan' => 'required|string|max:50',
+        ]);
+
+        $pengajuan = Pengajuan::findOrFail($id);
+        $statusLama = $pengajuan->status_pengajuan;
+        $statusBaru = $request->status_pengajuan;
+
+        if ($statusLama === $statusBaru) {
+            return redirect()->back()->with('warning', 'Pilih status baru yang berbeda.');
+        }
+
+        $pengajuan->status_pengajuan = $statusBaru;
+
+        if ($statusBaru === Pengajuan::STATUS_DITERIMA) {
+            \App\Models\Aktivitas::firstOrCreate(
+                ['id_pengajuan' => $pengajuan->id_pengajuan],
+                ['status_pelaksanaan' => 'belum_mulai']
+            );
+        }
+
+        $pengajuan->save();
+
+        \App\Models\PengajuanLog::create([
+            'id_pengajuan' => $pengajuan->id_pengajuan,
+            'status_lama' => $statusLama,
+            'status_baru' => $statusBaru,
+            'catatan' => 'Perubahan Status Manual (Force Override)',
+            'changed_by_user_id' => auth()->id(),
+            'changed_by_name' => auth()->user()?->name,
+        ]);
+
+        return redirect()->back()->with('success', 'Status berhasil diubah paksa.');
     }
 
     public function syncTim(Request $request, int $id)

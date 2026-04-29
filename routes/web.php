@@ -269,6 +269,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/pengajuan/{id}', [PengajuanController::class, 'destroy'])->name('pengajuan.destroy');
         Route::put('/pengajuan/{id}/status', [PengajuanController::class, 'updateStatus'])->name('pengajuan.update_status');
         Route::put('/pengajuan/{id}/lokasi', [PengajuanController::class, 'updateLokasi'])->name('pengajuan.update_lokasi');
+        Route::put('/pengajuan/{id}/force-status', [PengajuanController::class, 'updateForceStatus'])->name('pengajuan.force_status');
         Route::delete('/pengajuan/{pengajuanId}/tim/{timId}', [PengajuanController::class, 'destroyTim'])->name('pengajuan.destroy_tim');
 
         // Pengajuan Logs — superadmin only edit/delete
@@ -357,21 +358,22 @@ Route::middleware('auth')->group(function () {
 
             $query = Pengajuan::query();
             if ($isDirektur) {
-                // Direktur melihat pengajuan yang diajukan ke mereka atau sedang dalam proses revisi mereka
-                $query->whereIn('status_pengajuan', ['diajukan', 'revisi_direktur']);
-                $unreadCount = Pengajuan::whereIn('status_pengajuan', ['diajukan', 'revisi_direktur'])
+                // Direktur hanya perlu melihat yang menunggu keputusannya
+                $query->where('status_pengajuan', 'diajukan');
+                $unreadCount = Pengajuan::where('status_pengajuan', 'diajukan')
                     ->whereNull('admin_read_at')
                     ->count();
             } else {
-                // Admin dapat notif untuk: Baru, Direvisi, Diterima, Ditolak, Selesai
-                $query->whereIn('status_pengajuan', ['diproses', 'direvisi', 'diterima', 'ditolak', 'selesai']);
-                $unreadCount = Pengajuan::whereIn('status_pengajuan', ['diproses', 'direvisi', 'diterima', 'ditolak', 'selesai'])
+                // Admin: semua status yang butuh tindakan, termasuk revisi dari direktur
+                $adminStatuses = ['diproses', 'direvisi', 'revisi_direktur', 'diterima', 'ditolak', 'selesai'];
+                $query->whereIn('status_pengajuan', $adminStatuses);
+                $unreadCount = Pengajuan::whereIn('status_pengajuan', $adminStatuses)
                     ->whereNull('admin_read_at')
                     ->count();
             }
 
-            $items = $query->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'created_at', 'admin_read_at')
-                ->orderBy('created_at', 'desc')
+            $items = $query->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'updated_at', 'admin_read_at')
+                ->orderBy('updated_at', 'desc')
                 ->limit(15)
                 ->get()
                 ->map(fn($p) => [
@@ -379,7 +381,7 @@ Route::middleware('auth')->group(function () {
                     'judul_kegiatan' => $p->judul_kegiatan,
                     'status_pengajuan' => $p->status_pengajuan,
                     'catatan_admin' => ($isAdmin && in_array($p->status_pengajuan, ['diterima', 'ditolak', 'direvisi'])) ? $p->catatan_direktur : $p->catatan_admin,
-                    'created_at' => $p->created_at->toISOString(),
+                    'created_at' => $p->updated_at->toISOString(),
                     'admin_read_at' => $p->admin_read_at ? $p->admin_read_at->toISOString() : null,
                 ]);
 
@@ -416,9 +418,9 @@ Route::middleware('auth')->group(function () {
             $query = Pengajuan::whereNull('admin_read_at');
 
             if ($isDirektur) {
-                $query->whereIn('status_pengajuan', ['diajukan', 'revisi_direktur']);
+                $query->where('status_pengajuan', 'diajukan');
             } else {
-                $query->whereIn('status_pengajuan', ['diproses', 'direvisi', 'diterima', 'ditolak', 'selesai']);
+                $query->whereIn('status_pengajuan', ['diproses', 'direvisi', 'revisi_direktur', 'diterima', 'ditolak', 'selesai']);
             }
 
             $query->update(['admin_read_at' => now()]);

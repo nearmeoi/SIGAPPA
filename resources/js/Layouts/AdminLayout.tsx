@@ -22,7 +22,7 @@ import {
     Phone,
     StarHalf,
     Menu,
-    X
+    X,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -38,11 +38,15 @@ interface NavItem {
     superadminOnly?: boolean;
     secretOnly?: boolean;
     adminOnly?: boolean;
+    direkturOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
     { label: 'Dashboard', href: '/admin', icon: Layout },
+
+    // Menu Utama
     { label: 'Pengajuan', href: '/admin/pengajuan', icon: FileText },
+
     { label: 'Aktivitas', href: '/admin/aktivitas', icon: Activity },
     {
         label: 'Database',
@@ -88,11 +92,36 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     useEffect(() => {
         const handleNewNotif = (e: Event) => {
             const detail = (e as CustomEvent).detail as { id_pengajuan: number; judul_kegiatan: string; status_pengajuan: string };
+
+            const role = (props as any).auth?.user?.role;
+            const isDirektur = role === 'direktur';
+
+            let notifTitle = 'Aktivitas Baru';
+            let notifMessage = detail.judul_kegiatan || 'Tanpa Judul';
+
+            if (isDirektur) {
+                if (detail.status_pengajuan === 'diajukan') {
+                    notifTitle = 'Menunggu Verifikasi Anda';
+                }
+            } else {
+                if (detail.status_pengajuan === 'diproses') {
+                    notifTitle = 'Pengajuan Baru Masuk';
+                } else if (detail.status_pengajuan === 'revisi_direktur') {
+                    notifTitle = 'Catatan Revisi Direktur';
+                } else if (detail.status_pengajuan === 'diterima') {
+                    notifTitle = 'Pengajuan Disetujui';
+                } else if (detail.status_pengajuan === 'ditolak') {
+                    notifTitle = 'Pengajuan Ditolak';
+                } else if (detail.status_pengajuan === 'direvisi') {
+                    notifTitle = 'Revisi dari Pengusul';
+                }
+            }
+
             setToast({
                 show: true,
                 type: 'info',
-                title: 'Pengajuan Baru',
-                message: detail.judul_kegiatan || 'Tanpa Judul',
+                title: notifTitle,
+                message: notifMessage,
             });
 
             // Make toast clickable to navigate
@@ -196,6 +225,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                         if (i.superadminOnly && !['superadmin', 'secret_account'].includes(role)) return false;
                         if (i.secretOnly && role !== 'secret_account') return false;
                         if (i.adminOnly && !['admin', 'superadmin', 'secret_account'].includes(role)) return false;
+                        if (i.direkturOnly && role !== 'direktur') return false;
                         return true;
                     }).map((item) => {
                         const hasChildren = !!item.children;

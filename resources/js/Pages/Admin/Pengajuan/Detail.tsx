@@ -3,7 +3,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import ConfirmDialog from '../../../Components/ConfirmDialog';
 import MapLocationPicker from '../../../Components/MapLocationPicker';
-import { AlertCircle, ArrowLeft, CheckCircle, ExternalLink, File, Folder, MapPin, Plus, RotateCcw, Save, Send, SquarePen, Trash2, User, Users, Wallet, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle, ExternalLink, File, Folder, MapPin, Plus, RotateCcw, Save, Send, SquarePen, Trash2, User, Users, Wallet, XCircle, AlertTriangle } from 'lucide-react';
 
 interface Pegawai { id_pegawai: number; nama_pegawai: string; nip?: string; role?: string | null; }
 interface TimKegiatan { id_tim: number; nama_mahasiswa?: string; peran_tim?: string; pegawai?: { nama_pegawai: string }; }
@@ -728,6 +728,14 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
 
         router.post(urlMap[decisionAction], { catatan: catatanDirektur }, {
             onFinish: () => setIsSubmittingDecision(false),
+            onError: (errors: any) => {
+                const errorMessage = errors.catatan || errors.catatanDirektur || Object.values(errors)[0] as string;
+                if (errorMessage) {
+                    setCatatanError(errorMessage);
+                } else {
+                    setCatatanError('Terjadi kesalahan saat memproses data.');
+                }
+            }
         });
     };
 
@@ -1252,7 +1260,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                     const stBaru = statusConfig[log.status_baru] || statusConfig.diproses;
                                     const stLama = log.status_lama ? (statusConfig[log.status_lama] || statusConfig.diproses) : null;
                                     return (
-                                        <div key={log.id} className="flex gap-3 pb-4 relative">
+                                        <div key={log.id} className="flex gap-3 pb-4 relative group">
                                             {i < (pengajuan.logs?.length || 0) - 1 && (
                                                 <div className="absolute left-[7px] top-4 bottom-0 w-[2px] bg-zinc-100" />
                                             )}
@@ -1263,7 +1271,22 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                                     {stLama && <span className="text-zinc-400 text-[11px]">→</span>}
                                                     <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${stBaru.bg} ${stBaru.text}`}>{stBaru.label}</span>
                                                 </div>
-                                                <p className="text-[11px] text-zinc-500 mt-1">{log.changed_by_name || 'Admin'} · {log.created_at}</p>
+                                                <div className="flex items-center justify-between mt-1">
+                                                    <p className="text-[11px] text-zinc-500">{log.changed_by_name || 'Admin'} · {log.created_at}</p>
+                                                    {['superadmin', 'secret_account'].includes(user?.role) && (
+                                                        <div className="flex items-center gap-0.5 bg-zinc-50 border border-zinc-100 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button title="Edit Catatan" onClick={() => {
+                                                                const newVal = prompt('Edit catatan riwayat:', log.catatan || '');
+                                                                if (newVal !== null) router.put(`/admin/pengajuan-logs/${log.id}`, { catatan: newVal, status_baru: log.status_baru });
+                                                            }} className="p-1 text-zinc-400 hover:text-blue-600 rounded"><SquarePen size={12} /></button>
+                                                            <div className="w-px h-3 bg-zinc-200" />
+                                                            <button title="Hapus Riwayat" onClick={() => setConfirmDialog({
+                                                                open: true, title: 'Hapus Log?', message: 'Riwayat aktivitas ini akan dihapus permanen. Aksi ini tidak dapat dibatalkan.', confirmLabel: 'Hapus', cancelLabel: 'Batal', variant: 'danger',
+                                                                action: () => router.delete(`/admin/pengajuan-logs/${log.id}`)
+                                                            })} className="p-1 text-zinc-400 hover:text-red-600 rounded"><Trash2 size={12} /></button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 {log.catatan && <p className="text-[12px] text-zinc-700 mt-1.5 leading-relaxed">{log.catatan}</p>}
                                             </div>
                                         </div>
@@ -1428,28 +1451,47 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                         </div>
                     )}
 
-                    {/* Admin can mark as selesai after diterima */}
-                    {pengajuan.status_pengajuan === 'diterima' && (
-                        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
-                            <div className="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4">
-                                <h2 className="text-[14px] font-semibold text-zinc-900">Tandai Selesai</h2>
+                    {/* Status Override for Superadmin & Secret */}
+                    {['superadmin', 'secret_account'].includes(user?.role) && (
+                        <div className="overflow-hidden rounded-xl border border-rose-200 bg-white shadow-sm ring-1 ring-rose-500/10">
+                            <div className="border-b border-rose-100 bg-rose-50/50 px-6 py-4 flex items-center gap-2">
+                                <AlertTriangle size={16} className="text-rose-600" />
+                                <h2 className="text-[14px] font-bold text-rose-900">Override Status Manual</h2>
                             </div>
                             <div className="p-5">
-                                <button
-                                    onClick={() => setConfirmDialog({
-                                        open: true,
-                                        title: 'Tandai Selesai?',
-                                        message: 'PKM ini akan ditandai sebagai selesai.',
-                                        action: () => router.put(`/admin/pengajuan/${pengajuan.id_pengajuan}/status`, { status_pengajuan: 'selesai' }),
-                                        variant: 'info',
-                                        confirmLabel: 'Ya, Selesai',
-                                        cancelLabel: 'Batal',
-                                    })}
-                                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 text-white text-[14px] font-bold hover:bg-indigo-700 transition-all"
-                                >
-                                    <CheckCircle size={16} />
-                                    Tandai Selesai
-                                </button>
+                                <p className="text-xs text-rose-700 mb-4">Fitur ini hanya untuk Superadmin / Secret Account. Dapat mengubah status pengajuan tanpa melalui alur normal.</p>
+                                <div className="space-y-3">
+                                    <select
+                                        className="w-full rounded-lg border border-rose-200 px-3 py-2 text-sm outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10"
+                                        value={selectedAction}
+                                        onChange={(e) => setSelectedAction(e.target.value)}
+                                    >
+                                        <option value="" disabled>-- Pilih Status Baru --</option>
+                                        {Object.entries(statusConfig).map(([k, v]) => (
+                                            <option key={k} value={k}>{v.label} ({k})</option>
+                                        ))}
+                                    </select>
+
+                                    <button
+                                        onClick={() => {
+                                            if (!selectedAction) return;
+                                            setConfirmDialog({
+                                                open: true,
+                                                title: 'Override Status Paksa?',
+                                                message: `Status akan diubah mutlak menjadi "${selectedAction}". Riwayat aktivitas ini akan dicatat sebagai "Perubahan Manual".`,
+                                                action: () => router.put(`/admin/pengajuan/${pengajuan.id_pengajuan}/force-status`, { status_pengajuan: selectedAction }),
+                                                variant: 'danger',
+                                                confirmLabel: 'Ya, Paksa Ubah',
+                                                cancelLabel: 'Batal',
+                                            });
+                                        }}
+                                        disabled={!selectedAction || selectedAction === pengajuan.status_pengajuan}
+                                        className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[14px] font-bold transition-all ${!selectedAction || selectedAction === pengajuan.status_pengajuan ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed' : 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm'}`}
+                                    >
+                                        <RotateCcw size={16} />
+                                        Eksekusi Perubahan
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
