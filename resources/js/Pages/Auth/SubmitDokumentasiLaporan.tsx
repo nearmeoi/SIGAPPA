@@ -23,7 +23,7 @@ interface FormData {
     linkLaporan: string;
 }
 
-export default function SubmitDokumentasiLaporan(): JSX.Element {
+export default function SubmitDokumentasiLaporan() {
     const [formData, setFormData] = useState<FormData>({
         pkmId: '',
         linkDokumentasi: '',

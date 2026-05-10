@@ -76,6 +76,7 @@ const getSubmissionStatusStyle = (status: string) => {
         berlangsung: { label: 'Berlangsung', icon: 'fa-person-walking', bg: '#fef3c7', color: '#b45309' },
         selesai: { label: 'Selesai', icon: 'fa-flag-checkered', bg: '#dcfce7', color: '#15803d' },
         direvisi: { label: 'Direvisi', icon: 'fa-file-pen', bg: '#fff7ed', color: '#ea580c' },
+        revisi_direktur: { label: 'Revisi Direktur', icon: 'fa-file-pen', bg: '#ffedd5', color: '#c2410c' },
         belum_diajukan: { label: 'Belum Diajukan', icon: 'fa-file-circle-plus', bg: '#f1f5f9', color: '#64748b' },
     };
     return styles[status] || styles.belum_diajukan;
@@ -153,8 +154,8 @@ export default function MasyarakatSubmissionCard({
         switch (sortOption) {
             case 'default':
                 history.sort((a, b) => {
-                    const isAPri = a.status === 'direvisi' || a.status === 'diproses';
-                    const isBPri = b.status === 'direvisi' || b.status === 'diproses';
+                    const isAPri = a.status === 'direvisi' || a.status === 'revisi_direktur' || a.status === 'diproses';
+                    const isBPri = b.status === 'direvisi' || b.status === 'revisi_direktur' || b.status === 'diproses';
                     if (isAPri && !isBPri) return -1;
                     if (!isAPri && isBPri) return 1;
                     const diff = new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime();
@@ -354,42 +355,38 @@ export default function MasyarakatSubmissionCard({
 
         setIsSubmittingFinal(true);
 
-        try {
-            // Get CSRF from meta tag properly
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-            await axios.post('/evaluasi-sistem', {
-                _token: csrfToken, // Body token often more reliable
-                nama: data.name,
-                no_telp: data.whatsapp,
-                asal_instansi: data.institution,
-                q1: ratings[0], q2: ratings[1], q3: ratings[2], q4: ratings[3], q5: ratings[4],
-                masukan: feedbackComment
-            }, {
-                headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
+        axios.post('/evaluasi-sistem', {
+            _token: csrfToken,
+            nama: data.name,
+            no_telp: data.whatsapp,
+            asal_instansi: data.institution,
+            q1: ratings[0], q2: ratings[1], q3: ratings[2], q4: ratings[3], q5: ratings[4],
+            masukan: feedbackComment
+        }, {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        }).catch((error) => {
+            console.error('Gagal menyimpan evaluasi sistem:', error);
+        });
 
-            submitFormData({
-                onSuccess: () => {
-                    setFlowStep('success');
-                    setIsSubmittingFinal(false);
-                    reset();
-                    setFilePermohonan(null);
-                    setFileProposal(null);
-                },
-                onError: () => {
-                    setIsSubmittingFinal(false);
-                    alert('Gagal mengirim pengajuan. Namun evaluasi Anda telah tersimpan.');
-                },
-            });
-        } catch (error: any) {
-            setIsSubmittingFinal(false);
-            const errMsg = error.response?.data?.message || error.message || 'Unknown error';
-            alert('Terjadi kesalahan koneksi. Detail: ' + errMsg);
-        }
+        submitFormData({
+            onSuccess: () => {
+                setFlowStep('success');
+                setIsSubmittingFinal(false);
+                reset();
+                setFilePermohonan(null);
+                setFileProposal(null);
+            },
+            onError: () => {
+                setIsSubmittingFinal(false);
+                alert('Gagal mengirim pengajuan. Silakan periksa kembali isian dan dokumen Anda.');
+            },
+        });
     };
 
     const getRatingLabel = (r: number) => {

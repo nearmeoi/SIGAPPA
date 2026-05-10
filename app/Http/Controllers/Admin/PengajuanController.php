@@ -34,6 +34,8 @@ class PengajuanController extends Controller
                     $query->where('status_pengajuan', 'diproses')->whereNull('admin_read_at');
                 } elseif ($tab === 'reviu') {
                     $query->where('status_pengajuan', 'diproses')->whereNotNull('admin_read_at');
+                } elseif ($tab === 'direvisi') {
+                    $query->whereIn('status_pengajuan', ['direvisi', 'revisi_direktur']);
                 } else {
                     $query->where('status_pengajuan', $tab);
                 }
@@ -41,8 +43,11 @@ class PengajuanController extends Controller
             ->when($request->tahun, function ($query, $tahun) {
                 $query->whereYear('tgl_mulai', $tahun);
             })
+            ->when($request->jenis_pkm, function ($query, $jenisPkm) {
+                $query->where('id_jenis_pkm', $jenisPkm);
+            })
             ->when($sortField === 'status_pengajuan', function ($query) use ($sortDir) {
-                $query->orderByRaw("FIELD(status_pengajuan, 'diproses', 'diterima', 'direvisi', 'ditolak') " . $sortDir);
+                $query->orderByRaw("FIELD(status_pengajuan, 'diproses', 'diajukan', 'revisi_direktur', 'direvisi', 'diterima', 'ditolak', 'selesai') " . $sortDir);
             }, function ($query) use ($sortField, $sortDir) {
                 $query->orderBy($sortField, $sortDir);
             })
@@ -76,12 +81,14 @@ class PengajuanController extends Controller
                 'sort' => $sortField,
                 'direction' => $sortDir,
                 'tahun' => $request->tahun ?? '',
+                'jenis_pkm' => $request->jenis_pkm ?? '',
             ],
             'availableYears' => Pengajuan::selectRaw('YEAR(tgl_mulai) as year')
                 ->whereNotNull('tgl_mulai')
                 ->groupBy('year')
                 ->orderBy('year', 'desc')
                 ->pluck('year'),
+            'listJenisPkm' => JenisPkm::orderBy('nama_jenis')->get(['id_jenis_pkm', 'nama_jenis', 'warna_icon']),
         ]);
     }
 
@@ -127,11 +134,13 @@ class PengajuanController extends Controller
             'longitude' => $p->longitude,
             'status_pengajuan' => $p->status_pengajuan,
             'catatan_admin' => $p->catatan_admin,
+            'catatan_direktur' => $p->catatan_direktur,
             'proposal' => $p->proposal,
             'surat_permohonan' => $p->surat_permohonan,
             'rab' => $p->rab,
             'rab_items' => $p->rab_items,
             'lokasi_tambahan' => $p->lokasi_tambahan,
+            'created_at' => $p->created_at?->format('Y-m-d H:i:s'),
             'admin_read_at' => $p->admin_read_at,
             'direktur_approved_at' => $p->direktur_approved_at?->format('d M Y, H:i'),
             'user' => $p->user ? [
@@ -148,6 +157,8 @@ class PengajuanController extends Controller
                 'id_tim' => $t->id_tim,
                 'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
                 'peran' => $t->peran_tim,
+                'nama_mahasiswa' => $t->nama_mahasiswa,
+                'peran_tim' => $t->peran_tim,
                 'pegawai' => $t->pegawai ? [
                     'id_pegawai' => $t->pegawai->id_pegawai,
                     'nama_pegawai' => $t->pegawai->nama_pegawai,
@@ -198,6 +209,10 @@ class PengajuanController extends Controller
      */
     public function update(Request $request, int $id)
     {
+        if ($request->boolean('is_tahun_saja')) {
+            $request->merge(['tgl_selesai' => null]);
+        }
+
         $validated = $request->validate([
             'judul_kegiatan' => 'sometimes|required|string|max:255',
             'nama_pengusul' => 'sometimes|nullable|string|max:255',
@@ -226,8 +241,8 @@ class PengajuanController extends Controller
                 'sometimes',
                 'nullable',
                 $request->user()?->role === 'superadmin'
-                ? 'in:diproses,direvisi,diterima,ditolak,selesai'
-                : 'in:diproses,direvisi',
+                ? 'in:diproses,direvisi,revisi_direktur,diterima,ditolak,selesai'
+                : 'in:diproses,direvisi,revisi_direktur',
             ],
             'catatan_admin' => 'sometimes|nullable|string|max:1000',
             'proposal' => 'sometimes|nullable|string|max:2048',
@@ -235,6 +250,7 @@ class PengajuanController extends Controller
             'file_proposal' => 'sometimes|nullable|file|mimes:pdf,doc,docx|max:10240',
             'file_surat_permohonan' => 'sometimes|nullable|file|mimes:pdf,doc,docx|max:10240',
             'rab' => 'sometimes|nullable|string|max:2048',
+            'lokasi_list' => 'sometimes|nullable|string',
             'rab_items' => 'sometimes|array',
             'rab_items.*.nama_item' => 'nullable|string|max:255',
             'rab_items.*.jumlah' => 'nullable|numeric|min:1',
@@ -242,6 +258,12 @@ class PengajuanController extends Controller
         ]);
 
         $pengajuan = Pengajuan::findOrFail($id);
+
+        unset($validated['lokasi_list']);
+
+        if ($request->has('id_jenis_pkm') && blank($request->input('id_jenis_pkm'))) {
+            $validated['id_jenis_pkm'] = null;
+        }
 
         if ($request->has('rab_items')) {
             $validated['rab_items'] = $this->normalizeRabItems($request->input('rab_items', []));
@@ -362,13 +384,19 @@ class PengajuanController extends Controller
                 if ($tab === 'pengajuan')
                     $query->where('status_pengajuan', 'diproses');
                 elseif ($tab === 'reviu')
-                    $query->where('status_pengajuan', 'direvisi');
+                    $query->where('status_pengajuan', 'diproses')->whereNotNull('admin_read_at');
+                elseif ($tab === 'direvisi')
+                    $query->whereIn('status_pengajuan', ['direvisi', 'revisi_direktur']);
                 else
                     $query->where('status_pengajuan', $tab);
             }
 
             if (!empty($filters['tahun'])) {
                 $query->whereYear('created_at', $filters['tahun']);
+            }
+
+            if (!empty($filters['jenis_pkm'])) {
+                $query->where('id_jenis_pkm', $filters['jenis_pkm']);
             }
 
             if (!empty($excludedIds)) {
@@ -401,7 +429,11 @@ class PengajuanController extends Controller
     public function updateStatus(Request $request, int $id)
     {
         $request->validate([
-            'status_pengajuan' => 'required|in:' . Pengajuan::STATUS_DIAJUKAN . ',' . Pengajuan::STATUS_SELESAI,
+            'status_pengajuan' => 'required|in:' . implode(',', [
+                Pengajuan::STATUS_DIAJUKAN,
+                Pengajuan::STATUS_SELESAI,
+                Pengajuan::STATUS_DIREVISI,
+            ]),
             'catatan_admin' => 'nullable|string|max:1000',
         ]);
 
@@ -424,6 +456,12 @@ class PengajuanController extends Controller
             ]);
         }
 
+        if ($request->status_pengajuan === Pengajuan::STATUS_DIREVISI && $pengajuan->status_pengajuan !== Pengajuan::STATUS_REVISI_DIREKTUR) {
+            return redirect()->back()->withErrors([
+                'status_pengajuan' => 'Status revisi hanya bisa diteruskan dari keputusan revisi direktur.',
+            ]);
+        }
+
         $statusLama = $pengajuan->status_pengajuan;
         $statusBaru = $request->status_pengajuan;
 
@@ -436,6 +474,8 @@ class PengajuanController extends Controller
             $pengajuan->status_pengajuan = $statusBaru;
             if ($request->filled('catatan_admin')) {
                 $pengajuan->catatan_admin = $request->catatan_admin;
+            } elseif ($statusBaru === Pengajuan::STATUS_DIREVISI && $statusLama === Pengajuan::STATUS_REVISI_DIREKTUR) {
+                $pengajuan->catatan_admin = $pengajuan->catatan_direktur;
             }
             $pengajuan->save();
 
@@ -484,7 +524,7 @@ class PengajuanController extends Controller
 
     public function syncTim(Request $request, int $id)
     {
-        $request->validate([
+        $validated = $request->validate([
             'ketua_tim' => 'nullable|string|max:255',
             'dosen_terlibat' => 'nullable|array',
             'dosen_terlibat.*' => 'nullable|string|max:255',
@@ -496,12 +536,10 @@ class PengajuanController extends Controller
 
         $pengajuan = Pengajuan::with('timKegiatan')->findOrFail($id);
 
-        TimKegiatan::where('id_pengajuan', $pengajuan->id_pengajuan)->delete();
-
         $rows = [];
         $now = now();
 
-        $ketuaName = trim($request->input('ketua_tim', ''));
+        $ketuaName = trim($validated['ketua_tim'] ?? '');
         if ($ketuaName !== '') {
             $rows[] = [
                 'id_pengajuan' => $pengajuan->id_pengajuan,
@@ -513,7 +551,7 @@ class PengajuanController extends Controller
             ];
         }
 
-        foreach ($this->normalizeTeamEntries($request->input('dosen_terlibat', [])) as $name) {
+        foreach ($this->normalizeTeamEntries($validated['dosen_terlibat'] ?? []) as $name) {
             $rows[] = [
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'id_pegawai' => null,
@@ -524,7 +562,7 @@ class PengajuanController extends Controller
             ];
         }
 
-        foreach ($this->normalizeTeamEntries($request->input('staff_terlibat', [])) as $name) {
+        foreach ($this->normalizeTeamEntries($validated['staff_terlibat'] ?? []) as $name) {
             $rows[] = [
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'id_pegawai' => null,
@@ -535,7 +573,7 @@ class PengajuanController extends Controller
             ];
         }
 
-        foreach ($this->normalizeTeamEntries($request->input('mahasiswa_terlibat', [])) as $name) {
+        foreach ($this->normalizeTeamEntries($validated['mahasiswa_terlibat'] ?? []) as $name) {
             $rows[] = [
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'id_pegawai' => null,
@@ -546,9 +584,13 @@ class PengajuanController extends Controller
             ];
         }
 
-        if ($rows !== []) {
-            TimKegiatan::insert($rows);
-        }
+        DB::transaction(function () use ($pengajuan, $rows) {
+            TimKegiatan::where('id_pengajuan', $pengajuan->id_pengajuan)->delete();
+
+            if ($rows !== []) {
+                TimKegiatan::insert($rows);
+            }
+        });
 
         return redirect()->back()->with('success', 'Tim pelaksana berhasil diperbarui.');
     }
@@ -697,7 +739,11 @@ class PengajuanController extends Controller
                 });
             })
             ->when($request->status, function ($query, $status) {
-                $query->where('status_pengajuan', $status);
+                if ($status === 'direvisi') {
+                    $query->whereIn('status_pengajuan', ['direvisi', 'revisi_direktur']);
+                } else {
+                    $query->where('status_pengajuan', $status);
+                }
             })
             ->latest();
 

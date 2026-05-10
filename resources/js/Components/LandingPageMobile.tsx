@@ -189,7 +189,7 @@ function MobileMapPanel({ pkmData, selectedPkm, onSelectPkm, onClosePkm, totals,
                                 <i className={`fa-solid ${getStatusIcon(selectedPkm.status)}`}></i>{getStatusText(selectedPkm.status)}
                             </div>
                             <p className="text-sm text-slate-600 mb-4">{selectedPkm.deskripsi}</p>
-                            <DocumentationGallery status={selectedPkm.status} driveLink={selectedPkm.dokumentasi} />
+                            <DocumentationGallery status={selectedPkm.status} driveLink={selectedPkm.dokumentasi ?? undefined} />
                             <TestimonialSidebarDisplay status={selectedPkm.status} />
                             <p className="text-sm text-slate-600 mt-4 pt-4 border-t border-slate-100"><i className="fa-solid fa-map-pin mr-2 text-slate-400"></i>{selectedPkm.desa}, Kec. {selectedPkm.kecamatan}, {selectedPkm.kabupaten}, {selectedPkm.provinsi}</p>
                         </div>

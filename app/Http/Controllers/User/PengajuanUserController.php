@@ -34,13 +34,13 @@ class PengajuanUserController extends Controller
                     'judul' => $p->judul_kegiatan,
                     'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
                     'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
-                    'status' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'ditolak'])
+                    'status' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'revisi_direktur', 'ditolak'])
                         ? $p->status_pengajuan
                         : ($p->aktivitas
                             ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
                                 : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'diterima'))
                             : $p->status_pengajuan),
-                    'catatan' => $p->catatan_admin,
+                    'catatan' => $p->catatan_admin ?: $p->catatan_direktur,
                     'instansi_mitra' => $p->instansi_mitra,
                     'no_telepon' => $p->no_telepon,
                     'provinsi' => $p->provinsi,
@@ -536,12 +536,9 @@ class PengajuanUserController extends Controller
         $primaryLokasi = $lokasiList[0];
         $lokasiTambahan = array_slice($lokasiList, 1);
 
-        // Ambil default jenis PKM
-        $defaultJenisPkm = \App\Models\JenisPkm::first();
-
         Pengajuan::create([
             'id_user' => Auth::id(),
-            'id_jenis_pkm' => $defaultJenisPkm?->id_jenis_pkm ?? 1,
+            'id_jenis_pkm' => null,
             'tipe_pengusul' => 'masyarakat',
             'provinsi' => $primaryLokasi['provinsi'] ?? '',
             'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',

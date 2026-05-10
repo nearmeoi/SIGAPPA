@@ -36,7 +36,7 @@ export default function LoginDosen({
     userPkmData = null,
     userSubmissionData = null,
     userSubmissionHistory = null,
-}: LoginDosenProps): JSX.Element {
+}: LoginDosenProps) {
     const [isMobileViewport, setIsMobileViewport] = useState(() => (
         typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
     ));

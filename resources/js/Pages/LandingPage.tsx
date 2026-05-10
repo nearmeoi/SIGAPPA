@@ -27,7 +27,7 @@ interface LandingPageProps {
     last_7_days_views: number;
     last_30_days_views: number;
     total_visitors: number;
-  };
+  } | null;
 }
 
 export default function LandingPage({

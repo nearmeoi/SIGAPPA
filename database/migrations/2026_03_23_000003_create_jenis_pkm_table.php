@@ -12,7 +12,6 @@ return new class extends Migration
             $table->id('id_jenis_pkm');
             $table->string('nama_jenis');
             $table->string('warna_icon')->nullable();
-            $table->text('deskripsi')->nullable();
             $table->timestamps();
         });
     }

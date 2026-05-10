@@ -20,7 +20,7 @@ class DashboardController extends Controller
             SUM(status_pengajuan = 'diajukan')          as diajukan,
             SUM(status_pengajuan = 'diterima')          as diterima,
             SUM(status_pengajuan = 'ditolak')           as ditolak,
-            SUM(status_pengajuan = 'direvisi')          as direvisi,
+            SUM(status_pengajuan IN ('direvisi', 'revisi_direktur')) as direvisi,
             SUM(status_pengajuan = 'selesai')           as selesai
         ")->first();
 
@@ -74,8 +74,10 @@ class DashboardController extends Controller
                 'status' => $p->aktivitas
                     ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
                         : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
-                    : ($p->status_pengajuan === 'diproses' ? 'ada_pengajuan' : ($p->status_pengajuan === 'diterima' ? 'belum_mulai' : 'belum_mulai')),
-                'is_review' => $p->status_pengajuan === 'diproses' && $p->admin_read_at !== null,
+                    : ($p->status_pengajuan === 'diproses' ? 'ada_pengajuan'
+                        : ($p->status_pengajuan === 'revisi_direktur' ? 'revisi_direktur'
+                            : ($p->status_pengajuan === 'direvisi' ? 'direvisi' : 'belum_mulai'))),
+                'is_review' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'revisi_direktur']) && $p->admin_read_at !== null,
                 'status_pengajuan' => $p->status_pengajuan,
                 'deskripsi' => $p->kebutuhan ?? '',
                 'thumbnail' => $p->aktivitas?->url_thumbnail,

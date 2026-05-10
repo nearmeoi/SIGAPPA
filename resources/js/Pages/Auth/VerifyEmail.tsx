@@ -10,7 +10,7 @@ interface VerifyEmailProps {
     status?: string;
 }
 
-export default function VerifyEmail({ status }: VerifyEmailProps): JSX.Element {
+export default function VerifyEmail({ status }: VerifyEmailProps) {
     const { props } = usePage<PageProps & { flash?: { success?: string | null; error?: string | null } }>();
     const flash = props.flash ?? {};
     const authUser = props.auth?.user ?? null;

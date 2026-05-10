@@ -49,6 +49,9 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),
                 'error' => fn() => $request->session()->get('error'),
+                'id' => fn() => ($request->session()->has('success') || $request->session()->has('error'))
+                    ? uniqid('flash_', true)
+                    : null,
             ],
             'visitorStats' => \App\Models\SiteSetting::getVisitorStats(),
             'listKontak' => \App\Models\Kontak::orderBy('created_at', 'asc')

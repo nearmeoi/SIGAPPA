@@ -12,6 +12,7 @@ interface Props {
 
 export default function PengumpulanArsip({ namaKegiatan = 'NAMA KEGIATAN PKM', kode }: Props) {
     const { data, setData, post, processing } = useForm({
+        kode: kode || '',
         laporan: '',
         dokumentasi: '',
         dokumen_lainnya: [{ nama_dokumen: '', url_dokumen: '' }]
@@ -35,7 +36,12 @@ export default function PengumpulanArsip({ namaKegiatan = 'NAMA KEGIATAN PKM', k
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(kode ? `/kumpul-arsip/${kode}` : '/kumpul-arsip/public', {
+        if (!kode && !data.kode.trim()) {
+            alert('Kode kegiatan wajib diisi.');
+            return;
+        }
+
+        post(kode ? `/kumpul-arsip/${kode}` : '/kumpul-arsip', {
             onSuccess: () => setSubmitted(true),
         });
     };
@@ -91,7 +97,7 @@ export default function PengumpulanArsip({ namaKegiatan = 'NAMA KEGIATAN PKM', k
                             <form onSubmit={submit} className="space-y-10">
 
                                 {/* Information Section */}
-                                {kode && (
+                                {kode ? (
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
                                         <div className="md:col-span-1">
                                             <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
@@ -113,9 +119,36 @@ export default function PengumpulanArsip({ namaKegiatan = 'NAMA KEGIATAN PKM', k
                                             </div>
                                         </div>
                                     </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+                                        <div className="md:col-span-1">
+                                            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-poltekpar-primary">
+                                                    <i className="fa-solid fa-key"></i>
+                                                </div>
+                                                Kode Kegiatan
+                                            </h3>
+                                            <p className="text-xs font-bold text-slate-400 mt-3 leading-relaxed">
+                                                Masukkan kode unik dari tautan/undangan kegiatan PKM.
+                                            </p>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block">
+                                                Kode Unik <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={data.kode}
+                                                onChange={(e) => setData('kode', e.target.value.trim())}
+                                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-bold text-slate-700 outline-none transition-all focus:border-poltekpar-primary focus:bg-white"
+                                                placeholder="Masukkan kode kegiatan"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
                                 )}
 
-                                {kode && <div className="h-px bg-slate-100 w-full"></div>}
+                                <div className="h-px bg-slate-100 w-full"></div>
 
                                 {/* Links Section */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">

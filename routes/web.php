@@ -27,6 +27,7 @@ use App\Models\DeveloperDocumentation;
 use App\Models\Pegawai;
 use App\Models\Pengajuan;
 use App\Models\TemplateDokumen;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -147,6 +148,7 @@ Route::get('/kumpul-arsip', function () {
 })->name('arsip.kumpul.index');
 
 Route::get('/kumpul-arsip/{kode}', [LandingController::class, 'showArsipKumpul'])->name('arsip.kumpul.public');
+Route::post('/kumpul-arsip', [LandingController::class, 'storeArsipKumpulByKode'])->middleware('throttle:10,1')->name('arsip.kumpul.store');
 Route::post('/kumpul-arsip/{kode}', [LandingController::class, 'storeArsipKumpul'])->middleware('throttle:10,1')->name('arsip.kumpul.public.store');
 
 // ─────────────────────────────────────────────
@@ -176,9 +178,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/login/dosen', [AuthController::class, 'showLoginDosen'])->name('login.dosen');
     Route::get('/login/masyarakat', [AuthController::class, 'showLoginMasyarakat'])->name('login.masyarakat');
 
-    Route::get('/verify-email', function () {
-        return Inertia::render('Auth/VerifyEmail');
-    })->name('verification.notice');
 });
 
 // Public Template Downloader (Accessible for guests and authenticated users)
@@ -193,6 +192,36 @@ Route::get('/cek-status', [PengajuanUserController::class, 'index'])->middleware
 // ─────────────────────────────────────────────
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+    Route::get('/verify-email', function (Request $request) {
+        return Inertia::render('Auth/VerifyEmail', [
+            'status' => $request->session()->get('status'),
+        ]);
+    })->name('verification.notice');
+
+    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        $request->fulfill();
+
+        return redirect('/')->with('success', 'Email berhasil diverifikasi.');
+    })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        if ($request->user()->hasVerifiedEmail()) {
+            return back()->with('success', 'Email Anda sudah terverifikasi.');
+        }
+
+        try {
+            $request->user()->sendEmailVerificationNotification();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Email verifikasi belum bisa dikirim. Periksa konfigurasi email lokal.');
+        }
+
+        return back()
+            ->with('status', 'verification-link-sent')
+            ->with('success', 'Tautan verifikasi baru telah dikirim ke email Anda.');
+    })->middleware('throttle:6,1')->name('verification.send');
 
     // Profile edit (all roles)
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -342,7 +371,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/api/notifications', function () {
             $counts = Pengajuan::selectRaw("
                 SUM(status_pengajuan = 'diproses')  as pengajuan_baru,
-                SUM(status_pengajuan = 'direvisi')  as perlu_direvisi,
+                SUM(status_pengajuan IN ('direvisi', 'revisi_direktur'))  as perlu_direvisi,
                 SUM(status_pengajuan = 'diterima')  as diterima,
                 SUM(status_pengajuan = 'diajukan')  as diajukan
             ")->first();
@@ -350,7 +379,7 @@ Route::middleware('auth')->group(function () {
             $kegiatanBerjalan = Aktivitas::where('status_pelaksanaan', 'berjalan')->count();
 
             $items = Pengajuan::notifikasi()
-                ->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'created_at', 'admin_read_at')
+                ->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'created_at', 'admin_read_at')
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
                 ->get();

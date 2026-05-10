@@ -1,4 +1,4 @@
-﻿const SIGAP_DEMO_DATA_ENABLED = import.meta.env.VITE_ENABLE_SIGAP_DEMO_DATA !== 'false';
+const SIGAP_DEMO_DATA_ENABLED = import.meta.env.VITE_ENABLE_SIGAP_DEMO_DATA !== 'false';
 
 const demoTestimoni = [
     { nama_pemberi: 'Budi Santoso', rating: 5, pesan_ulasan: 'Kegiatan sangat bermanfaat untuk masyarakat desa kami.' },
@@ -302,9 +302,9 @@ const previewSummaryByRole = {
     masyarakat: 'Pratinjau status pengajuan untuk halaman akun masyarakat.',
 };
 
-const cloneData = (value) => JSON.parse(JSON.stringify(value));
+const cloneData = (value: any) => JSON.parse(JSON.stringify(value));
 
-const resolveCollection = (serverData, demoData) => {
+const resolveCollection = (serverData: any, demoData: any) => {
     if (Array.isArray(serverData)) {
         return cloneData(serverData);
     }
@@ -324,22 +324,22 @@ const getPreviewStatusFromLocation = () => {
     return new URLSearchParams(window.location.search).get('preview_status');
 };
 
-export const resolvePublicPkmData = (serverData) => {
+export const resolvePublicPkmData = (serverData: any) => {
     const data = resolveCollection(serverData, demoPkmRecords);
-    return data.map((item) => ({
+    return data.map((item: any) => ({
         ...item,
         deskripsi_jenis: item.deskripsi_jenis ?? '',
         testimoni: item.testimoni ?? (item.status === 'selesai' ? demoTestimoni : []),
     }));
 };
 
-export const resolveUserPkmData = (serverData) => resolveCollection(serverData, demoPkmRecords);
+export const resolveUserPkmData = (serverData: any) => resolveCollection(serverData, demoPkmRecords);
 
-export const resolveUserSubmissionHistory = (serverData, role = 'dosen') => (
-    resolveCollection(serverData, demoSubmissionHistoryByRole[role] ?? [])
+export const resolveUserSubmissionHistory = (serverData: any, role: string = 'dosen') => (
+    resolveCollection(serverData, demoSubmissionHistoryByRole[role as keyof typeof demoSubmissionHistoryByRole] ?? [])
 );
 
-export const resolveUserSubmissionData = (serverData, { role = 'dosen', previewStatus } = {}) => {
+export const resolveUserSubmissionData = (serverData: any, { role = 'dosen', previewStatus }: { role?: string; previewStatus?: string | null } = {}) => {
     if (Array.isArray(serverData)) {
         return cloneData(serverData);
     }
@@ -358,7 +358,7 @@ export const resolveUserSubmissionData = (serverData, { role = 'dosen', previewS
     return [{
         id: `demo-${role}-${activePreviewStatus}`,
         judul: 'Demo Status Pengajuan PKM',
-        ringkasan: previewSummaryByRole[role] ?? previewSummaryByRole.dosen,
+        ringkasan: previewSummaryByRole[role as keyof typeof previewSummaryByRole] ?? previewSummaryByRole.dosen,
         tanggal: '28 Mar 2026',
         status: activePreviewStatus,
     }];

@@ -19,6 +19,9 @@ interface PaginatedData {
     current_page: number;
     last_page: number;
     total: number;
+    from?: number;
+    to?: number;
+    links?: any;
 }
 
 interface Props {

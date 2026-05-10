@@ -23,6 +23,7 @@ const SuccessView: React.FC<SuccessViewProps> = ({
         <div className="text-center animate-in zoom-in-95 duration-500">
             {/* Icon Container - No ring, no shadow, clean white bg */}
             <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 relative overflow-hidden">
+                {/* @ts-ignore */}
                 <lord-icon
                     src={iconSrc}
                     trigger="loop"

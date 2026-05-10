@@ -51,7 +51,7 @@ const statusBadge = (status: string): { label: string; className: string } => {
     if (status === 'diproses') {
         return { label: 'Pengajuan Baru', className: 'bg-blue-100 text-blue-700' };
     }
-    if (status === 'direvisi') {
+    if (status === 'direvisi' || status === 'revisi_direktur') {
         return { label: 'Perlu Revisi', className: 'bg-amber-100 text-amber-700' };
     }
     if (status === 'diajukan') {

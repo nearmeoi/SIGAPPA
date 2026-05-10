@@ -80,7 +80,7 @@ interface ProfileDropdownProps {
 }
 
 export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProps) {
-    const { props } = usePage<PageProps>();
+    const { props, url } = usePage<PageProps>();
     const auth = propsAuth || props.auth;
     const user = auth?.user ?? null;
     const [isOpen, setIsOpen] = useState(false);
@@ -105,6 +105,8 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
         if (!user) return null;
         return String(user.role || user.type || '').toLowerCase();
     }, [user]);
+    const isAdminPanel = url === '/admin' || url.startsWith('/admin/');
+    const shouldShowHomeLink = ['admin', 'superadmin'].includes(userRole || '') && isAdminPanel;
 
     if (!user) {
         return (
@@ -165,13 +167,13 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
                     <div className="py-2">
                         {['admin', 'superadmin', 'secret_account'].includes(userRole || '') ? (
                             <Link
-                                href="/admin/dashboard"
+                                href={shouldShowHomeLink ? '/beranda' : '/admin/dashboard'}
                                 className="flex items-center gap-3 px-5 py-3 text-slate-700 hover:bg-slate-50 hover:text-poltekpar-primary transition-colors duration-150"
                                 role="menuitem"
                                 onClick={closeDropdown}
                             >
-                                <i className="fa-solid fa-gauge-high text-lg text-poltekpar-primary"></i>
-                                <span className="font-semibold">Panel Admin</span>
+                                <i className={`fa-solid ${shouldShowHomeLink ? 'fa-house' : 'fa-gauge-high'} text-lg text-poltekpar-primary`}></i>
+                                <span className="font-semibold">{shouldShowHomeLink ? 'Beranda' : 'Panel Admin'}</span>
                             </Link>
                         ) : userRole === 'direktur' ? (
                             <Link

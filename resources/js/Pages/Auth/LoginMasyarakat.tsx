@@ -36,7 +36,7 @@ export default function LoginMasyarakat({
     userPkmData = null,
     userSubmissionData = null,
     userSubmissionHistory = null,
-}: LoginMasyarakatProps): JSX.Element {
+}: LoginMasyarakatProps) {
     const [isMobileViewport, setIsMobileViewport] = useState(() => (
         typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
     ));

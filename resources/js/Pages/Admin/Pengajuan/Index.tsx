@@ -46,8 +46,9 @@ interface PaginatedData {
 
 interface IndexProps {
     listPengajuan: PaginatedData;
-    filters: { search: string; tab: string; sort?: string; direction?: string; tahun?: string };
+    filters: { search: string; tab: string; sort?: string; direction?: string; tahun?: string; jenis_pkm?: string };
     availableYears: number[];
+    listJenisPkm?: { id_jenis_pkm: number; nama_jenis: string; warna_icon?: string }[];
 }
 
 const STATUS_BADGE: Record<string, { label: string; text: string; bg: string; dot: string }> = {
@@ -55,6 +56,7 @@ const STATUS_BADGE: Record<string, { label: string; text: string; bg: string; do
     diajukan: { label: 'Ke Direktur', text: 'text-violet-700', bg: 'bg-violet-50', dot: 'bg-violet-400' },
     diterima: { label: 'Diterima', text: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-400' },
     direvisi: { label: 'Revisi', text: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-400' },
+    revisi_direktur: { label: 'Revisi Direktur', text: 'text-orange-700', bg: 'bg-orange-50', dot: 'bg-orange-400' },
     ditolak: { label: 'Ditolak', text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-400' },
 };
 
@@ -144,10 +146,11 @@ const getIncompleteReasons = (item: Pengajuan): string[] => {
     return reasons;
 };
 
-const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears }) => {
+const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears, listJenisPkm = [] }) => {
     const [search, setSearch] = useState(filters.search || '');
     const [tab, setTab] = useState(filters.tab || '');
     const [tahun, setTahun] = useState(filters.tahun || '');
+    const [filterJenisPkm, setFilterJenisPkm] = useState(filters.jenis_pkm || '');
     const [sortField, setSortField] = useState(filters.sort || 'created_at');
     const [sortDir, setSortDir] = useState(filters.direction || 'desc');
 
@@ -156,17 +159,20 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
     const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
 
     // ── Filter helpers ─────────────────────────────────
-    const applyFilters = useCallback((newSortField?: string, newSortDir?: string, newTahun?: string) => {
+    const applyFilters = useCallback((newSortField?: string, newSortDir?: string, newTahun?: string, newJenisPkm?: string) => {
+        const resolvedTahun = newTahun !== undefined ? newTahun : tahun;
+        const resolvedJenisPkm = newJenisPkm !== undefined ? newJenisPkm : filterJenisPkm;
         setSelectedIds([]);
         setSelectAllAcrossPages(false);
         router.get('/admin/pengajuan', {
             search: search || undefined,
             tab: tab || undefined,
-            tahun: newTahun !== undefined ? newTahun : (tahun || undefined),
+            tahun: resolvedTahun || undefined,
+            jenis_pkm: resolvedJenisPkm || undefined,
             sort: newSortField !== undefined ? newSortField : sortField,
             direction: newSortDir !== undefined ? newSortDir : sortDir,
         }, { preserveState: true, replace: true });
-    }, [search, tab, sortField, sortDir, tahun]);
+    }, [search, tab, sortField, sortDir, tahun, filterJenisPkm]);
 
     const handleSort = (field: string) => {
         const isAsc = sortField === field && sortDir === 'asc';
@@ -184,13 +190,14 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
             search: search || undefined,
             tab: newTab || undefined,
             tahun: tahun || undefined,
+            jenis_pkm: filterJenisPkm || undefined,
             sort: sortField,
             direction: sortDir,
         }, { preserveState: true, replace: true });
     };
 
     const clearFilters = () => {
-        setSearch(''); setTab(''); setTahun(''); setSortField('created_at'); setSortDir('desc');
+        setSearch(''); setTab(''); setTahun(''); setFilterJenisPkm(''); setSortField('created_at'); setSortDir('desc');
         setSelectedIds([]);
         setSelectAllAcrossPages(false);
         router.get('/admin/pengajuan', {}, { preserveState: true, replace: true });
@@ -226,7 +233,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                     ids: !selectAllAcrossPages ? selectedIds : [],
                     select_all: selectAllAcrossPages,
                     excluded_ids: selectAllAcrossPages ? selectedIds : [],
-                    filters: { search, tab, tahun }
+                    filters: { search, tab, tahun, jenis_pkm: filterJenisPkm }
                 },
                 onSuccess: () => {
                     setSelectedIds([]);
@@ -255,7 +262,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
         }
     };
 
-    const hasFilters = search || tab || tahun;
+    const hasFilters = search || tab || tahun || filterJenisPkm;
 
     return (
         <AdminLayout title="">
@@ -285,37 +292,59 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Search */}
-                    <div className="relative">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                        <input
-                            type="text"
-                            placeholder="Cari proposal..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && applyFilters()}
-                            className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
-                        />
+                <div className="flex w-full flex-col gap-2 sm:w-[360px] lg:w-[400px] xl:w-[430px] sm:items-end">
+                    <div className="flex w-full items-center gap-2">
+                        {/* Search */}
+                        <div className="relative min-w-0 flex-1">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                            <input
+                                type="text"
+                                placeholder="Cari proposal..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                                className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-full shadow-sm transition-all"
+                            />
+                        </div>
+                        <select
+                            value={tahun}
+                            onChange={e => {
+                                setTahun(e.target.value);
+                                applyFilters(sortField, sortDir, e.target.value);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer w-[120px] shrink-0"
+                        >
+                            <option value="">Semua Tahun</option>
+                            {availableYears.map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
                     </div>
-                    <select
-                        value={tahun}
-                        onChange={e => {
-                            setTahun(e.target.value);
-                            applyFilters(sortField, sortDir, e.target.value);
-                        }}
-                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[120px]"
-                    >
-                        <option value="">Semua Tahun</option>
-                        {availableYears.map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
-                    {hasFilters && (
-                        <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors" title="Hapus filter">
-                            <X size={14} />
-                        </button>
-                    )}
+
+                    <div className="flex w-full items-center gap-2">
+                        <select
+                            value={filterJenisPkm}
+                            onChange={e => {
+                                setFilterJenisPkm(e.target.value);
+                                applyFilters(sortField, sortDir, tahun, e.target.value);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-0 flex-1"
+                        >
+                            <option value="">Semua Jenis PKM</option>
+                            {listJenisPkm.map(j => (
+                                <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
+                            ))}
+                        </select>
+                        {hasFilters && (
+                            <button
+                                onClick={clearFilters}
+                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600"
+                                title="Hapus filter"
+                            >
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -471,7 +500,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
 
                                             {/* Detail: Jenis & Lokasi */}
                                             <td className="py-3 px-4">
-                                                <div className="text-[13px] text-zinc-700 font-medium">{item.jenis_pkm?.nama_jenis || '-'}</div>
+                                                <div className="text-[13px] text-zinc-700 font-medium">{item.jenis_pkm?.nama_jenis || 'Belum ditentukan'}</div>
                                                 <div className="text-[11px] text-zinc-400 mt-0.5 truncate max-w-[180px]">
                                                     {item.kota_kabupaten ? `${item.kota_kabupaten}, ${item.provinsi}` : 'Lokasi: TBD'}
                                                 </div>

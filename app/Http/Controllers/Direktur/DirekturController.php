@@ -108,14 +108,14 @@ class DirekturController extends Controller
         $pengajuan = Pengajuan::where('status_pengajuan', Pengajuan::STATUS_DIAJUKAN)->findOrFail($id);
 
         DB::transaction(function () use ($pengajuan, $request) {
-            $pengajuan->status_pengajuan = Pengajuan::STATUS_DIREVISI;
+            $pengajuan->status_pengajuan = Pengajuan::STATUS_REVISI_DIREKTUR;
             $pengajuan->catatan_direktur = $request->catatan;
             $pengajuan->save();
 
             PengajuanLog::create([
                 'id_pengajuan' => $pengajuan->id_pengajuan,
                 'status_lama' => Pengajuan::STATUS_DIAJUKAN,
-                'status_baru' => Pengajuan::STATUS_DIREVISI,
+                'status_baru' => Pengajuan::STATUS_REVISI_DIREKTUR,
                 'catatan' => $request->catatan,
                 'changed_by_user_id' => auth()->id(),
                 'changed_by_name' => auth()->user()?->name,

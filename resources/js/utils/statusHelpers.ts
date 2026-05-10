@@ -13,6 +13,7 @@ export const STATUS_STYLES: Record<string, StatusStyle> = {
     berlangsung: { label: 'Berlangsung', icon: 'fa-person-walking', bg: '#fef3c7', color: '#b45309' },
     selesai: { label: 'Selesai', icon: 'fa-flag-checkered', bg: '#dcfce7', color: '#15803d' },
     direvisi: { label: 'Direvisi', icon: 'fa-file-pen', bg: '#fff7ed', color: '#ea580c' },
+    revisi_direktur: { label: 'Revisi Direktur', icon: 'fa-file-pen', bg: '#ffedd5', color: '#c2410c' },
     belum_diajukan: { label: 'Belum Diajukan', icon: 'fa-file-circle-plus', bg: '#f1f5f9', color: '#64748b' },
 };
 

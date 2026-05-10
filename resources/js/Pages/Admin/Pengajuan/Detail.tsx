@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import ConfirmDialog from '../../../Components/ConfirmDialog';
@@ -6,7 +6,7 @@ import MapLocationPicker from '../../../Components/MapLocationPicker';
 import { AlertCircle, ArrowLeft, CheckCircle, ExternalLink, File, Folder, MapPin, Plus, RotateCcw, Save, Send, SquarePen, Trash2, User, Users, Wallet, XCircle } from 'lucide-react';
 
 interface Pegawai { id_pegawai: number; nama_pegawai: string; nip?: string; role?: string | null; }
-interface TimKegiatan { id_tim: number; nama_mahasiswa?: string; peran_tim?: string; pegawai?: { nama_pegawai: string }; }
+interface TimKegiatan { id_tim: number; nama?: string; peran?: string; nama_mahasiswa?: string; peran_tim?: string; pegawai?: { nama_pegawai: string }; }
 interface Aktivitas { id_aktivitas: number; status_pelaksanaan: string; catatan_pelaksanaan?: string; }
 interface Arsip { id_arsip: number; nama_dokumen: string; jenis_arsip: string; url_dokumen?: string; }
 interface RabItem { nama_item?: string; jumlah?: number; harga?: number; total?: number; }
@@ -44,6 +44,8 @@ interface Pengajuan {
     alamat_lengkap?: string;
     latitude?: number;
     longitude?: number;
+    lokasi_tambahan?: any;
+    is_tahun_saja?: boolean;
     tim_kegiatan?: TimKegiatan[];
     aktivitas?: Aktivitas;
     arsip?: Arsip[];
@@ -76,7 +78,7 @@ interface DraftState {
     tgl_selesai: string | null;
     tahun_pelaksanaan: string;
     is_tahun_saja: boolean;
-    id_jenis_pkm: number;
+    id_jenis_pkm: number | string;
     lokasi_list: {
         id_ui: number;
         provinsi: string;
@@ -121,6 +123,7 @@ const statusConfig: Record<string, { label: string; text: string; bg: string; do
     diajukan: { label: 'Diajukan ke Direktur', text: 'text-violet-700', bg: 'bg-violet-50', dot: 'bg-violet-400' },
     diterima: { label: 'Diterima', text: 'text-emerald-700', bg: 'bg-emerald-50', dot: 'bg-emerald-400' },
     direvisi: { label: 'Revisi', text: 'text-amber-700', bg: 'bg-amber-50', dot: 'bg-amber-400' },
+    revisi_direktur: { label: 'Revisi Direktur', text: 'text-orange-700', bg: 'bg-orange-50', dot: 'bg-orange-400' },
     ditolak: { label: 'Ditolak', text: 'text-red-700', bg: 'bg-red-50', dot: 'bg-red-400' },
     selesai: { label: 'Selesai', text: 'text-indigo-700', bg: 'bg-indigo-50', dot: 'bg-indigo-400' },
 };
@@ -152,8 +155,9 @@ const toYearOnlyDate = (year: string) => {
     return digits.length === 4 ? `${digits}-01-01` : null;
 };
 const getType = (p: Pengajuan): 'dosen' | 'masyarakat' => String(p.tipe_pengusul || p.user?.role || '').toLowerCase() === 'dosen' ? 'dosen' : 'masyarakat';
-const getKetua = (tim?: TimKegiatan[]) => tim?.find((m) => String(m.peran_tim || '').toLowerCase().includes('ketua'));
-const getName = (m?: TimKegiatan) => m?.pegawai?.nama_pegawai || m?.nama_mahasiswa || '';
+const getRole = (m?: TimKegiatan) => String(m?.peran_tim || m?.peran || '').toLowerCase();
+const getKetua = (tim?: TimKegiatan[]) => tim?.find((m) => getRole(m).includes('ketua'));
+const getName = (m?: TimKegiatan) => m?.pegawai?.nama_pegawai || m?.nama_mahasiswa || m?.nama || '';
 const getSubmitterName = (p: Pengajuan) => p.nama_pengusul || getName(getKetua(p.tim_kegiatan)) || p.user?.name || '-';
 const getSubmitterEmail = (p: Pengajuan) => p.email_pengusul || p.user?.email || '-';
 const linksOf = (v?: string) => {
@@ -180,7 +184,7 @@ const normalizeRabItems = (items?: RabItem[]) => (items || [])
     .filter((item) => item.nama_item.trim() !== '' || item.jumlah > 0 || item.harga > 0);
 const emptyRabItem = (): RabItem => ({ nama_item: '', jumlah: 1, harga: 0, total: 0 });
 const roleItems = (tim: TimKegiatan[] | undefined, role: string, ketuaId?: number) => (tim || [])
-    .filter((m) => m.id_tim !== ketuaId && String(m.peran_tim || '').toLowerCase() === role)
+    .filter((m) => m.id_tim !== ketuaId && getRole(m) === role)
     .map(getName)
     .filter(Boolean);
 const buildDraft = (pengajuan: Pengajuan, ketuaId?: number): DraftState => ({
@@ -195,7 +199,7 @@ const buildDraft = (pengajuan: Pengajuan, ketuaId?: number): DraftState => ({
     tgl_selesai: pengajuan.tgl_selesai || null,
     tahun_pelaksanaan: getYearValue(pengajuan.tgl_mulai),
     is_tahun_saja: !!(pengajuan as any).is_tahun_saja,
-    id_jenis_pkm: pengajuan.jenis_pkm?.id_jenis_pkm || 1,
+    id_jenis_pkm: pengajuan.jenis_pkm?.id_jenis_pkm || '',
     lokasi_list: (() => {
         const arr = [{
             id_ui: Date.now(),
@@ -542,7 +546,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     const isDirektur = user?.role === 'direktur';
     const isViewer = isDirektur;
 
-    const [catatan, setCatatan] = useState(pengajuan.catatan_admin || '');
+    const [catatan, setCatatan] = useState(pengajuan.catatan_admin || pengajuan.catatan_direktur || '');
     const [selectedAction, setSelectedAction] = useState('');
     const [catatanError, setCatatanError] = useState('');
     const [catatanDirektur, setCatatanDirektur] = useState('');
@@ -552,8 +556,15 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     const ketua = useMemo(() => getKetua(pengajuan.tim_kegiatan), [pengajuan.tim_kegiatan]);
     const [confirmDialog, setConfirmDialog] = useState<DialogState>({ open: false, title: '', message: '', action: () => undefined, variant: 'warning', confirmLabel: 'Ya, Lanjutkan', cancelLabel: 'Batal' });
     const [editingSection, setEditingSection] = useState<string | null>(null);
+    const [savingSection, setSavingSection] = useState<string | null>(null);
     const [draft, setDraft] = useState<DraftState>(() => buildDraft(pengajuan, ketua?.id_tim));
     const [collapsedLocations, setCollapsedLocations] = useState<Record<number, boolean>>({});
+
+    useEffect(() => {
+        if (!editingSection) {
+            setDraft(buildDraft(pengajuan, ketua?.id_tim));
+        }
+    }, [pengajuan, ketua?.id_tim, editingSection]);
 
     const toggleLocationCollapse = (idUi: number) => {
         setCollapsedLocations(prev => ({ ...prev, [idUi]: !prev[idUi] }));
@@ -568,7 +579,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     const rabItems = useMemo(() => normalizeRabItems(pengajuan.rab_items), [pengajuan.rab_items]);
     const draftRabItems = useMemo(() => normalizeRabItems(draft.rab_items), [draft.rab_items]);
     const draftTotalRab = useMemo(() => draftRabItems.reduce((sum, item) => sum + Number(item.total || 0), 0), [draftRabItems]);
-    const hasKetua = (pengajuan.tim_kegiatan || []).some(m => String(m.peran_tim || '').toLowerCase().includes('ketua'));
+    const hasKetua = (pengajuan.tim_kegiatan || []).some(m => getRole(m).includes('ketua'));
     const missing = [
         !submitterName || submitterName === '-' ? 'Nama Pengusul' : '',
         !submitterEmail || submitterEmail === '-' ? 'Email Pengusul' : '',
@@ -684,25 +695,40 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
         setEditingSection(null);
     };
 
+    const normalizeSavePayload = (payload: Record<string, any>) => {
+        return Object.fromEntries(
+            Object.entries(payload).filter(([key, value]) => {
+                if (value === undefined) return false;
+                if (value === null && key.startsWith('file_')) return false;
+
+                return true;
+            })
+        );
+    };
+
     const saveSection = (section: string, payload: Record<string, any>, url?: string) => {
-        const hasFiles = Object.values(payload).some(v => v instanceof window.File);
+        const savePayload = normalizeSavePayload(payload);
+        const hasFiles = Object.values(savePayload).some(v => v instanceof window.File);
+        setSavingSection(section);
 
         const options = {
             preserveScroll: true,
+            preserveState: false,
             onSuccess: () => setEditingSection((current) => (current === section ? null : current)),
             onError: (errors: any) => {
                 alert('Gagal menyimpan. Terdapat kesalahan validasi:\n' + Object.values(errors).join('\n'));
-            }
+            },
+            onFinish: () => setSavingSection(null),
         };
 
         if (hasFiles) {
-            payload._method = 'put';
-            router.post(url || `/admin/pengajuan/${pengajuan.id_pengajuan}`, payload, {
+            savePayload._method = 'put';
+            router.post(url || `/admin/pengajuan/${pengajuan.id_pengajuan}`, savePayload, {
                 ...options,
                 forceFormData: true
             });
         } else {
-            router.put(url || `/admin/pengajuan/${pengajuan.id_pengajuan}`, payload, options);
+            router.put(url || `/admin/pengajuan/${pengajuan.id_pengajuan}`, savePayload, options);
         }
     };
 
@@ -728,11 +754,14 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
 
     const sectionActions = (section: string, payload: Record<string, any>, url?: string) => {
         if (isViewer) return null;
+        const isSaving = savingSection === section;
+
         return editingSection === section ? (
             <>
                 <button
                     type="button"
                     onClick={cancelEdit}
+                    disabled={isSaving}
                     className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
                 >
                     Batal
@@ -740,10 +769,11 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                 <button
                     type="button"
                     onClick={() => saveSection(section, payload, url)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-poltekpar-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-poltekpar-navy"
+                    disabled={isSaving}
+                    className="inline-flex items-center gap-1 rounded-lg bg-poltekpar-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-poltekpar-navy disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                    <Save size={12} />
-                    Simpan
+                    {isSaving ? <i className="fa-solid fa-spinner fa-spin text-[11px]" /> : <Save size={12} />}
+                    {isSaving ? 'Menyimpan...' : 'Simpan'}
                 </button>
             </>
         ) : (
@@ -812,7 +842,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                 kebutuhan: draft.kebutuhan,
                                 id_jenis_pkm: draft.id_jenis_pkm,
                                 tgl_mulai: draft.is_tahun_saja ? toYearOnlyDate(draft.tahun_pelaksanaan) : draft.tgl_mulai,
-                                tgl_selesai: draft.tgl_selesai,
+                                tgl_selesai: draft.is_tahun_saja ? null : draft.tgl_selesai,
                                 is_tahun_saja: draft.is_tahun_saja ? 1 : 0,
                             })}
                             icon={<File size={16} className="text-slate-400" />}
@@ -827,6 +857,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                                 onChange={(e) => setDraftField('id_jenis_pkm', e.target.value)}
                                                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-poltekpar-primary"
                                             >
+                                                <option value="">Belum ditentukan</option>
                                                 {listJenisPkm.map((jp) => (
                                                     <option key={jp.id_jenis_pkm} value={jp.id_jenis_pkm}>{jp.nama_jenis}</option>
                                                 ))}
@@ -878,7 +909,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                     </>
                                 ) : (
                                     <>
-                                        <Field label="Jenis PKM" value={pengajuan.jenis_pkm?.nama_jenis} wide />
+                                        <Field label="Jenis PKM" value={pengajuan.jenis_pkm?.nama_jenis || 'Belum ditentukan'} wide />
                                         <div className="md:col-span-2 space-y-1.5">
                                             <div className="text-xs font-semibold text-slate-700">Waktu Pelaksanaan</div>
                                             <div className="min-h-[44px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
@@ -1290,6 +1321,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                         { id: 'decline', label: 'Tolak Pengajuan', icon: <XCircle size={16} />, color: 'border-red-200 bg-red-50 text-red-700', selected: 'border-red-500 bg-red-100 text-red-900 ring-2 ring-red-200' },
                                     ] as const).map(opt => (
                                         <button
+                                            type="button"
                                             key={opt.id}
                                             onClick={() => { setDecisionAction(opt.id); setCatatanError(''); }}
                                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all ${decisionAction === opt.id ? opt.selected : opt.color}`}
@@ -1316,6 +1348,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                         </div>
 
                                         <button
+                                            type="button"
                                             onClick={handleDirekturDecision}
                                             disabled={isSubmittingDecision}
                                             className={`w-full py-4 rounded-xl text-sm font-black text-white shadow-xl transition-all ${decisionAction === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20'
@@ -1335,7 +1368,44 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                         </div>
                     )}
 
-                    {!isDirektur && !['selesai', 'diterima', 'ditolak'].includes(pengajuan.status_pengajuan) && (
+                    {!isDirektur && pengajuan.status_pengajuan === 'revisi_direktur' && (
+                        <div className="overflow-hidden rounded-xl border border-orange-200 bg-white shadow-sm">
+                            <div className="border-b border-orange-100 bg-orange-50/70 px-6 py-4">
+                                <h2 className="text-[14px] font-semibold text-orange-900">Revisi dari Direktur</h2>
+                                <p className="text-[12px] text-orange-700 mt-1">Teruskan catatan direktur ke pengusul agar pengajuan dapat diperbaiki.</p>
+                            </div>
+                            <div className="p-5 space-y-3">
+                                {pengajuan.catatan_direktur && (
+                                    <div className="rounded-lg border border-orange-100 bg-orange-50/70 px-3 py-2 text-[13px] text-orange-900">
+                                        <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-orange-700">Catatan Direktur</div>
+                                        <p className="whitespace-pre-wrap leading-relaxed">{pengajuan.catatan_direktur}</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="text-xs font-bold text-zinc-700">Catatan untuk Pengusul</label>
+                                    <textarea
+                                        value={catatan}
+                                        onChange={e => setCatatan(e.target.value)}
+                                        rows={3}
+                                        placeholder="Tulis atau sesuaikan catatan revisi untuk pengusul..."
+                                        className="mt-1.5 w-full rounded-lg border border-zinc-200 px-3 py-2 text-[13px] outline-none focus:border-poltekpar-primary focus:ring-2 focus:ring-poltekpar-primary/20 resize-none"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => router.put(`/admin/pengajuan/${pengajuan.id_pengajuan}/status`, {
+                                        status_pengajuan: 'direvisi',
+                                        catatan_admin: catatan || pengajuan.catatan_direktur || null,
+                                    })}
+                                    className="w-full rounded-lg bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-500/15 transition-colors hover:bg-orange-700"
+                                >
+                                    Kembalikan ke Pengusul
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {!isDirektur && !['selesai', 'diterima', 'ditolak', 'revisi_direktur'].includes(pengajuan.status_pengajuan) && (
                         <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
                             <div className="border-b border-zinc-100 bg-zinc-50/50 px-6 py-4">
                                 <h2 className="text-[14px] font-semibold text-zinc-900">Ajukan ke Direktur</h2>

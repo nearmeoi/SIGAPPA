@@ -44,6 +44,11 @@ export const PKM_STATUS_META: Record<string, PkmStatusMeta> = {
         label: 'Perlu Revisi',
         markerIcon: 'fa-pen-to-square',
     },
+    revisi_direktur: {
+        key: 'revisi_direktur',
+        label: 'Revisi Direktur',
+        markerIcon: 'fa-pen-to-square',
+    },
 };
 
 const FALLBACK_COLOR_PALETTE = [
@@ -150,7 +155,7 @@ export const getPkmStatusMeta = (status: any): PkmStatusMeta => {
 // Menggunakan tipe meta statis bila hanya 1 elemen (fallback), tapi lebih baik kirim color statis override dari caller
 export const createPkmMarkerIcon = (status: string, color: string, isReview: boolean = false) => {
     const statusMeta = getPkmStatusMeta(status);
-    const isNew = status === 'ada_pengajuan' || status === 'diproses' || status === 'direvisi';
+    const isNew = status === 'ada_pengajuan' || status === 'diproses' || status === 'direvisi' || status === 'revisi_direktur';
     const shouldJump = isNew && !isReview;
 
     return L.divIcon({

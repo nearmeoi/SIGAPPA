@@ -71,6 +71,8 @@ class Pengajuan extends Model
 
     const STATUS_DIREVISI = 'direvisi';
 
+    const STATUS_REVISI_DIREKTUR = 'revisi_direktur';
+
     const STATUS_DITERIMA = 'diterima';
 
     const STATUS_DITOLAK = 'ditolak';
@@ -155,7 +157,7 @@ class Pengajuan extends Model
 
     public function scopeNotifikasi($query)
     {
-        return $query->whereIn('status_pengajuan', [self::STATUS_DIPROSES, self::STATUS_DIREVISI]);
+        return $query->whereIn('status_pengajuan', [self::STATUS_DIPROSES, self::STATUS_DIREVISI, self::STATUS_REVISI_DIREKTUR]);
     }
 
     public function scopeBelumDibaca($query)

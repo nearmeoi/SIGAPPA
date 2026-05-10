@@ -41,6 +41,7 @@ export default function EditProfile({ userData, pegawaiData }: EditProfileProps)
         e.preventDefault();
         put('/profile/edit', {
             preserveScroll: true,
+            preserveState: false,
             onSuccess: () => {
                 reset('password', 'password_confirmation');
                 setShowSuccess(true);
