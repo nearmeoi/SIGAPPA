@@ -11,15 +11,26 @@ class ArsipController extends Controller
 {
     public function index(Request $request)
     {
-        $sortField = $request->get('sort', 'created_at');
-        $sortDir = $request->get('direction', 'desc');
+        $allowedSorts = ['created_at', 'judul_kegiatan'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'created_at';
+        $sortDir = $request->get('direction') === 'asc' ? 'asc' : 'desc';
 
         $listGroupedArsip = \App\Models\Aktivitas::whereHas('arsip')
             ->with(['pengajuan.user', 'pengajuan.jenisPkm', 'arsip'])
             ->when($request->search, function ($query, $search) {
                 $escaped = addcslashes($search, '\\%_');
-                $query->whereHas('pengajuan', function ($q) use ($escaped) {
-                    $q->where('judul_kegiatan', 'like', "%{$escaped}%");
+                $query->where(function ($q) use ($escaped) {
+                    $q->whereHas('pengajuan', function ($pengajuan) use ($escaped) {
+                        $pengajuan->where('judul_kegiatan', 'like', "%{$escaped}%")
+                            ->orWhere('nama_pengusul', 'like', "%{$escaped}%")
+                            ->orWhereHas('user', fn ($user) => $user->where('name', 'like', "%{$escaped}%"))
+                            ->orWhereHas('jenisPkm', fn ($jenis) => $jenis->where('nama_jenis', 'like', "%{$escaped}%"));
+                    })->orWhereHas('arsip', function ($arsip) use ($escaped) {
+                        $arsip->where('nama_dokumen', 'like', "%{$escaped}%")
+                            ->orWhere('jenis_arsip', 'like', "%{$escaped}%")
+                            ->orWhere('keterangan', 'like', "%{$escaped}%")
+                            ->orWhere('url_dokumen', 'like', "%{$escaped}%");
+                    });
                 });
             })
             ->when($sortField === 'judul_kegiatan', function ($query) use ($sortDir) {

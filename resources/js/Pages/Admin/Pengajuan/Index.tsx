@@ -18,6 +18,7 @@ interface Pengajuan {
     kebutuhan?: string;
     proposal?: string;
     surat_permohonan?: string;
+    rab?: string;
     total_anggaran?: number;
     rab_items?: { nama_item?: string; jumlah?: number; harga?: number; total?: number }[];
     dana_perguruan_tinggi?: number;
@@ -29,10 +30,20 @@ interface Pengajuan {
     email_pengusul?: string;
     tipe_pengusul?: string;
     user?: { name: string; email: string; role?: string };
-    jenis_pkm?: { nama_jenis: string };
+    jenis_pkm?: { id_jenis_pkm?: number; nama_jenis: string };
     provinsi?: string;
     kota_kabupaten?: string;
+    kecamatan?: string;
+    kelurahan_desa?: string;
+    alamat_lengkap?: string;
+    latitude?: number;
+    longitude?: number;
+    lokasi_tambahan?: any;
     tim_kegiatan?: { nama_mahasiswa?: string; peran_tim?: string; pegawai?: { nama_pegawai?: string } }[];
+    kelengkapan?: {
+        lengkap: boolean;
+        missing_fields: string[];
+    };
 }
 
 interface PaginatedData {
@@ -89,6 +100,27 @@ const getSubmitterName = (item: Pengajuan): string =>
 const getSubmitterEmail = (item: Pengajuan): string =>
     item.email_pengusul || item.user?.email || '-';
 
+const parseLocations = (value: any): any[] => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const getLocationSummary = (item: Pengajuan): string => {
+    const additional = parseLocations(item.lokasi_tambahan);
+    const primaryParts = [item.kota_kabupaten, item.provinsi].filter(Boolean);
+    const primaryLabel = primaryParts.length > 0 ? primaryParts.join(', ') : 'Lokasi 1 belum ditentukan';
+
+    if (additional.length > 0) {
+        return `Multi lokasi (${additional.length + 1} titik): Lokasi 1 - ${primaryLabel}`;
+    }
+
+    return primaryLabel;
+};
+
 const getIncompleteReasons = (item: Pengajuan): string[] => {
     const reasons: string[] = [];
     const isDosen = getSubmitterType(item) === 'dosen';
@@ -106,6 +138,7 @@ const getIncompleteReasons = (item: Pengajuan): string[] => {
     if (isEmpty(sName)) reasons.push('nama pengusul');
     if (isEmpty(sEmail)) reasons.push('email pengusul');
     if (isEmpty(item.no_telepon)) reasons.push('kontak/wa');
+    if (isEmpty(item.jenis_pkm?.nama_jenis)) reasons.push('jenis PKM');
     if (isEmpty(item.instansi_mitra)) reasons.push('instansi');
 
     // Common fields
@@ -457,7 +490,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears, l
                                     const st = STATUS_BADGE[item.status_pengajuan] || STATUS_BADGE.diproses;
                                     const submitterType = getSubmitterType(item);
                                     const submitterName = getSubmitterName(item);
-                                    const incompleteReasons = getIncompleteReasons(item);
+                                    const incompleteReasons = item.kelengkapan?.missing_fields || getIncompleteReasons(item);
                                     const isIncomplete = incompleteReasons.length > 0;
                                     const checked = selectedIds.includes(item.id_pengajuan);
                                     return (
@@ -502,7 +535,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears, l
                                             <td className="py-3 px-4">
                                                 <div className="text-[13px] text-zinc-700 font-medium">{item.jenis_pkm?.nama_jenis || 'Belum ditentukan'}</div>
                                                 <div className="text-[11px] text-zinc-400 mt-0.5 truncate max-w-[180px]">
-                                                    {item.kota_kabupaten ? `${item.kota_kabupaten}, ${item.provinsi}` : 'Lokasi: TBD'}
+                                                    {getLocationSummary(item)}
                                                 </div>
                                             </td>
 
@@ -516,18 +549,18 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears, l
                                                                     Data Perlu Dilengkapi
                                                                 </div>
                                                                 <p className="mt-0.5 text-[11px] leading-relaxed text-amber-800">
-                                                                    Beberapa isian belum lengkap. Hubungi pengaju untuk melengkapi data.
+                                                                    Belum lengkap pada: {incompleteReasons.slice(0, 3).join(', ')}{incompleteReasons.length > 3 ? ', ...' : ''}.
                                                                 </p>
-                                                                <p className="mt-1 text-[10px] text-amber-700">
-                                                                    Kurang: {incompleteReasons.slice(0, 3).join(', ')}{incompleteReasons.length > 3 ? ', ...' : ''}
-                                                                </p>
+                                                                <div className="mt-1 text-[10px] font-semibold text-amber-700">
+                                                                    {incompleteReasons.length} data belum diinput
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 ) : (
                                                     <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 border border-emerald-100">
                                                         <Check size={10} className="text-emerald-500" />
-                                                        Data Terverifikasi Lengkap
+                                                        Data Lengkap
                                                     </div>
                                                 )}
                                             </td>

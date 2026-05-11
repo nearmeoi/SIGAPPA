@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import {
@@ -16,6 +16,12 @@ interface AktivitasItem {
         tgl_selesai?: string;
         provinsi?: string;
         kota_kabupaten?: string;
+        kecamatan?: string;
+        kelurahan_desa?: string;
+        alamat_lengkap?: string;
+        latitude?: number;
+        longitude?: number;
+        lokasi_tambahan?: any;
         nama_pengusul?: string;
         email_pengusul?: string;
         user?: { name: string; email?: string };
@@ -34,7 +40,7 @@ interface PaginatedData {
 
 interface Props {
     listAktivitas: PaginatedData;
-    filters?: { sort?: string; direction?: string; status?: string; tahun?: string; jenis_pkm?: string };
+    filters?: { sort?: string; direction?: string; search?: string; status?: string; tahun?: string; jenis_pkm?: string };
     availableYears?: number[];
     listJenisPkm?: { id_jenis_pkm: number; nama_jenis: string; warna_icon: string }[];
 }
@@ -44,6 +50,33 @@ const getRecipientName = (act: AktivitasItem): string =>
 
 const getRecipientEmail = (act: AktivitasItem): string =>
     act.pengajuan?.email_pengusul || act.pengajuan?.user?.email || '';
+
+const parseLocations = (value: any): any[] => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const getLocationSummary = (pengajuan?: AktivitasItem['pengajuan']): string => {
+    if (!pengajuan) return 'Lokasi 1 belum ditentukan';
+
+    const additional = parseLocations(pengajuan.lokasi_tambahan);
+    const primaryParts = [pengajuan.kota_kabupaten, pengajuan.provinsi].filter(Boolean);
+    const locations = [
+        primaryParts.length > 0 ? primaryParts.join(', ') : 'belum ditentukan',
+        ...additional.map((location) => {
+            const parts = [location.kota_kabupaten, location.provinsi].filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : 'belum ditentukan';
+        }),
+    ];
+
+    return locations
+        .map((location, index) => `Lokasi ${index + 1} - ${location}`)
+        .join('; ');
+};
 
 const formatDate = (dateStr?: string): string => {
     if (!dateStr) return 'Akan ditentukan';
@@ -66,7 +99,7 @@ const canSendUndangan = (act: AktivitasItem): boolean => {
 };
 
 const AktivitasPage: React.FC<Props> = ({ listAktivitas, filters, availableYears = [], listJenisPkm = [] }) => {
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(filters?.search || '');
     const [filterStatus, setFilterStatus] = useState(filters?.status || '');
     const [tahun, setTahun] = useState(filters?.tahun || '');
     const [filterJenisPkm, setFilterJenisPkm] = useState(filters?.jenis_pkm || '');
@@ -92,8 +125,7 @@ const AktivitasPage: React.FC<Props> = ({ listAktivitas, filters, availableYears
         const p = firstSelected?.pengajuan;
         const tglMulai = formatDate(p?.tgl_mulai);
         const tglSelesai = formatDate(p?.tgl_selesai);
-        const lokasiParts = [p?.kota_kabupaten, p?.provinsi].filter(Boolean);
-        const lokasi = lokasiParts.length > 0 ? lokasiParts.join(', ') : 'Akan ditentukan';
+        const lokasi = getLocationSummary(p);
 
         return `Dengan hormat,
 
@@ -115,17 +147,32 @@ Politeknik Pariwisata Makassar`;
         setShowUndangan(true);
     }, [buildDefaultSubject, buildDefaultBody]);
 
-    const applyFilters = useCallback((newSortField?: string, newSortDir?: string, newTahun?: string, newJenisPkm?: string) => {
+    const applyFilters = useCallback((newSortField?: string, newSortDir?: string, newTahun?: string, newJenisPkm?: string, newStatus?: string, newSearch?: string) => {
+        const resolvedSearch = newSearch !== undefined ? newSearch : search;
+        const resolvedStatus = newStatus !== undefined ? newStatus : filterStatus;
+        const resolvedTahun = newTahun !== undefined ? newTahun : tahun;
+        const resolvedJenisPkm = newJenisPkm !== undefined ? newJenisPkm : filterJenisPkm;
         const params: Record<string, string> = {
             sort: newSortField !== undefined ? newSortField : sortField,
             direction: newSortDir !== undefined ? newSortDir : sortDir,
         };
-        if (filterStatus) params.status = filterStatus;
-        if (newTahun !== undefined ? newTahun : tahun) params.tahun = newTahun !== undefined ? newTahun : tahun;
-        const resolvedJenisPkm = newJenisPkm !== undefined ? newJenisPkm : filterJenisPkm;
+        if (resolvedSearch.trim()) params.search = resolvedSearch.trim();
+        if (resolvedStatus) params.status = resolvedStatus;
+        if (resolvedTahun) params.tahun = resolvedTahun;
         if (resolvedJenisPkm) params.jenis_pkm = resolvedJenisPkm;
+        setSelectedIds([]);
         router.get('/admin/aktivitas', params, { preserveState: true, replace: true });
-    }, [filterStatus, sortField, sortDir, tahun, filterJenisPkm]);
+    }, [filterStatus, sortField, sortDir, tahun, filterJenisPkm, search]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            if (search !== (filters?.search || '')) {
+                applyFilters(sortField, sortDir, tahun, filterJenisPkm, filterStatus, search);
+            }
+        }, 350);
+
+        return () => window.clearTimeout(timer);
+    }, [search]);
 
     const handleSort = (field: string) => {
         const isAsc = sortField === field && sortDir === 'asc';
@@ -137,11 +184,7 @@ Politeknik Pariwisata Makassar`;
 
     const handleStatusChange = (newStatus: string) => {
         setFilterStatus(newStatus);
-        const params: Record<string, string> = { sort: sortField, direction: sortDir };
-        if (newStatus) params.status = newStatus;
-        if (tahun) params.tahun = tahun;
-        if (filterJenisPkm) params.jenis_pkm = filterJenisPkm;
-        router.get('/admin/aktivitas', params, { preserveState: true, replace: true });
+        applyFilters(sortField, sortDir, tahun, filterJenisPkm, newStatus);
     };
 
     const clearFilters = () => {
@@ -149,10 +192,11 @@ Politeknik Pariwisata Makassar`;
         setFilterStatus('');
         setTahun('');
         setFilterJenisPkm('');
+        setSelectedIds([]);
         router.get('/admin/aktivitas', { sort: sortField, direction: sortDir }, { preserveState: true, replace: true });
     };
 
-    const hasFilters = filterStatus || tahun || filterJenisPkm;
+    const hasFilters = search || filterStatus || tahun || filterJenisPkm;
 
     const handleExport = () => {
         const params = new URLSearchParams();
@@ -250,7 +294,7 @@ Politeknik Pariwisata Makassar`;
                                 placeholder="Cari kegiatan..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                                onKeyDown={e => e.key === 'Enter' && applyFilters(sortField, sortDir, tahun, filterJenisPkm, filterStatus, search)}
                                 className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
                             />
                         </div>
@@ -412,7 +456,7 @@ Politeknik Pariwisata Makassar`;
                                             </div>
                                             <div className="flex items-center gap-1 text-zinc-500 text-[12px]">
                                                 <MapPin size={12} className="text-zinc-400" />
-                                                {act.pengajuan?.kota_kabupaten ? `${act.pengajuan.kota_kabupaten}, ${act.pengajuan.provinsi}` : 'Lokasi TBD'}
+                                                {getLocationSummary(act.pengajuan)}
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-right">
@@ -627,7 +671,7 @@ Politeknik Pariwisata Makassar`;
                                         <div className="border-t border-[#E2E8F0] mt-4 pt-4">
                                             <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider mb-1">Lokasi Kegiatan</p>
                                             <p className="text-[14px] font-bold text-[#0D1F3C]">
-                                                {[firstSelected?.pengajuan?.kota_kabupaten, firstSelected?.pengajuan?.provinsi].filter(Boolean).join(', ') || 'Akan ditentukan'}
+                                                {getLocationSummary(firstSelected?.pengajuan)}
                                             </p>
                                         </div>
                                     </div>

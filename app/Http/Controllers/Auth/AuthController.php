@@ -14,6 +14,8 @@ use Inertia\Inertia;
 
 class AuthController extends Controller
 {
+    private const ADMIN_ROLES = ['admin', 'superadmin', 'secret_account', 'secret'];
+
     /**
      * Redirect URL berdasarkan role user.
      */
@@ -22,7 +24,7 @@ class AuthController extends Controller
         if (Auth::user()?->role === 'direktur') {
             return '/direktur/dashboard';
         }
-        return in_array(Auth::user()?->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/beranda';
+        return in_array(Auth::user()?->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda';
     }
 
     public function showLogin()
@@ -150,6 +152,19 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
         $loginSource = $request->input('login_source', 'general');
+        $user = User::where('email', $credentials['email'])->first();
+
+        if ($user?->role === 'dosen' && $loginSource !== 'dosen') {
+            return back()->withErrors([
+                'email' => 'Akun ini terdaftar sebagai dosen. Silakan gunakan menu "Masuk / Daftar sebagai Dosen" untuk verifikasi NIP dan akses akun dosen.',
+            ])->onlyInput('email');
+        }
+
+        if ($user && $loginSource === 'dosen' && $user->role !== 'dosen') {
+            return back()->withErrors([
+                'email' => 'Akun ini bukan akun dosen. Silakan masuk melalui halaman login umum.',
+            ])->onlyInput('email');
+        }
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
@@ -157,9 +172,9 @@ class AuthController extends Controller
 
             $default = $user->role === 'direktur'
                 ? '/direktur/dashboard'
-                : (in_array($user->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/');
+                : (in_array($user->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda');
 
-            return redirect()->intended($default);
+            return redirect($default);
         }
 
         return back()->withErrors([
@@ -243,7 +258,7 @@ class AuthController extends Controller
 
         $redirectTo = $user->role === 'direktur'
             ? '/direktur/dashboard'
-            : (in_array($user->role, ['admin', 'superadmin', 'secret_account']) ? '/admin/dashboard' : '/');
+            : (in_array($user->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda');
 
         return redirect($redirectTo);
     }

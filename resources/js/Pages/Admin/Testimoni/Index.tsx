@@ -70,7 +70,7 @@ const TestimoniPage: React.FC<Props> = ({ listGroupedTestimoni, filters }) => {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        router.get('/admin/testimoni', { search }, { preserveState: true });
+        router.get('/admin/testimoni', { search: search.trim() || undefined }, { preserveState: true, replace: true });
     };
 
     const handleDelete = (id: number) => {

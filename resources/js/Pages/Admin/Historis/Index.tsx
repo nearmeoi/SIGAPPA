@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import FormHistoris from '../../../Components/FormHistoris';
 import Toast from '../../../Components/Toast';
@@ -117,32 +116,7 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
     };
 
     const downloadTemplate = () => {
-        const data = [{
-            "Tahun": "2023", 
-            "Judul PKM": "Pemberdayaan Desa Wisata X", 
-            "Jenis PKM / Skema Masy": "Pengabdian Internal", 
-            "Kebutuhan Daerah (Kosongkan)": "", 
-            "Pengusul": "Dosen",
-            "Ketua TIM (Nama)": "Budi Santoso", 
-            "Dosen Terlibat (Koma-pisahkan)": "Andi,Siti", 
-            "Staff Terlibat (Koma)": "Joko", 
-            "Mahasiswa Terlibat (Koma)": "Rani,Tono",
-            "Desa": "Mekarwangi", 
-            "Kecamatan": "Lembang", 
-            "Kabupaten/Kota": "Bandung", 
-            "Provinsi": "Jawa Barat",
-            "Link Arsip Lain / RAB (Eksternal)": "", 
-            "Total Anggaran (Rp)": "5000000", 
-            "Link Testimoni Eksternal / Bukti Feedback": "https://youtube.com/...", 
-            "Link Bebas X": "", 
-            "Link Laporan Akhir PKM Dokumen": "https://drive...", 
-            "Link Foto Dokumentasi": "https://..."
-        }];
-        
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(wb, ws, "Template");
-        XLSX.writeFile(wb, "Template_Data_Historis.xlsx");
+        window.location.href = '/templates/Template_Data_Historis_110526.xlsx';
     };
 
     // Modal Edit logic
@@ -153,15 +127,47 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
 
     const curEditingData = editingRowIndex !== null ? previewData[editingRowIndex] : null;
 
-    const hasCoordinates = (row: any) => {
-        const latitude = row?.latitude;
-        const longitude = row?.longitude;
+    const locationHasCoordinates = (location: any) => {
+        const latitude = location?.latitude;
+        const longitude = location?.longitude;
 
         return latitude !== null && latitude !== undefined && latitude !== '' && longitude !== null && longitude !== undefined && longitude !== '';
     };
 
-    const rowsWithCoordinates = previewData.filter(hasCoordinates).length;
-    const rowsWithoutCoordinates = previewData.length - rowsWithCoordinates;
+    const getLocations = (row: any) => {
+        if (Array.isArray(row?.lokasi_list) && row.lokasi_list.length > 0) {
+            return row.lokasi_list;
+        }
+
+        const hasAnySingleLocation = ['provinsi', 'kota_kabupaten', 'kecamatan', 'kelurahan_desa', 'alamat_lengkap', 'latitude', 'longitude']
+            .some((key) => row?.[key] !== null && row?.[key] !== undefined && row?.[key] !== '');
+
+        return hasAnySingleLocation ? [row] : [];
+    };
+
+    const countLocationCoordinates = (row: any) => {
+        const locations = getLocations(row);
+        const withCoordinates = locations.filter(locationHasCoordinates).length;
+
+        return {
+            total: locations.length,
+            withCoordinates,
+            withoutCoordinates: locations.length - withCoordinates,
+        };
+    };
+
+    const totalLocationStats = previewData.reduce(
+        (acc, row) => {
+            const stats = countLocationCoordinates(row);
+
+            return {
+                total: acc.total + stats.total,
+                withCoordinates: acc.withCoordinates + stats.withCoordinates,
+                withoutCoordinates: acc.withoutCoordinates + stats.withoutCoordinates,
+            };
+        },
+        { total: 0, withCoordinates: 0, withoutCoordinates: 0 }
+    );
 
     return (
         <AdminLayout title="Kelola Data Historis">
@@ -189,11 +195,11 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                                 <div>
                                     <h2 className="text-[20px] font-black tracking-tight mb-2 flex items-center gap-2"><History /> Hub Import Historis</h2>
                                     <p className="text-indigo-100 text-[13px] max-w-xl">
-                                        Teknik cepat mengonversi ratusan rekam jejak Pengabdian & Penelitian dari program Excel di masa lalu menjadi terintegrasi dengan peta persebaran wilayah hari ini.
+                                        Gunakan template standar historis terbaru untuk mengimpor data PKM lengkap, termasuk tanggal pelaksanaan, pendanaan, arsip, dan sampai 10 lokasi kegiatan.
                                     </p>
                                 </div>
                                 <button onClick={downloadTemplate} className="bg-white/10 hover:bg-white text-white hover:text-poltekpar-navy border border-white/20 font-bold text-[13px] px-5 py-3 rounded-xl transition-all whitespace-nowrap">
-                                    Unduh Template Dasar
+                                    Unduh Template Standar
                                 </button>
                             </div>
 
@@ -239,11 +245,11 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
                                         <MapPin size={12} />
-                                        {rowsWithCoordinates} sudah punya koordinat
+                                        {totalLocationStats.withCoordinates} titik sudah punya koordinat
                                     </div>
                                     <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">
                                         <MapPinOff size={12} />
-                                        {rowsWithoutCoordinates} belum punya koordinat
+                                        {totalLocationStats.withoutCoordinates} titik belum punya koordinat
                                     </div>
                                 </div>
                             </div>
@@ -269,7 +275,8 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                             </thead>
                             <tbody className="text-[13px] divide-y divide-zinc-100">
                                 {previewData.map((row, idx) => {
-                                    const rowHasCoordinates = hasCoordinates(row);
+                                    const rowLocationStats = countLocationCoordinates(row);
+                                    const rowHasCoordinates = rowLocationStats.withCoordinates > 0;
 
                                     return (
                                     <tr key={row.id} className={`hover:bg-zinc-50 cursor-pointer ${selectedRows.includes(row.id) ? 'bg-indigo-50/20' : ''} ${rowHasCoordinates ? 'border-l-4 border-emerald-400' : 'border-l-4 border-amber-300'}`} onClick={() => toggleRow(row.id)}>
@@ -281,7 +288,7 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                                             <div className="mt-2 flex flex-wrap items-center gap-2">
                                                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${rowHasCoordinates ? 'border border-emerald-200 bg-emerald-50 text-emerald-700' : 'border border-amber-200 bg-amber-50 text-amber-700'}`}>
                                                     {rowHasCoordinates ? <MapPin size={12} /> : <MapPinOff size={12} />}
-                                                    {rowHasCoordinates ? 'Koordinat tersedia' : 'Koordinat belum diisi'}
+                                                    {rowLocationStats.withCoordinates}/{rowLocationStats.total} titik berkoordinat
                                                 </span>
                                                 {rowHasCoordinates && (
                                                     <span className="text-[10px] font-mono text-slate-500">

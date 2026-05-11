@@ -1,9 +1,75 @@
-import React, { useState } from 'react';
-import { Search, Plus, Trash2, MapPin } from 'lucide-react';
+import React from 'react';
+import { Plus, Trash2, MapPin } from 'lucide-react';
 import MapLocationPicker from './MapLocationPicker';
 
+const createLocation = () => ({
+    id_ui: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    provinsi: '',
+    kota_kabupaten: '',
+    kecamatan: '',
+    kelurahan_desa: '',
+    alamat_lengkap: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
+});
+
+const getLocationList = (data: any) => {
+    if (Array.isArray(data.lokasi_list) && data.lokasi_list.length) {
+        return data.lokasi_list;
+    }
+
+    return [{
+        id_ui: 'lokasi-awal',
+        provinsi: data.provinsi || '',
+        kota_kabupaten: data.kota_kabupaten || '',
+        kecamatan: data.kecamatan || '',
+        kelurahan_desa: data.kelurahan_desa || '',
+        alamat_lengkap: data.alamat_lengkap || '',
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+    }];
+};
+
+const syncPrimaryLocation = (payload: any, locations: any[]) => {
+    const primary = locations[0] || createLocation();
+
+    return {
+        ...payload,
+        lokasi_list: locations,
+        provinsi: primary.provinsi || '',
+        kota_kabupaten: primary.kota_kabupaten || '',
+        kecamatan: primary.kecamatan || '',
+        kelurahan_desa: primary.kelurahan_desa || '',
+        alamat_lengkap: primary.alamat_lengkap || '',
+        latitude: primary.latitude ?? null,
+        longitude: primary.longitude ?? null,
+    };
+};
+
 export default function FormHistoris({ data, setData, listPegawai, listJenisPkm }: any) {
+    const lokasiList = getLocationList(data);
     const handleChange = (field: string, val: any) => setData((p: any) => ({ ...p, [field]: val }));
+
+    const updateLocation = (index: number, patch: any) => {
+        setData((p: any) => {
+            const locations = getLocationList(p).map((lokasi: any, i: number) => (
+                i === index ? { ...lokasi, ...patch } : lokasi
+            ));
+
+            return syncPrimaryLocation(p, locations);
+        });
+    };
+
+    const addLocation = () => {
+        setData((p: any) => syncPrimaryLocation(p, [...getLocationList(p), createLocation()]));
+    };
+
+    const removeLocation = (index: number) => {
+        setData((p: any) => {
+            const locations = getLocationList(p).filter((_: any, i: number) => i !== index);
+            return syncPrimaryLocation(p, locations.length ? locations : [createLocation()]);
+        });
+    };
 
     const handleArrayChange = (field: string, index: number, val: string) => {
         setData((p: any) => {
@@ -178,49 +244,68 @@ export default function FormHistoris({ data, setData, listPegawai, listJenisPkm 
             <div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-6 space-y-5">
                 <h2 className="text-sm font-bold text-zinc-800 border-b border-zinc-100 pb-2 flex items-center gap-2"><MapPin size={16}/> Lokasi Kegiatan</h2>
                 
-                <div className="rounded-xl overflow-hidden border border-zinc-200 h-80 relative">
-                    <MapLocationPicker
-                        latitude={data.latitude}
-                        longitude={data.longitude}
-                        onChange={(lat, lng, addr) => {
-                            setData((p: any) => ({
-                                ...p,
-                                latitude: lat,
-                                longitude: lng,
-                                ...(addr && {
-                                    provinsi: addr.provinsi || p.provinsi,
-                                    kota_kabupaten: addr.kotaKabupaten || p.kota_kabupaten,
-                                    kecamatan: addr.kecamatan || p.kecamatan,
-                                    kelurahan_desa: addr.kelurahanDesa || p.kelurahan_desa,
-                                    alamat_lengkap: addr.address || p.alamat_lengkap
-                                })
-                            }));
-                        }}
-                    />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div>
-                        <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Provinsi</label>
-                        <input value={data.provinsi} onChange={e => handleChange('provinsi', e.target.value)} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary" />
+                {lokasiList.map((lokasi: any, index: number) => (
+                    <div key={lokasi.id_ui ?? index} className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 text-sm font-bold text-zinc-800">
+                                <span className="inline-flex items-center rounded-md bg-poltekpar-primary/10 px-2 py-1 text-[11px] font-extrabold uppercase tracking-wide text-poltekpar-primary">Lokasi {index + 1}</span>
+                                {lokasi.kota_kabupaten && <span className="text-xs font-semibold text-zinc-500">{lokasi.kota_kabupaten}</span>}
+                            </div>
+                            {lokasiList.length > 1 && (
+                                <button type="button" onClick={() => removeLocation(index)} className="inline-flex items-center gap-1 rounded-md bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100">
+                                    <Trash2 size={14}/> Hapus
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="rounded-xl overflow-hidden border border-zinc-200 h-80 relative bg-white">
+                            <MapLocationPicker
+                                latitude={lokasi.latitude}
+                                longitude={lokasi.longitude}
+                                onChange={(lat, lng, addr) => {
+                                    updateLocation(index, {
+                                        latitude: lat,
+                                        longitude: lng,
+                                        ...(addr && {
+                                            provinsi: addr.provinsi || lokasi.provinsi,
+                                            kota_kabupaten: addr.kotaKabupaten || lokasi.kota_kabupaten,
+                                            kecamatan: addr.kecamatan || lokasi.kecamatan,
+                                            kelurahan_desa: addr.kelurahanDesa || lokasi.kelurahan_desa,
+                                            alamat_lengkap: addr.address || lokasi.alamat_lengkap
+                                        })
+                                    });
+                                }}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Provinsi</label>
+                                <input value={lokasi.provinsi || ''} onChange={e => updateLocation(index, { provinsi: e.target.value })} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary focus:ring-1 focus:ring-poltekpar-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Kota/Kabupaten</label>
+                                <input value={lokasi.kota_kabupaten || ''} onChange={e => updateLocation(index, { kota_kabupaten: e.target.value })} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary focus:ring-1 focus:ring-poltekpar-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Kecamatan</label>
+                                <input value={lokasi.kecamatan || ''} onChange={e => updateLocation(index, { kecamatan: e.target.value })} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary focus:ring-1 focus:ring-poltekpar-primary" />
+                            </div>
+                            <div>
+                                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Kelurahan/Desa</label>
+                                <input value={lokasi.kelurahan_desa || ''} onChange={e => updateLocation(index, { kelurahan_desa: e.target.value })} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary focus:ring-1 focus:ring-poltekpar-primary" />
+                            </div>
+                            <div className="col-span-1 md:col-span-2">
+                                <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Alamat Lengkap (Otomatis)</label>
+                                <textarea value={lokasi.alamat_lengkap || ''} onChange={e => updateLocation(index, { alamat_lengkap: e.target.value })} rows={2} className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary focus:ring-1 focus:ring-poltekpar-primary" />
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Kota/Kabupaten</label>
-                        <input value={data.kota_kabupaten} onChange={e => handleChange('kota_kabupaten', e.target.value)} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary" />
-                    </div>
-                    <div>
-                        <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Kecamatan</label>
-                        <input value={data.kecamatan} onChange={e => handleChange('kecamatan', e.target.value)} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary" />
-                    </div>
-                    <div>
-                        <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Kelurahan/Desa</label>
-                        <input value={data.kelurahan_desa} onChange={e => handleChange('kelurahan_desa', e.target.value)} type="text" className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary" />
-                    </div>
-                    <div className="col-span-1 md:col-span-2">
-                        <label className="block text-[13px] font-semibold text-zinc-700 mb-1.5">Alamat Lengkap (Otomatis)</label>
-                        <textarea value={data.alamat_lengkap} onChange={e => handleChange('alamat_lengkap', e.target.value)} rows={2} className="w-full rounded-md border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-poltekpar-primary" />
-                    </div>
-                </div>
+                ))}
+
+                <button type="button" onClick={addLocation} className="inline-flex items-center gap-2 rounded-md border border-poltekpar-primary/20 bg-poltekpar-primary/5 px-4 py-2 text-xs font-bold text-poltekpar-primary hover:bg-poltekpar-primary/10">
+                    <Plus size={14}/> Tambah Lokasi
+                </button>
             </div>
 
             <div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-6 space-y-5">
@@ -284,6 +369,7 @@ FormHistoris.getInitialData = (listJenisPkm: any[]) => ({
     alamat_lengkap: '',
     latitude: null as number | null,
     longitude: null as number | null,
+    lokasi_list: [createLocation()],
     total_anggaran: '',
     sumber_dana_tambahan: '',
     dana_perguruan_tinggi: '',

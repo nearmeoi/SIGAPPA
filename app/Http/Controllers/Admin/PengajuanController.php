@@ -22,6 +22,7 @@ class PengajuanController extends Controller
         $sortDir = $request->get('direction', 'desc');
 
         $listPengajuan = Pengajuan::with(['user', 'jenisPkm', 'timKegiatan.pegawai'])
+            ->visibleInPengajuanQueue()
             ->when($request->search, function ($query, $search) {
                 $escaped = addcslashes($search, '\\%_');
                 $query->where(function ($q) use ($escaped) {
@@ -52,25 +53,65 @@ class PengajuanController extends Controller
                 $query->orderBy($sortField, $sortDir);
             })
             ->paginate(10)
-            ->through(fn($p) => [
-                'id_pengajuan' => $p->id_pengajuan,
-                'kode_unik' => $p->kode_unik,
-                'judul_kegiatan' => $p->judul_kegiatan,
-                'status_pengajuan' => $p->status_pengajuan,
-                'admin_read_at' => $p->admin_read_at,
-                'created_at' => $p->created_at?->format('Y-m-d H:i:s'),
-                'tgl_mulai' => $p->tgl_mulai?->format('Y-m-d'),
-                'user' => $p->user ? [
-                    'id_user' => $p->user->id_user,
-                    'name' => $p->user->name,
-                    'email' => $p->user->email,
-                ] : null,
-                'jenis_pkm' => $p->jenisPkm ? [
-                    'nama_jenis' => $p->jenisPkm->nama_jenis,
-                ] : null,
-                'nama_pengusul' => $p->nama_pengusul,
-                'instansi_mitra' => $p->instansi_mitra,
-            ])
+            ->through(function ($p) {
+                $incompleteFields = $this->getIncompleteFields($p);
+
+                return [
+                    'id_pengajuan' => $p->id_pengajuan,
+                    'kode_unik' => $p->kode_unik,
+                    'judul_kegiatan' => $p->judul_kegiatan,
+                    'status_pengajuan' => $p->status_pengajuan,
+                    'admin_read_at' => $p->admin_read_at,
+                    'created_at' => $p->created_at?->format('Y-m-d H:i:s'),
+                    'tgl_mulai' => $p->tgl_mulai?->format('Y-m-d'),
+                    'tgl_selesai' => $p->tgl_selesai?->format('Y-m-d'),
+                    'tipe_pengusul' => $p->tipe_pengusul,
+                    'user' => $p->user ? [
+                        'id_user' => $p->user->id_user,
+                        'name' => $p->user->name,
+                        'email' => $p->user->email,
+                        'role' => $p->user->role,
+                    ] : null,
+                    'jenis_pkm' => $p->jenisPkm ? [
+                        'id_jenis_pkm' => $p->jenisPkm->id_jenis_pkm,
+                        'nama_jenis' => $p->jenisPkm->nama_jenis,
+                    ] : null,
+                    'nama_pengusul' => $p->nama_pengusul,
+                    'email_pengusul' => $p->email_pengusul,
+                    'no_telepon' => $p->no_telepon,
+                    'instansi_mitra' => $p->instansi_mitra,
+                    'kebutuhan' => $p->kebutuhan,
+                    'surat_permohonan' => $p->surat_permohonan,
+                    'rab' => $p->rab,
+                    'rab_items' => $p->rab_items,
+                    'sumber_dana' => $p->sumber_dana,
+                    'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
+                    'dana_pemerintah' => $p->dana_pemerintah,
+                    'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
+                    'dana_lembaga_luar' => $p->dana_lembaga_luar,
+                    'provinsi' => $p->provinsi,
+                    'kota_kabupaten' => $p->kota_kabupaten,
+                    'kecamatan' => $p->kecamatan,
+                    'kelurahan_desa' => $p->kelurahan_desa,
+                    'alamat_lengkap' => $p->alamat_lengkap,
+                    'latitude' => $p->latitude,
+                    'longitude' => $p->longitude,
+                    'lokasi_tambahan' => $p->lokasi_tambahan,
+                    'tim_kegiatan' => $p->timKegiatan->map(fn ($t) => [
+                        'id_tim' => $t->id_tim,
+                        'nama_mahasiswa' => $t->nama_mahasiswa,
+                        'peran_tim' => $t->peran_tim,
+                        'pegawai' => $t->pegawai ? [
+                            'id_pegawai' => $t->pegawai->id_pegawai,
+                            'nama_pegawai' => $t->pegawai->nama_pegawai,
+                        ] : null,
+                    ])->values(),
+                    'kelengkapan' => [
+                        'lengkap' => $incompleteFields === [],
+                        'missing_fields' => $incompleteFields,
+                    ],
+                ];
+            })
             ->withQueryString();
 
         return Inertia::render('Admin/Pengajuan/Index', [
@@ -83,7 +124,8 @@ class PengajuanController extends Controller
                 'tahun' => $request->tahun ?? '',
                 'jenis_pkm' => $request->jenis_pkm ?? '',
             ],
-            'availableYears' => Pengajuan::selectRaw('YEAR(tgl_mulai) as year')
+            'availableYears' => Pengajuan::visibleInPengajuanQueue()
+                ->selectRaw('YEAR(tgl_mulai) as year')
                 ->whereNotNull('tgl_mulai')
                 ->groupBy('year')
                 ->orderBy('year', 'desc')
@@ -367,7 +409,7 @@ class PengajuanController extends Controller
         $filters = $request->input('filters', []);
 
         if ($selectAll) {
-            $query = Pengajuan::query();
+            $query = Pengajuan::visibleInPengajuanQueue();
 
             // Apply filters to match the user's current view
             if (!empty($filters['search'])) {
@@ -706,6 +748,7 @@ class PengajuanController extends Controller
         $fields = [
             blank($pengajuan->nama_pengusul ?: $pengajuan->user?->name) ? 'nama pengusul' : null,
             blank($pengajuan->email_pengusul ?: $pengajuan->user?->email) ? 'email pengusul' : null,
+            blank($pengajuan->id_jenis_pkm) ? 'jenis PKM' : null,
             blank($pengajuan->instansi_mitra) ? 'instansi' : null,
             blank($pengajuan->no_telepon) ? 'kontak / WhatsApp' : null,
             blank($pengajuan->kebutuhan) ? ($isDosen ? 'deskripsi kegiatan' : 'kebutuhan PKM') : null,
@@ -719,6 +762,14 @@ class PengajuanController extends Controller
 
         if ($isDosen) {
             $fields[] = blank($pengajuan->judul_kegiatan) ? 'judul kegiatan PKM' : null;
+
+            $hasFunding = (float) $pengajuan->dana_perguruan_tinggi > 0
+                || (float) $pengajuan->dana_pemerintah > 0
+                || (float) $pengajuan->dana_lembaga_dalam > 0
+                || (float) $pengajuan->dana_lembaga_luar > 0
+                || filled($pengajuan->sumber_dana);
+
+            $fields[] = ! $hasFunding ? 'sumber dana' : null;
         }
 
         return array_values(array_filter($fields));

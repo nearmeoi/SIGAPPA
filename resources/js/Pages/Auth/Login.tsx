@@ -164,8 +164,8 @@ export default function Login() {
                                     <i className="fa-solid fa-user-plus"></i>
                                 </div>
                                 <div className="text-left">
-                                    <div className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Daftar sebagai Dosen</div>
-                                    <div className="text-[11px] text-slate-400 font-medium">Aktivasi akun khusus dosen via integrasi NIP</div>
+                                    <div className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Masuk / Daftar sebagai Dosen</div>
+                                    <div className="text-[11px] text-slate-400 font-medium">Khusus akun dosen, lanjut lewat verifikasi NIP</div>
                                 </div>
                             </div>
                             <i className="fa-solid fa-chevron-right text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all"></i>

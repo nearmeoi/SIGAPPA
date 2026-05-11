@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import ConfirmDialog from '../../../Components/ConfirmDialog';
@@ -31,7 +31,7 @@ interface PaginatedData {
 
 interface Props {
     listJenisPkm: PaginatedData;
-    filters?: { sort?: string; direction?: string };
+    filters?: { sort?: string; direction?: string; search?: string };
 }
 
 const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
@@ -41,7 +41,7 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
     const [warna, setWarna] = useState('');
     const [deskripsi, setDeskripsi] = useState('');
     const [editId, setEditId] = useState<number | null>(null);
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(filters?.search || '');
     const [sortField, setSortField] = useState(filters?.sort || 'nama_jenis');
     const [sortDir, setSortDir] = useState(filters?.direction || 'asc');
 
@@ -53,8 +53,23 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
         router.get('/admin/master/jenis-pkm', {
             sort: field,
             direction: newDir,
+            search: search || undefined,
         }, { preserveState: true, replace: true });
     };
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            if (search !== (filters?.search || '')) {
+                router.get('/admin/master/jenis-pkm', {
+                    search: search || undefined,
+                    sort: sortField,
+                    direction: sortDir,
+                }, { preserveState: true, replace: true });
+            }
+        }, 300);
+
+        return () => window.clearTimeout(timer);
+    }, [search, filters?.search, sortField, sortDir]);
 
     const PRESET_COLORS = [
         '#ef4444', '#f97316', '#f59e0b', '#10b981', '#14b8a6',
@@ -120,8 +135,6 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
 
     const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
-    const filtered = data.filter(j => j.nama_jenis.toLowerCase().includes(search.toLowerCase()));
-
     // ── Bulk Delete ──
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [isAllSelected, setIsAllSelected] = useState(false);
@@ -150,7 +163,8 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
             router.delete('/admin/master/jenis-pkm/bulk', {
                 data: { 
                     ids: isAllSelected ? [] : selectedIds,
-                    all: isAllSelected
+                    all: isAllSelected,
+                    search: search || undefined,
                 },
                 onSuccess: () => {
                     setSelectedIds([]);
@@ -185,7 +199,7 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
                 <div className="bg-poltekpar-navy text-white px-6 py-2 text-[13px] flex items-center justify-center gap-2 animate-in slide-in-from-top-2 duration-300">
                     <span>Semua <b>{data.length}</b> kategori di halaman ini terpilih.</span>
                     <button onClick={handleSelectAllInDatabase} className="underline font-bold hover:text-poltekpar-gold transition-colors">
-                        Pilih semua {listJenisPkm.total} kategori di database
+                        Pilih semua {listJenisPkm.total} kategori hasil filter
                     </button>
                 </div>
             )}
@@ -227,9 +241,9 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-100">
-                            {filtered.length === 0 ? (
+                            {data.length === 0 ? (
                                 <tr><td colSpan={5} className="py-12 text-center text-zinc-400 text-[13px]">Tidak ada data.</td></tr>
-                            ) : filtered.map((item, i) => {
+                            ) : data.map((item, i) => {
                                 const checked = selectedIds.includes(item.id_jenis_pkm);
                                 return (
                                 <tr key={item.id_jenis_pkm} className={`hover:bg-zinc-50/50 transition-colors group ${checked ? 'bg-red-50/40' : ''}`}>

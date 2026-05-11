@@ -187,6 +187,53 @@ const roleItems = (tim: TimKegiatan[] | undefined, role: string, ketuaId?: numbe
     .filter((m) => m.id_tim !== ketuaId && getRole(m) === role)
     .map(getName)
     .filter(Boolean);
+const parseAdditionalLocations = (value: any): any[] => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+const formatLocationAddress = (location: Partial<{
+    alamat_lengkap: string;
+    kelurahan_desa: string;
+    kecamatan: string;
+    kota_kabupaten: string;
+    provinsi: string;
+}>) => [
+    location.alamat_lengkap,
+    location.kelurahan_desa,
+    location.kecamatan,
+    location.kota_kabupaten,
+    location.provinsi,
+].filter(Boolean).join(', ');
+const getPengajuanLocationSummary = (pengajuan: Pengajuan) => {
+    const locations = [
+        {
+            alamat_lengkap: pengajuan.alamat_lengkap || '',
+            kelurahan_desa: pengajuan.kelurahan_desa || '',
+            kecamatan: pengajuan.kecamatan || '',
+            kota_kabupaten: pengajuan.kota_kabupaten || '',
+            provinsi: pengajuan.provinsi || '',
+        },
+        ...parseAdditionalLocations(pengajuan.lokasi_tambahan).map((loc) => ({
+            alamat_lengkap: loc.alamat_lengkap || '',
+            kelurahan_desa: loc.kelurahan_desa || '',
+            kecamatan: loc.kecamatan || '',
+            kota_kabupaten: loc.kota_kabupaten || '',
+            provinsi: loc.provinsi || '',
+        })),
+    ];
+
+    return locations
+        .map((location, index) => {
+            const address = formatLocationAddress(location);
+            return address ? `Lokasi ${index + 1} - ${address}` : '';
+        })
+        .filter(Boolean)
+        .join('; ');
+};
 const buildDraft = (pengajuan: Pengajuan, ketuaId?: number): DraftState => ({
     tanggal_pengajuan: toDateInputValue(pengajuan.created_at),
     nama_pengusul: pengajuan.nama_pengusul || getSubmitterName(pengajuan),
@@ -583,6 +630,7 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     const missing = [
         !submitterName || submitterName === '-' ? 'Nama Pengusul' : '',
         !submitterEmail || submitterEmail === '-' ? 'Email Pengusul' : '',
+        !pengajuan.jenis_pkm?.nama_jenis ? 'Jenis PKM' : '',
         !pengajuan.instansi_mitra ? 'Instansi' : '',
         !pengajuan.no_telepon ? 'No. WhatsApp' : '',
         !pengajuan.kebutuhan ? (isDosen ? 'Deskripsi Kegiatan' : 'Kebutuhan PKM') : '',
@@ -991,69 +1039,12 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
                                             <Plus size={16} /> Tambah Lokasi Lainnya
                                         </button>
                                     </div>
-                                ) : (() => {
-                                    let additionalLocations: any[] = [];
-                                    try {
-                                        const parsed = typeof (pengajuan as any).lokasi_tambahan === 'string'
-                                            ? JSON.parse((pengajuan as any).lokasi_tambahan)
-                                            : (pengajuan as any).lokasi_tambahan;
-                                        if (Array.isArray(parsed)) additionalLocations = parsed;
-                                    } catch { }
-
-                                    return (
-                                        <div className="space-y-6">
-                                            {/* Titik Utama */}
-                                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative mt-4 shadow-sm">
-                                                <div className="absolute -top-3 left-4 bg-blue-100 text-blue-700 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-blue-200 shadow-sm flex items-center gap-1.5">
-                                                    <MapPin size={12} />
-                                                    {(() => {
-                                                        const tambahan = pengajuan.lokasi_tambahan;
-                                                        const parsed = tambahan ? (typeof tambahan === 'string' ? JSON.parse(tambahan) : tambahan) : [];
-                                                        return Array.isArray(parsed) && parsed.length > 0 ? 'Lokasi 1' : 'Lokasi';
-                                                    })()} {pengajuan.kota_kabupaten ? `- ${pengajuan.kota_kabupaten}` : ''}
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
-                                                    <Field label="Provinsi" value={pengajuan.provinsi} />
-                                                    <Field label="Kota/Kabupaten" value={pengajuan.kota_kabupaten} />
-                                                    <Field label="Kecamatan" value={pengajuan.kecamatan} />
-                                                    <Field label="Kelurahan/Desa" value={pengajuan.kelurahan_desa} />
-                                                    <Field label="Alamat Lengkap" value={pengajuan.alamat_lengkap} wide />
-                                                    {(pengajuan.latitude && pengajuan.longitude) && (
-                                                        <div className="col-span-full pt-3">
-                                                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${pengajuan.latitude},${pengajuan.longitude}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-100 transition-colors w-fit border border-blue-100">
-                                                                <MapPin size={16} /> Buka di Google Maps
-                                                            </a>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Titik Tambahan */}
-                                            {additionalLocations.map((loc, idx) => (
-                                                <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-5 relative mt-6 shadow-sm">
-                                                    <div className="absolute -top-3 left-4 bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-widest px-3 py-1 rounded-md border border-slate-300 shadow-sm flex items-center gap-1.5">
-                                                        <MapPin size={12} />
-                                                        Lokasi {idx + 2} {loc.kota_kabupaten ? `- ${loc.kota_kabupaten}` : ''}
-                                                    </div>
-                                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-2">
-                                                        <Field label="Provinsi" value={loc.provinsi} />
-                                                        <Field label="Kota/Kabupaten" value={loc.kota_kabupaten} />
-                                                        <Field label="Kecamatan" value={loc.kecamatan} />
-                                                        <Field label="Kelurahan/Desa" value={loc.kelurahan_desa} />
-                                                        <Field label="Alamat Lengkap" value={loc.alamat_lengkap} wide />
-                                                        {(loc.latitude && loc.longitude) && (
-                                                            <div className="col-span-full pt-3">
-                                                                <a href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude || loc.lat},${loc.longitude || loc.lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors w-fit border border-slate-200">
-                                                                    <MapPin size={16} /> Buka di Google Maps
-                                                                </a>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    );
-                                })()}
+                                ) : (
+                                    <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+                                        <MapPin size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                                        <span>{getPengajuanLocationSummary(pengajuan) || 'Lokasi belum ditentukan'}</span>
+                                    </div>
+                                )}
                             </div>
                         </Card>
                         <Card

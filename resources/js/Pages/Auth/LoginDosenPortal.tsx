@@ -42,17 +42,28 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             const response = await axios.post('/check-nip', { nip: nipValue }, {
+                withCredentials: true,
                 headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken || ''
                 }
             });
             const result = response.data;
 
             if (result.status === 'registered') {
-                setNipStatus({ status: 'registered', message: 'Akun Anda telah terdaftar sebelumnya. Mengalihkan ke halaman login...' });
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2500);
+                setNipStatus({ status: 'registered', message: 'NIP terverifikasi. Masukkan kata sandi akun dosen Anda untuk masuk.' });
+                setMode('login');
+                clearErrors();
+                setData((prev) => ({
+                    ...prev,
+                    nip: nipValue,
+                    name: result.name || '',
+                    email: result.email || '',
+                    password: '',
+                    password_confirmation: '',
+                }));
+                setStep('form-expand');
             } else if (result.status === 'claimable') {
                 setNipStatus({ status: 'claimable', message: result.message });
                 setMode('register');
@@ -83,8 +94,13 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
                 setNipStatus({ status: 'error', message: result.message });
                 setStep('nip-entry');
             }
-        } catch (error) {
-            setNipStatus({ status: 'error', message: 'Terjadi kesalahan sistem.' });
+        } catch (error: any) {
+            const message = error.response?.data?.message
+                || error.response?.data?.errors?.nip?.[0]
+                || (error.response?.status === 419 ? 'Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.' : null)
+                || 'Terjadi kesalahan sistem saat memeriksa NIP.';
+
+            setNipStatus({ status: 'error', message });
         }
     };
 
@@ -108,8 +124,16 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
         void verifyNip(sanitizedNip);
     }, [autoCheck, hasAutoChecked, initialNip]);
 
+    const isAllowedDosenEmail = (email: string) => {
+        return email.endsWith('@poltekparmakassar.ac.id') || email.endsWith('@poltekpar.ac.id');
+    };
+
     const validateEmailDomain = () => {
-        if (!data.email.endsWith('@poltekparmakassar.ac.id')) {
+        if (mode === 'login') {
+            return true;
+        }
+
+        if (!isAllowedDosenEmail(data.email)) {
             return false;
         }
         return true;
@@ -153,7 +177,7 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
                             <i className="fa-solid fa-user-tie"></i> Khusus Dosen
                         </div>
                         <h1 className="login-title">Verifikasi Identitas</h1>
-                        <p className="login-subtitle">Masukkan NIP Anda untuk melanjutkan akses portal.</p>
+                        <p className="login-subtitle">Masukkan NIP Anda terlebih dahulu, lalu lanjutkan dengan kata sandi akun dosen.</p>
 
                         {flash.error && (
                             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-800">
@@ -260,8 +284,8 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
                                             />
                                             <i className="fa-solid fa-envelope input-icon"></i>
                                         </div>
-                                        {mode === 'register' && !data.email.endsWith('@poltekparmakassar.ac.id') && data.email.length > 5 && (
-                                            <span className="invalid-feedback">Wajib menggunakan domain @poltekparmakassar.ac.id</span>
+                                        {mode === 'register' && !isAllowedDosenEmail(data.email) && data.email.length > 5 && (
+                                            <span className="invalid-feedback">Wajib menggunakan domain @poltekparmakassar.ac.id atau @poltekpar.ac.id</span>
                                         )}
                                         {errors.email && <span className="invalid-feedback">{errors.email}</span>}
                                     </div>
@@ -303,7 +327,7 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
                                     <button
                                         type="submit"
                                         className="btn-login mt-4"
-                                        disabled={processing || (mode === 'register' && !data.email.endsWith('@poltekparmakassar.ac.id'))}
+                                        disabled={processing || (mode === 'register' && !isAllowedDosenEmail(data.email))}
                                     >
                                         {processing ? (
                                             <i className="fa-solid fa-spinner fa-spin"></i>
@@ -331,23 +355,6 @@ export default function LoginDosenPortal({ initialNip = null, autoCheck = false 
                 </Link>
             </div>
 
-            {/* Modal Redirect */}
-            {nipStatus.status === 'registered' && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center scale-100 transition-transform duration-300">
-                        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 text-4xl shadow-inner">
-                            <i className="fa-solid fa-user-check"></i>
-                        </div>
-                        <h3 className="text-xl font-black text-slate-800 mb-2">Akun Ditemukan</h3>
-                        <p className="text-[13px] font-medium text-slate-500 mb-6 leading-relaxed">
-                            NIP Anda telah terhubung dengan sebuah akun yang aktif. Anda akan segera dialihkan ke halaman login utama.
-                        </p>
-                        <div className="flex items-center justify-center gap-2 text-[11px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 py-3 rounded-xl">
-                            <i className="fa-solid fa-spinner fa-spin text-blue-500"></i> Mengalihkan...
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

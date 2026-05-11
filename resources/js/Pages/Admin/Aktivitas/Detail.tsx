@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { router, Link } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import ConfirmDialog from '../../../Components/ConfirmDialog';
@@ -36,6 +36,21 @@ function FlyToPosition({ lat, lng }: { lat: number | null; lng: number | null })
     return null;
 }
 
+function FitAllLocations({ locations }: { locations: LokasiPengajuan[] }) {
+    const map = useMap();
+    React.useEffect(() => {
+        const points = locations
+            .filter((loc) => loc.latitude !== null && loc.longitude !== null)
+            .map((loc) => [loc.latitude as number, loc.longitude as number] as [number, number]);
+
+        if (points.length > 1) {
+            map.fitBounds(points, { padding: [32, 32], maxZoom: 15 });
+        }
+    }, [locations, map]);
+
+    return null;
+}
+
 interface NominatimResult {
     display_name: string;
     lat: string;
@@ -70,6 +85,7 @@ interface Aktivitas {
         alamat_lengkap?: string;
         latitude?: number;
         longitude?: number;
+        lokasi_tambahan?: any;
         jenis_pkm?: { nama_jenis: string };
         user?: { name: string };
     };
@@ -79,21 +95,84 @@ interface Props {
     aktivitas: Aktivitas;
 }
 
+interface LokasiPengajuan {
+    label: string;
+    provinsi: string;
+    kota_kabupaten: string;
+    kecamatan: string;
+    kelurahan_desa: string;
+    alamat_lengkap: string;
+    latitude: number | null;
+    longitude: number | null;
+}
+
+const toNumberOrNull = (value: unknown): number | null => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseAdditionalLocations = (value: any): any[] => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const formatLocationAddress = (location: Partial<LokasiPengajuan>): string =>
+    [
+        location.alamat_lengkap,
+        location.kelurahan_desa,
+        location.kecamatan,
+        location.kota_kabupaten,
+        location.provinsi,
+    ].filter(Boolean).join(', ');
+
 const Detail: React.FC<Props> = ({ aktivitas }) => {
     const pengajuan = aktivitas.pengajuan;
+    const lokasiList = useMemo<LokasiPengajuan[]>(() => {
+        const primary: LokasiPengajuan = {
+            label: 'Lokasi 1',
+            provinsi: pengajuan.provinsi || '',
+            kota_kabupaten: pengajuan.kota_kabupaten || '',
+            kecamatan: pengajuan.kecamatan || '',
+            kelurahan_desa: pengajuan.kelurahan_desa || '',
+            alamat_lengkap: pengajuan.alamat_lengkap || '',
+            latitude: toNumberOrNull(pengajuan.latitude),
+            longitude: toNumberOrNull(pengajuan.longitude),
+        };
+
+        const additional = parseAdditionalLocations(pengajuan.lokasi_tambahan).map((loc, index) => ({
+            label: `Lokasi ${index + 2}`,
+            provinsi: loc.provinsi || '',
+            kota_kabupaten: loc.kota_kabupaten || '',
+            kecamatan: loc.kecamatan || '',
+            kelurahan_desa: loc.kelurahan_desa || '',
+            alamat_lengkap: loc.alamat_lengkap || '',
+            latitude: toNumberOrNull(loc.latitude ?? loc.lat),
+            longitude: toNumberOrNull(loc.longitude ?? loc.lng),
+        }));
+
+        return [primary, ...additional];
+    }, [pengajuan]);
+
+    const [activeLocationIndex, setActiveLocationIndex] = useState(0);
+    const activeLocation = lokasiList[activeLocationIndex] || lokasiList[0];
     const [statusAktivitas, setStatusAktivitas] = useState<string>(aktivitas.status_pelaksanaan === 'persiapan' ? 'belum_mulai' : (aktivitas.status_pelaksanaan || 'belum_mulai'));
     const [thumbnailAktivitas, setThumbnailAktivitas] = useState<File | null>(null);
 
     // Map picker state
-    const [lat, setLat] = useState<number | null>(pengajuan.latitude ?? null);
-    const [lng, setLng] = useState<number | null>(pengajuan.longitude ?? null);
+    const [lat, setLat] = useState<number | null>(activeLocation?.latitude ?? null);
+    const [lng, setLng] = useState<number | null>(activeLocation?.longitude ?? null);
 
     // Address fields state
-    const [provinsi, setProvinsi] = useState(pengajuan.provinsi || '');
-    const [kotaKabupaten, setKotaKabupaten] = useState(pengajuan.kota_kabupaten || '');
-    const [kecamatan, setKecamatan] = useState(pengajuan.kecamatan || '');
-    const [kelurahanDesa, setKelurahanDesa] = useState(pengajuan.kelurahan_desa || '');
-    const [alamatLengkap, setAlamatLengkap] = useState(pengajuan.alamat_lengkap || '');
+    const [provinsi, setProvinsi] = useState(activeLocation?.provinsi || '');
+    const [kotaKabupaten, setKotaKabupaten] = useState(activeLocation?.kota_kabupaten || '');
+    const [kecamatan, setKecamatan] = useState(activeLocation?.kecamatan || '');
+    const [kelurahanDesa, setKelurahanDesa] = useState(activeLocation?.kelurahan_desa || '');
+    const [alamatLengkap, setAlamatLengkap] = useState(activeLocation?.alamat_lengkap || '');
 
     // Nominatim search state
     const [searchQuery, setSearchQuery] = useState('');
@@ -101,6 +180,20 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
     const [searching, setSearching] = useState(false);
     const [showResults, setShowResults] = useState(false);
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        const location = lokasiList[activeLocationIndex] || lokasiList[0];
+        setLat(location?.latitude ?? null);
+        setLng(location?.longitude ?? null);
+        setProvinsi(location?.provinsi || '');
+        setKotaKabupaten(location?.kota_kabupaten || '');
+        setKecamatan(location?.kecamatan || '');
+        setKelurahanDesa(location?.kelurahan_desa || '');
+        setAlamatLengkap(location?.alamat_lengkap || '');
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowResults(false);
+    }, [activeLocationIndex, lokasiList]);
 
     const handleMapClick = (latlng: L.LatLng) => {
         const newLat = Math.round(latlng.lat * 10000000) / 10000000;
@@ -166,6 +259,7 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
         if (lat !== null && lng !== null) {
             formData.append('latitude', String(lat));
             formData.append('longitude', String(lng));
+            formData.append('lokasi_index', String(activeLocationIndex));
             formData.append('provinsi', provinsi);
             formData.append('kota_kabupaten', kotaKabupaten);
             formData.append('kecamatan', kecamatan);
@@ -197,8 +291,13 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
         return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     };
 
-    // Full address string
-    const fullAddress = [pengajuan.alamat_lengkap, pengajuan.kelurahan_desa, pengajuan.kecamatan, pengajuan.kota_kabupaten, pengajuan.provinsi].filter(Boolean).join(', ');
+    const activeAddress = formatLocationAddress({
+        alamat_lengkap: alamatLengkap,
+        kelurahan_desa: kelurahanDesa,
+        kecamatan,
+        kota_kabupaten: kotaKabupaten,
+        provinsi,
+    });
 
     return (
         <AdminLayout title="">
@@ -295,11 +394,47 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
                             <h2 className="text-[14px] font-semibold text-zinc-900">Koordinat Lokasi</h2>
                         </div>
                         <div className="p-6 space-y-4">
+                            {lokasiList.length > 1 && (
+                                <div>
+                                    <label className="block text-[12px] font-medium text-zinc-600 mb-2">Pilih Titik Lokasi</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {lokasiList.map((location, index) => {
+                                            const isActive = activeLocationIndex === index;
+                                            const locationAddress = formatLocationAddress(location);
+
+                                            return (
+                                                <button
+                                                    key={`${location.label}-${index}`}
+                                                    type="button"
+                                                    onClick={() => setActiveLocationIndex(index)}
+                                                    className={`text-left rounded-lg border px-3 py-2 transition-all ${isActive
+                                                        ? 'border-blue-300 bg-blue-50 text-blue-900 shadow-sm'
+                                                        : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                                                            {location.label}
+                                                        </span>
+                                                        {location.latitude !== null && location.longitude !== null && (
+                                                            <span className="text-[10px] text-emerald-600 font-semibold">Ada koordinat</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-1 truncate text-[12px] font-medium">
+                                                        {locationAddress || `${location.label} belum ditentukan`}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Address from user */}
-                            {fullAddress && (
+                            {activeAddress && (
                                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                                    <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-1">Alamat dari Pengaju</div>
-                                    <p className="text-[13px] text-blue-900 font-medium">{fullAddress}</p>
+                                    <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-1">Alamat {activeLocation?.label || 'Lokasi'} dari Pengaju</div>
+                                    <p className="text-[13px] text-blue-900 font-medium">{activeAddress}</p>
                                 </div>
                             )}
 
@@ -358,12 +493,26 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
                                         attribution=''
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                     />
-                                    {lat !== null && lng !== null && <Marker position={[lat, lng]} />}
+                                    {lokasiList.map((location, index) => {
+                                        const markerLat = index === activeLocationIndex ? lat : location.latitude;
+                                        const markerLng = index === activeLocationIndex ? lng : location.longitude;
+
+                                        if (markerLat === null || markerLng === null) return null;
+
+                                        return (
+                                            <Marker
+                                                key={`${location.label}-${index}-${markerLat}-${markerLng}`}
+                                                position={[markerLat, markerLng]}
+                                                eventHandlers={{ click: () => setActiveLocationIndex(index) }}
+                                            />
+                                        );
+                                    })}
                                     <MapClickHandler onClick={handleMapClick} />
+                                    <FitAllLocations locations={lokasiList} />
                                     <FlyToPosition lat={lat} lng={lng} />
                                 </MapContainer>
                             </div>
-                            <p className="text-[11px] text-zinc-400">Klik pada peta atau gunakan kolom pencarian di atas untuk mengatur koordinat.</p>
+                            <p className="text-[11px] text-zinc-400">Klik pada peta atau gunakan kolom pencarian untuk mengatur koordinat {activeLocation?.label || 'lokasi terpilih'}.</p>
 
                             {/* Lat/Lng Inputs */}
                             <div className="flex gap-3">
@@ -436,7 +585,40 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
                             </div>
                             <div className="pt-3 border-t border-zinc-100">
                                 <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Lokasi</div>
-                                <div className="text-[13px] font-medium text-zinc-900">{fullAddress || '—'}</div>
+                                <div className="space-y-2">
+                                    {lokasiList.map((location, index) => {
+                                        const locationAddress = formatLocationAddress(location);
+                                        const hasCoordinate = location.latitude !== null && location.longitude !== null;
+
+                                        return (
+                                            <div key={`${location.label}-card-${index}`} className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500 border border-zinc-100">
+                                                        {location.label}
+                                                    </span>
+                                                    {hasCoordinate && (
+                                                        <a
+                                                            href={`https://www.google.com/maps/dir/?api=1&destination=${location.latitude},${location.longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[11px] font-semibold text-blue-600 hover:underline"
+                                                        >
+                                                            Buka Maps
+                                                        </a>
+                                                    )}
+                                                </div>
+                                                <div className="mt-1 text-[12px] font-medium leading-relaxed text-zinc-800">
+                                                    {locationAddress || `${location.label} belum ditentukan`}
+                                                </div>
+                                                {hasCoordinate && (
+                                                    <div className="mt-1 font-mono text-[10px] text-zinc-400">
+                                                        {location.latitude}, {location.longitude}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                             <div className="pt-3 border-t border-zinc-100">
                                 <div className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">Kategori</div>

@@ -3,6 +3,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import DefaultLayout from '@/Layouts/DefaultLayout';
 import { User, Mail, Lock, ShieldCheck, KeyRound, Eye, EyeOff, ArrowLeft, BadgeCheck, Briefcase } from 'lucide-react';
+import { getRoleBadge } from '@/utils/roleBadge';
 
 interface UserData {
     id_user: number;
@@ -55,25 +56,7 @@ export default function EditProfile({ userData, pegawaiData }: EditProfileProps)
 
     const initial = userData.name?.charAt(0)?.toUpperCase() || '?';
 
-    const getRoleBadgeStyle = (role: string) => {
-        switch (role) {
-            case 'superadmin': return 'bg-purple-100 text-purple-700';
-            case 'admin': return 'bg-amber-100 text-amber-700';
-            case 'dosen': return 'bg-blue-100 text-blue-700';
-            case 'secret_account': return 'bg-slate-800 text-slate-200';
-            default: return 'bg-emerald-100 text-emerald-700';
-        }
-    };
-
-    const getRoleLabel = (role: string) => {
-        switch (role) {
-            case 'superadmin': return 'Super Admin';
-            case 'admin': return 'Administrator';
-            case 'dosen': return 'Dosen';
-            case 'secret_account': return 'Developer';
-            default: return 'Masyarakat';
-        }
-    };
+    const roleBadge = getRoleBadge(userData.role);
 
     const formContent = (
         <>
@@ -116,8 +99,8 @@ export default function EditProfile({ userData, pegawaiData }: EditProfileProps)
                         <div className="min-w-0">
                             <h2 className="text-xl font-bold text-slate-900 truncate">{userData.name}</h2>
                             <p className="text-sm text-slate-500 truncate">{userData.email}</p>
-                            <span className={`inline-block mt-2 px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${getRoleBadgeStyle(userData.role)}`}>
-                                {getRoleLabel(userData.role)}
+                            <span className={`inline-block mt-2 px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-full ${roleBadge.className}`}>
+                                {roleBadge.label}
                             </span>
                         </div>
                     </div>

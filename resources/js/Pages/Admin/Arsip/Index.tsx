@@ -89,11 +89,15 @@ const ArsipPage: React.FC<Props> = ({ listGroupedArsip, listAvailableAktivitas, 
     useEffect(() => {
         const timer = setTimeout(() => {
             if (search !== filters.search) {
-                router.get('/admin/arsip', { search }, { preserveState: true, replace: true });
+                router.get('/admin/arsip', {
+                    search: search || undefined,
+                    sort: sortField,
+                    direction: sortDir,
+                }, { preserveState: true, replace: true });
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [search]);
+    }, [search, filters.search, sortField, sortDir]);
 
     const applySort = (field: string) => {
         const isAsc = sortField === field && sortDir === 'asc';

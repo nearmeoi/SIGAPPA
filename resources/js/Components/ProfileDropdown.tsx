@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import type { User, PageProps } from '@/types/index';
+import { getRoleBadge } from '@/utils/roleBadge';
 
 const getInitials = (name?: string): string => {
     if (!name) return '?';
@@ -9,38 +10,6 @@ const getInitials = (name?: string): string => {
         return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
     return parts[0].slice(0, 2).toUpperCase();
-};
-
-interface RoleBadge {
-    label: string;
-    className: string;
-}
-
-const getRoleBadge = (user: User | null): RoleBadge | null => {
-    if (!user) return null;
-
-    const role = String(user.role || user.type || 'masyarakat').toLowerCase();
-    const isAdmin = role === 'admin';
-    const isDosen = role.includes('dosen');
-
-    if (isAdmin) {
-        return {
-            label: 'Administrator',
-            className: 'bg-indigo-100 text-indigo-700 font-bold',
-        };
-    }
-
-    if (role === 'direktur') {
-        return {
-            label: 'Direktur',
-            className: 'bg-violet-100 text-violet-700 font-bold',
-        };
-    }
-
-    return {
-        label: isDosen ? 'Akun Dosen' : 'Akun Masyarakat',
-        className: isDosen ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700',
-    };
 };
 
 function useClickOutside(
@@ -86,7 +55,7 @@ export default function ProfileDropdown({ auth: propsAuth }: ProfileDropdownProp
     const [isOpen, setIsOpen] = useState(false);
     const shellRef = useRef<HTMLDivElement>(null);
 
-    const badge = useMemo(() => getRoleBadge(user), [user]);
+    const badge = useMemo(() => user ? getRoleBadge(user.role || user.type) : null, [user]);
     const avatarSrc = user?.avatar || user?.avatar_url || user?.profile_photo_url || null;
     const logoutHref = '/logout'; // Direct path for logout
 

@@ -17,13 +17,15 @@ class AktivitasController extends Controller
 {
     public function index(Request $request)
     {
-        $sortField = $request->get('sort', 'created_at');
-        $sortDir = $request->get('direction', 'desc');
+        $allowedSorts = ['id_aktivitas', 'created_at', 'status_pelaksanaan'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'created_at';
+        $sortDir = $request->get('direction') === 'asc' ? 'asc' : 'desc';
 
         $listAktivitas = Aktivitas::with([
             'pengajuan.user',
             'pengajuan.jenisPkm',
         ])
+            ->when($request->search, fn ($query, $search) => $this->applySearchFilter($query, $search))
             ->when($request->status, function ($query, $status) {
                 if ($status === 'belum_mulai') {
                     $query->whereIn('status_pelaksanaan', ['belum_mulai', 'persiapan']);
@@ -58,6 +60,14 @@ class AktivitasController extends Controller
                     'judul_kegiatan' => $a->pengajuan->judul_kegiatan,
                     'tgl_mulai' => $a->pengajuan->tgl_mulai?->format('Y-m-d'),
                     'tgl_selesai' => $a->pengajuan->tgl_selesai?->format('Y-m-d'),
+                    'provinsi' => $a->pengajuan->provinsi,
+                    'kota_kabupaten' => $a->pengajuan->kota_kabupaten,
+                    'kecamatan' => $a->pengajuan->kecamatan,
+                    'kelurahan_desa' => $a->pengajuan->kelurahan_desa,
+                    'alamat_lengkap' => $a->pengajuan->alamat_lengkap,
+                    'latitude' => $a->pengajuan->latitude,
+                    'longitude' => $a->pengajuan->longitude,
+                    'lokasi_tambahan' => $a->pengajuan->lokasi_tambahan,
                     'user' => $a->pengajuan->user ? [
                         'id_user' => $a->pengajuan->user->id_user,
                         'name' => $a->pengajuan->user->name,
@@ -76,6 +86,7 @@ class AktivitasController extends Controller
             'filters' => [
                 'sort' => $sortField,
                 'direction' => $sortDir,
+                'search' => $request->search ?? '',
                 'status' => $request->status,
                 'tahun' => $request->tahun ?? '',
                 'jenis_pkm' => $request->jenis_pkm ?? '',
@@ -108,7 +119,10 @@ class AktivitasController extends Controller
             'created_at' => $a->created_at?->format('Y-m-d H:i:s'),
             'pengajuan' => $a->pengajuan ? [
                 'id_pengajuan' => $a->pengajuan->id_pengajuan,
+                'kode_unik' => $a->pengajuan->kode_unik,
                 'judul_kegiatan' => $a->pengajuan->judul_kegiatan,
+                'status_pengajuan' => $a->pengajuan->status_pengajuan,
+                'created_at' => $a->pengajuan->created_at?->format('Y-m-d H:i:s'),
                 'instansi_mitra' => $a->pengajuan->instansi_mitra,
                 'no_telepon' => $a->pengajuan->no_telepon,
                 'provinsi' => $a->pengajuan->provinsi,
@@ -118,6 +132,7 @@ class AktivitasController extends Controller
                 'alamat_lengkap' => $a->pengajuan->alamat_lengkap,
                 'latitude' => $a->pengajuan->latitude,
                 'longitude' => $a->pengajuan->longitude,
+                'lokasi_tambahan' => $a->pengajuan->lokasi_tambahan,
                 'tgl_mulai' => $a->pengajuan->tgl_mulai?->format('Y-m-d'),
                 'tgl_selesai' => $a->pengajuan->tgl_selesai?->format('Y-m-d'),
                 'sumber_dana' => $a->pengajuan->sumber_dana,
@@ -176,9 +191,11 @@ class AktivitasController extends Controller
 
         $aktivitas->save();
 
-        // Save location data if included in the request
+        // Save location data if included in the request. Aktivitas follows the Pengajuan locations:
+        // index 0 is the primary location, index > 0 updates lokasi_tambahan.
         if ($request->filled('save_location')) {
-            $aktivitas->pengajuan()->update([
+            $lokasiIndex = max((int) $request->input('lokasi_index', 0), 0);
+            $lokasiData = [
                 'latitude' => $request->input('latitude'),
                 'longitude' => $request->input('longitude'),
                 'provinsi' => $request->input('provinsi'),
@@ -186,7 +203,22 @@ class AktivitasController extends Controller
                 'kecamatan' => $request->input('kecamatan'),
                 'kelurahan_desa' => $request->input('kelurahan_desa'),
                 'alamat_lengkap' => $request->input('alamat_lengkap'),
-            ]);
+            ];
+
+            $pengajuan = $aktivitas->pengajuan;
+            if ($pengajuan && $lokasiIndex === 0) {
+                $pengajuan->update($lokasiData);
+            } elseif ($pengajuan) {
+                $lokasiTambahan = $pengajuan->lokasi_tambahan;
+                if (is_string($lokasiTambahan)) {
+                    $decoded = json_decode($lokasiTambahan, true);
+                    $lokasiTambahan = is_array($decoded) ? $decoded : [];
+                }
+                $lokasiTambahan = is_array($lokasiTambahan) ? array_values($lokasiTambahan) : [];
+                $additionalIndex = $lokasiIndex - 1;
+                $lokasiTambahan[$additionalIndex] = array_merge($lokasiTambahan[$additionalIndex] ?? [], $lokasiData);
+                $pengajuan->update(['lokasi_tambahan' => $lokasiTambahan]);
+            }
         }
 
         if ($aktivitas->status_pelaksanaan === 'selesai') {
@@ -258,8 +290,28 @@ class AktivitasController extends Controller
             $judulKegiatan = $pengajuan->judul_kegiatan ?? '-';
             $tglMulai = $pengajuan->tgl_mulai ? Carbon::parse($pengajuan->tgl_mulai)->locale('id')->isoFormat('D MMMM YYYY') : 'Akan ditentukan';
             $tglSelesai = $pengajuan->tgl_selesai ? Carbon::parse($pengajuan->tgl_selesai)->locale('id')->isoFormat('D MMMM YYYY') : 'Akan ditentukan';
+            $lokasiTambahan = $pengajuan->lokasi_tambahan;
+            if (is_string($lokasiTambahan)) {
+                $decodedLokasi = json_decode($lokasiTambahan, true);
+                $lokasiTambahan = is_array($decodedLokasi) ? $decodedLokasi : [];
+            }
+            $lokasiTambahan = is_array($lokasiTambahan) ? $lokasiTambahan : [];
             $lokasiParts = array_filter([$pengajuan->kota_kabupaten, $pengajuan->provinsi]);
-            $lokasi = ! empty($lokasiParts) ? implode(', ', $lokasiParts) : 'Akan ditentukan';
+            $lokasiItems = [
+                ! empty($lokasiParts) ? implode(', ', $lokasiParts) : 'belum ditentukan',
+            ];
+
+            foreach ($lokasiTambahan as $item) {
+                $parts = array_filter([
+                    $item['kota_kabupaten'] ?? null,
+                    $item['provinsi'] ?? null,
+                ]);
+                $lokasiItems[] = ! empty($parts) ? implode(', ', $parts) : 'belum ditentukan';
+            }
+
+            $lokasi = collect($lokasiItems)
+                ->map(fn ($item, $index) => 'Lokasi '.($index + 1).' - '.$item)
+                ->implode('; ');
             $jenisPkm = $pengajuan->jenisPkm?->nama_jenis ?? 'PKM';
 
             if (! $recipientEmail || ! filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
@@ -306,11 +358,14 @@ class AktivitasController extends Controller
     public function export(Request $request)
     {
         $query = Aktivitas::with(['pengajuan.user', 'pengajuan.jenisPkm', 'pengajuan.timKegiatan.pegawai', 'arsip'])
-            ->when($request->search, function ($query, $search) {
-                $escaped = addcslashes($search, '\\%_');
-                $query->whereHas('pengajuan', fn ($q) => $q->where('judul_kegiatan', 'like', "%{$escaped}%"));
-            })
+            ->when($request->search, fn ($query, $search) => $this->applySearchFilter($query, $search))
             ->when($request->status, function ($query, $status) {
+                if ($status === 'belum_mulai') {
+                    $query->whereIn('status_pelaksanaan', ['belum_mulai', 'persiapan']);
+
+                    return;
+                }
+
                 $query->where('status_pelaksanaan', $status);
             })
             ->when($request->tahun, function ($query, $tahun) {
@@ -486,16 +541,25 @@ class AktivitasController extends Controller
             $query = Aktivitas::query();
 
             if (!empty($filters['search'])) {
-                $search = $filters['search'];
-                $query->where(function($q) use ($search) {
-                    $q->where('judul_aktivitas', 'like', "%{$search}%")
-                      ->orWhere('deskripsi_aktivitas', 'like', "%{$search}%")
-                      ->orWhere('lokasi_kegiatan', 'like', "%{$search}%");
-                });
+                $this->applySearchFilter($query, $filters['search']);
+            }
+
+            if (!empty($filters['status'])) {
+                if ($filters['status'] === 'belum_mulai') {
+                    $query->whereIn('status_pelaksanaan', ['belum_mulai', 'persiapan']);
+                } else {
+                    $query->where('status_pelaksanaan', $filters['status']);
+                }
             }
 
             if (!empty($filters['tahun'])) {
-                $query->whereYear('tgl_mulai', $filters['tahun']);
+                $query->whereHas('pengajuan', function ($q) use ($filters) {
+                    $q->whereYear('tgl_mulai', $filters['tahun']);
+                });
+            }
+
+            if (!empty($filters['jenis_pkm'])) {
+                $query->whereHas('pengajuan', fn ($q) => $q->where('id_jenis_pkm', $filters['jenis_pkm']));
             }
 
             if (!empty($excludedIds)) {
@@ -511,5 +575,32 @@ class AktivitasController extends Controller
         }
 
         return redirect()->back()->with('success', $count . ' data aktivitas berhasil dihapus massal.');
+    }
+
+    private function applySearchFilter($query, string $search): void
+    {
+        $escaped = addcslashes(trim($search), '\\%_');
+
+        if ($escaped === '') {
+            return;
+        }
+
+        $query->where(function ($q) use ($escaped) {
+            $q->where('status_pelaksanaan', 'like', "%{$escaped}%")
+                ->orWhere('catatan_pelaksanaan', 'like', "%{$escaped}%")
+                ->orWhereHas('pengajuan', function ($pengajuan) use ($escaped) {
+                    $pengajuan->where('judul_kegiatan', 'like', "%{$escaped}%")
+                        ->orWhere('nama_pengusul', 'like', "%{$escaped}%")
+                        ->orWhere('email_pengusul', 'like', "%{$escaped}%")
+                        ->orWhere('instansi_mitra', 'like', "%{$escaped}%")
+                        ->orWhere('kota_kabupaten', 'like', "%{$escaped}%")
+                        ->orWhere('provinsi', 'like', "%{$escaped}%")
+                        ->orWhereHas('user', function ($user) use ($escaped) {
+                            $user->where('name', 'like', "%{$escaped}%")
+                                ->orWhere('email', 'like', "%{$escaped}%");
+                        })
+                        ->orWhereHas('jenisPkm', fn ($jenis) => $jenis->where('nama_jenis', 'like', "%{$escaped}%"));
+                });
+        });
     }
 }

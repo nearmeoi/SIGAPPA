@@ -36,6 +36,16 @@ class UserSeeder extends Seeder
             ]
         );
 
+        User::updateOrCreate(
+            ['email' => 'direktur@sigappa.com'],
+            [
+                'name' => 'Direktur SIGAPPA',
+                'password' => Hash::make('password123'),
+                'role' => 'direktur',
+                'email_verified_at' => now(),
+            ]
+        );
+
         // 2. Akun Dosen (Pegawai)
         $dosenUser = User::updateOrCreate(
             ['email' => 'dosen@poltekpar.ac.id'],

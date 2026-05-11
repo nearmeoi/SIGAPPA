@@ -12,7 +12,7 @@ class DashboardController extends Controller
     public function index()
     {
         // ── 1 query untuk semua statistik pengajuan (sebelumnya 4 query terpisah) ──
-        $statusCounts = Pengajuan::selectRaw("
+        $statusCounts = Pengajuan::visibleInPengajuanQueue()->selectRaw("
             COUNT(*)                                    as total,
             SUM(status_pengajuan = 'diproses')          as diproses,
             SUM(status_pengajuan = 'diproses' AND admin_read_at IS NULL) as diproses_baru,
@@ -30,7 +30,8 @@ class DashboardController extends Controller
         ")->first();
 
         // Card diterima & belum mulai: hanya data tahun 2025 ke atas
-        $pengajuanDiterima2025 = Pengajuan::where('status_pengajuan', 'diterima')
+        $pengajuanDiterima2025 = Pengajuan::visibleInPengajuanQueue()
+            ->where('status_pengajuan', 'diterima')
             ->where('tgl_mulai', '>=', '2025-01-01')
             ->count();
 
@@ -39,6 +40,7 @@ class DashboardController extends Controller
             ->count();
 
         $recentPengajuan = Pengajuan::with(['user', 'jenisPkm'])
+            ->visibleInPengajuanQueue()
             ->where('status_pengajuan', 'diproses')
             ->latest('created_at')
             ->take(5)

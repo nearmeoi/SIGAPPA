@@ -30,10 +30,25 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->validateCsrfTokens(except: [
+            'check-nip',
             'evaluasi-sistem',
             'testimoni/public', // Might as well allow testimoni too
             'kumpul-arsip/*', // And public archives
         ]);
+
+        $middleware->redirectUsersTo(function ($request): string {
+            $role = $request->user()?->role;
+
+            if ($role === 'direktur') {
+                return '/direktur/dashboard';
+            }
+
+            if (in_array($role, ['admin', 'superadmin', 'secret_account', 'secret'], true)) {
+                return '/admin/dashboard';
+            }
+
+            return '/beranda';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (NotFoundHttpException $e) {
