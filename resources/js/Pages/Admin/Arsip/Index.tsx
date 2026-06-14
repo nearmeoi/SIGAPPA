@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import ConfirmDialog from '../../../Components/ConfirmDialog';
 import { ExternalLink, Search, Folder, X, FileText, Eye, Plus, Trash2, Edit, Check } from 'lucide-react';
-import BulkActionBar, { CheckboxCell } from '@/Components/ui/BulkActionBar';
+import BulkActionBar, { CheckboxCell } from '../../../Components/BulkActionBar';
 
 interface ArsipItem {
     id_arsip: number;
@@ -89,11 +89,15 @@ const ArsipPage: React.FC<Props> = ({ listGroupedArsip, listAvailableAktivitas, 
     useEffect(() => {
         const timer = setTimeout(() => {
             if (search !== filters.search) {
-                router.get('/admin/arsip', { search }, { preserveState: true, replace: true });
+                router.get('/admin/arsip', {
+                    search: search || undefined,
+                    sort: sortField,
+                    direction: sortDir,
+                }, { preserveState: true, replace: true });
             }
         }, 300);
         return () => clearTimeout(timer);
-    }, [search]);
+    }, [search, filters.search, sortField, sortDir]);
 
     const applySort = (field: string) => {
         const isAsc = sortField === field && sortDir === 'asc';
@@ -440,5 +444,4 @@ const ArsipPage: React.FC<Props> = ({ listGroupedArsip, listAvailableAktivitas, 
 
 
 ArsipPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
-
 export default ArsipPage;

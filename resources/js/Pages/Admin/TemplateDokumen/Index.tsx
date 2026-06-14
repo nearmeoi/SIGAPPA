@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import ConfirmDialog from '@/Components/ConfirmDialog';
 import { FileText, UploadCloud, FileDown, CheckCircle } from 'lucide-react';
 
 interface TemplateProps {
     templates: Record<string, { id: number, jenis: string, nama_file: string, file_path: string, updated_at: string }>;
 }
 
-function Index({ templates }: TemplateProps) {
+export default function Index({ templates }: TemplateProps) {
     return (
         <>
             <Head title="Admin - Atur Template Dokumen" />
@@ -203,5 +203,3 @@ function TemplateUploaderCard({ title, jenis, templateData, description }: { tit
 }
 
 Index.layout = (page: React.ReactNode) => <AdminLayout title="Atur Template Dokumen">{page}</AdminLayout>;
-
-export default Index;

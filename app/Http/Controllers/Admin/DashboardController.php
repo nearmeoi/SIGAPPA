@@ -12,7 +12,7 @@ class DashboardController extends Controller
     public function index()
     {
         // ── 1 query untuk semua statistik pengajuan (sebelumnya 4 query terpisah) ──
-        $statusCounts = Pengajuan::selectRaw("
+        $statusCounts = Pengajuan::visibleInPengajuanQueue()->selectRaw("
             COUNT(*)                                    as total,
             SUM(status_pengajuan = 'diproses')          as diproses,
             SUM(status_pengajuan = 'diproses' AND admin_read_at IS NULL) as diproses_baru,
@@ -20,7 +20,7 @@ class DashboardController extends Controller
             SUM(status_pengajuan = 'diajukan')          as diajukan,
             SUM(status_pengajuan = 'diterima')          as diterima,
             SUM(status_pengajuan = 'ditolak')           as ditolak,
-            SUM(status_pengajuan = 'direvisi')          as direvisi,
+            SUM(status_pengajuan IN ('direvisi', 'revisi_direktur')) as direvisi,
             SUM(status_pengajuan = 'selesai')           as selesai
         ")->first();
 
@@ -30,8 +30,9 @@ class DashboardController extends Controller
         ")->first();
 
         // Card diterima & belum mulai: hanya data tahun 2025 ke atas
-        $pengajuanDiterima2025 = Pengajuan::where('status_pengajuan', 'diterima')
-            ->where('created_at', '>=', '2025-01-01')
+        $pengajuanDiterima2025 = Pengajuan::visibleInPengajuanQueue()
+            ->where('status_pengajuan', 'diterima')
+            ->where('tgl_mulai', '>=', '2025-01-01')
             ->count();
 
         $aktivitasBelumMulai2025 = Aktivitas::whereIn('status_pelaksanaan', ['belum_mulai', 'persiapan'])
@@ -40,9 +41,10 @@ class DashboardController extends Controller
 
         $isDirektur = auth()->user()?->role === 'direktur';
 
-        $recentPengajuan = Pengajuan::with(['user', 'aktivitas.jenisPkm'])
+        $recentPengajuan = Pengajuan::with(['user', 'jenisPkm'])
+            ->visibleInPengajuanQueue()
             ->where('status_pengajuan', $isDirektur ? 'diajukan' : 'diproses')
-            ->latest('updated_at')
+            ->latest('created_at')
             ->take(5)
             ->get()
             ->map(fn($p) => [
@@ -67,17 +69,19 @@ class DashboardController extends Controller
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id_pengajuan,
-                'nama' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),
-                'jenis_nama' => $p->aktivitas->first()?->jenisPkm->first()?->nama_jenis ?? 'Jenis Lainnya',
-                'jenis_pkm' => $p->aktivitas->first()?->jenisPkm->first()?->nama_jenis ?? '',
-                'warna_icon' => $p->aktivitas->first()?->jenisPkm->first()?->warna_icon ?? '#64748b',
-                'deskripsi_jenis' => $p->aktivitas->first()?->jenisPkm->first()?->deskripsi ?? '',
-                'tahun' => $p->aktivitas->first()?->tgl_realisasi_mulai?->year ?? $p->created_at?->year ?? date('Y'),
-                'status' => $p->aktivitas->first()
-                    ? ($p->aktivitas->first()->status_pelaksanaan === 'selesai' ? 'selesai'
-                        : ($p->aktivitas->first()->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
-                    : ($p->status_pengajuan === 'diproses' ? 'ada_pengajuan' : ($p->status_pengajuan === 'diterima' ? 'belum_mulai' : 'belum_mulai')),
-                'is_review' => $p->status_pengajuan === 'diproses' && $p->admin_read_at !== null,
+                'nama' => $p->judul_kegiatan,
+                'jenis_nama' => $p->jenisPkm?->nama_jenis ?? 'Jenis Lainnya',
+                'jenis_pkm' => $p->jenisPkm?->nama_jenis ?? '',
+                'warna_icon' => $p->jenisPkm?->warna_icon ?? '#64748b',
+                'deskripsi_jenis' => $p->jenisPkm?->deskripsi ?? '',
+                'tahun' => $p->aktivitas?->tgl_realisasi_mulai?->year ?? $p->tgl_mulai?->year ?? $p->created_at?->year ?? date('Y'),
+                'status' => $p->aktivitas
+                    ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
+                        : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
+                    : ($p->status_pengajuan === 'diproses' ? 'ada_pengajuan'
+                        : ($p->status_pengajuan === 'revisi_direktur' ? 'revisi_direktur'
+                            : ($p->status_pengajuan === 'direvisi' ? 'direvisi' : 'belum_mulai'))),
+                'is_review' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'revisi_direktur']) && $p->admin_read_at !== null,
                 'status_pengajuan' => $p->status_pengajuan,
                 'deskripsi' => $p->kebutuhan ?? '',
                 'thumbnail' => $p->aktivitas->first()?->url_thumbnail,

@@ -42,18 +42,26 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
         setNipStatus({ status: 'checking' });
 
         try {
-            const response = await axios.post('/check-nip', { nip: nipValue });
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const response = await axios.post('/check-nip', { nip: nipValue }, {
+                withCredentials: true,
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken || ''
+                }
+            });
             const result = response.data;
 
             if (result.status === 'registered') {
-                setNipStatus({ status: 'registered', message: result.message });
+                setNipStatus({ status: 'registered', message: 'NIP terverifikasi. Masukkan kata sandi akun dosen Anda untuk masuk.' });
                 setMode('login');
                 clearErrors();
                 setData((prev) => ({
                     ...prev,
                     nip: nipValue,
-                    name: result.name,
-                    email: result.email,
+                    name: result.name || '',
+                    email: result.email || '',
                     password: '',
                     password_confirmation: '',
                 }));
@@ -88,8 +96,13 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
                 setNipStatus({ status: 'error', message: result.message });
                 setStep('nip-entry');
             }
-        } catch (error) {
-            setNipStatus({ status: 'error', message: 'Terjadi kesalahan sistem.' });
+        } catch (error: any) {
+            const message = error.response?.data?.message
+                || error.response?.data?.errors?.nip?.[0]
+                || (error.response?.status === 419 ? 'Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.' : null)
+                || 'Terjadi kesalahan sistem saat memeriksa NIP.';
+
+            setNipStatus({ status: 'error', message });
         }
     };
 
@@ -113,12 +126,17 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
         void verifyNip(sanitizedNip);
     }, [autoCheck, hasAutoChecked, initialNip]);
 
+    const isAllowedDosenEmail = (email: string) => {
+        return email.endsWith('@poltekparmakassar.ac.id') || email.endsWith('@poltekpar.ac.id');
+    };
+
     const validateEmailDomain = () => {
-        if (mode === 'register') {
-            if (!data.email.endsWith('@poltekparmakassar.ac.id')) {
-                setError('email', 'Wajib menggunakan domain @poltekparmakassar.ac.id');
-                return false;
-            }
+        if (mode === 'login') {
+            return true;
+        }
+
+        if (!isAllowedDosenEmail(data.email)) {
+            return false;
         }
         return true;
     };
@@ -161,7 +179,7 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
                             <i className="fa-solid fa-user-tie"></i> Khusus Dosen
                         </div> */}
                         <h1 className="login-title">Verifikasi Identitas</h1>
-                        <p className="login-subtitle">Masukkan NIP Anda untuk melanjutkan akses portal.</p>
+                        <p className="login-subtitle">Masukkan NIP Anda terlebih dahulu, lalu lanjutkan dengan kata sandi akun dosen.</p>
 
                         {flash.error && (
                             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-800">
@@ -268,8 +286,8 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
                                             />
                                             <i className="fa-solid fa-envelope input-icon"></i>
                                         </div>
-                                        {mode === 'register' && !data.email.endsWith('@poltekparmakassar.ac.id') && data.email.length > 5 && (
-                                            <span className="invalid-feedback">Wajib menggunakan domain @poltekparmakassar.ac.id</span>
+                                        {mode === 'register' && !isAllowedDosenEmail(data.email) && data.email.length > 5 && (
+                                            <span className="invalid-feedback">Wajib menggunakan domain @poltekparmakassar.ac.id atau @poltekpar.ac.id</span>
                                         )}
                                         {errors.email && <span className="invalid-feedback">{errors.email}</span>}
                                     </div>
@@ -331,7 +349,7 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
                                     <button
                                         type="submit"
                                         className="btn-login mt-4"
-                                        disabled={processing || (mode === 'register' && !data.email.endsWith('@poltekparmakassar.ac.id'))}
+                                        disabled={processing || (mode === 'register' && !isAllowedDosenEmail(data.email))}
                                     >
                                         {processing ? (
                                             <i className="fa-solid fa-spinner fa-spin"></i>

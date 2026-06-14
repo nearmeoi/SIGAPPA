@@ -21,7 +21,7 @@ interface Doc {
     urutan: number;
 }
 
-function AppreciationAdmin({ auth, developers, docs }: any) {
+export default function AppreciationAdmin({ auth, developers, docs }: any) {
     const [submitting, setSubmitting] = useState(false);
 
     // Dev Modal
@@ -304,5 +304,3 @@ function AppreciationAdmin({ auth, developers, docs }: any) {
 }
 
 AppreciationAdmin.layout = (page: React.ReactNode) => <AdminLayout title="Secret Panel">{page}</AdminLayout>;
-
-export default AppreciationAdmin;

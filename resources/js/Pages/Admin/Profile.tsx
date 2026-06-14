@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from '@inertiajs/react';
 import AdminLayout from '../../Layouts/AdminLayout';
 import { User, Mail, Activity, ArrowLeft } from 'lucide-react';
+import { getRoleBadge } from '@/utils/roleBadge';
 
 interface Props {
     user: {
@@ -12,8 +13,9 @@ interface Props {
     };
 }
 
-function Profile({ user }: Props) {
+export default function Profile({ user }: Props) {
     const initial = user.name?.charAt(0)?.toUpperCase() || 'A';
+    const roleBadge = getRoleBadge(user.role);
 
     return (
         <>
@@ -33,12 +35,8 @@ function Profile({ user }: Props) {
                         </div>
                         <div>
                             <h3 className="text-[16px] font-bold text-zinc-900">{user.name}</h3>
-                            <span className={`inline-block mt-1 px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
-                                user.role === 'admin' ? 'bg-amber-50 text-amber-700' :
-                                user.role === 'dosen' ? 'bg-blue-50 text-blue-700' :
-                                'bg-emerald-50 text-emerald-700'
-                            }`}>
-                                {user.role}
+                            <span className={`inline-block mt-1 px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${roleBadge.className}`}>
+                                {roleBadge.label}
                             </span>
                         </div>
                     </div>
@@ -92,5 +90,3 @@ function Profile({ user }: Props) {
 }
 
 Profile.layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Akun">{page}</AdminLayout>;
-
-export default Profile;

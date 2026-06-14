@@ -62,6 +62,8 @@ class Pengajuan extends Model
 
     const STATUS_DIREVISI = 'direvisi';
 
+    const STATUS_REVISI_DIREKTUR = 'revisi_direktur';
+
     const STATUS_DITERIMA = 'diterima';
 
     const STATUS_DITOLAK = 'ditolak';
@@ -134,5 +136,69 @@ class Pengajuan extends Model
     public function scopeBelumDibaca($query)
     {
         return $query->notifikasi()->whereNull('admin_read_at');
+    }
+
+    public function scopeVisibleInPengajuanQueue($query)
+    {
+        return $query->where(function ($query) {
+            $query
+                ->whereNotIn('status_pengajuan', [self::STATUS_DITERIMA, self::STATUS_SELESAI])
+                ->orWhereNull('direktur_approved_at')
+                ->orDoesntHave('aktivitas')
+                ->orWhere(fn ($q) => $q->incompleteForAdmin());
+        });
+    }
+
+    public function scopeIncompleteForAdmin($query)
+    {
+        $blank = function ($query, string $column) {
+            $query->whereNull($column)->orWhere($column, '');
+        };
+
+        return $query->where(function ($q) use ($blank) {
+            $q->where(fn ($field) => $blank($field, 'id_jenis_pkm'))
+                ->orWhere(fn ($field) => $blank($field, 'instansi_mitra'))
+                ->orWhere(fn ($field) => $blank($field, 'no_telepon'))
+                ->orWhere(fn ($field) => $blank($field, 'kebutuhan'))
+                ->orWhere(fn ($field) => $blank($field, 'provinsi'))
+                ->orWhere(fn ($field) => $blank($field, 'kota_kabupaten'))
+                ->orWhere(fn ($field) => $blank($field, 'surat_permohonan'))
+                ->orWhere(function ($field) {
+                    $field->where(fn ($inner) => $inner->whereNull('nama_pengusul')->orWhere('nama_pengusul', ''))
+                        ->whereDoesntHave('user', fn ($user) => $user->whereNotNull('name')->where('name', '!=', ''));
+                })
+                ->orWhere(function ($field) {
+                    $field->where(fn ($inner) => $inner->whereNull('email_pengusul')->orWhere('email_pengusul', ''))
+                        ->whereDoesntHave('user', fn ($user) => $user->whereNotNull('email')->where('email', '!=', ''));
+                })
+                ->orWhereDoesntHave('timKegiatan', fn ($tim) => $tim->where('peran_tim', 'like', '%ketua%'))
+                ->orWhereDoesntHave('timKegiatan', fn ($tim) => $tim->where('peran_tim', 'not like', '%ketua%'))
+                ->orWhere(function ($field) {
+                    $field->whereNull('rab_items')
+                        ->orWhere('rab_items', '')
+                        ->orWhere('rab_items', '[]');
+                })
+                ->orWhere(function ($field) use ($blank) {
+                    $field->where(function ($type) {
+                        $type->where('tipe_pengusul', 'dosen')
+                            ->orWhereHas('user', fn ($user) => $user->where('role', 'dosen'));
+                    })->where(function ($dosen) use ($blank) {
+                        $dosen->where(fn ($inner) => $blank($inner, 'judul_kegiatan'))
+                            ->orWhere(function ($funding) {
+                                $funding->where(function ($value) {
+                                    $value->whereNull('dana_perguruan_tinggi')->orWhere('dana_perguruan_tinggi', '<=', 0);
+                                })->where(function ($value) {
+                                    $value->whereNull('dana_pemerintah')->orWhere('dana_pemerintah', '<=', 0);
+                                })->where(function ($value) {
+                                    $value->whereNull('dana_lembaga_dalam')->orWhere('dana_lembaga_dalam', '<=', 0);
+                                })->where(function ($value) {
+                                    $value->whereNull('dana_lembaga_luar')->orWhere('dana_lembaga_luar', '<=', 0);
+                                })->where(function ($value) {
+                                    $value->whereNull('sumber_dana')->orWhere('sumber_dana', '');
+                                });
+                            });
+                    });
+                });
+        });
     }
 }

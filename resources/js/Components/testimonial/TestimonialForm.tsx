@@ -23,7 +23,7 @@ export default function TestimonialForm({ onClose }: TestimonialFormProps) {
     });
 
     const [mockProcessing, setMockProcessing] = useState(false);
-    const [feedbackDialog, setFeedbackDialog] = useState<{ show: boolean; type: 'success' | 'error'; title: string; message: string }>({ show: false, type: 'success', title: '', message: '' });
+    const [feedbackDialog, setFeedbackDialog] = useState<{ show: boolean; type: 'success' | 'error'; title: string; message: string; }>({ show: false, type: 'success', title: '', message: '' });
     const requiredSubmissionIssues: string[] = [];
 
     if (!data.nama.trim()) requiredSubmissionIssues.push('Nama lengkap wajib diisi.');

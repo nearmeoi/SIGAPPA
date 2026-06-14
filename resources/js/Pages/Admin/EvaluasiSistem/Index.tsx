@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Head, router, usePage } from "@inertiajs/react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import ConfirmDialog from "@/Components/ui/ConfirmDialog";
+import ConfirmDialog from "@/Components/ConfirmDialog";
 import { PageProps } from "@/types";
 import { Trash2, Star, Eye, X, Calendar } from "lucide-react";
 import BulkActionBar, {
   CheckboxCell,
   CheckboxHeader,
-} from "@/Components/ui/BulkActionBar";
+} from "@/Components/BulkActionBar";
 
 interface EvaluasiSistem {
   id_evaluasi: number;
@@ -23,7 +23,7 @@ interface EvaluasiSistem {
   created_at: string;
 }
 
-function EvaluasiSistemIndex({ auth, evaluasi }: any) {
+export default function EvaluasiSistemIndex({ auth, evaluasi }: any) {
   const { props } = usePage();
   const isSuperadmin = (props as any).auth?.user?.role === 'superadmin';
 
@@ -413,5 +413,3 @@ function EvaluasiSistemIndex({ auth, evaluasi }: any) {
 }
 
 EvaluasiSistemIndex.layout = (page: React.ReactNode) => <AdminLayout title="Supervisi Feedback">{page}</AdminLayout>;
-
-export default EvaluasiSistemIndex;

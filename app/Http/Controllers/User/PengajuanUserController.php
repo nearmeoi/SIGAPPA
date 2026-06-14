@@ -59,96 +59,56 @@ class PengajuanUserController extends Controller
 
             $submissionsPaginator = $query->with(['user', 'aktivitas.jenisPkm', 'aktivitas.timKegiatan.pegawai', 'logs'])
                 ->latest()
-                ->paginate(10)
-                ->withQueryString();
-        }
-
-        $userSubmissions = $submissionsPaginator ? collect($submissionsPaginator->items())->map(function ($p) {
-            $firstAktivitas = $p->aktivitas->first();
-            $judul = $firstAktivitas?->judul_pkm ?: 'Pengajuan PKM';
-
-            $status = $p->status_pengajuan;
-            if (in_array($p->status_pengajuan, ['diproses', 'direvisi', 'ditolak'])) {
-                $status = $p->status_pengajuan;
-            } elseif ($p->status_pengajuan === 'diajukan') {
-                $status = 'Menunggu Keputusan Direktur';
-            } elseif ($p->status_pengajuan === 'revisi_direktur') {
-                $status = 'diproses';
-            } else {
-                if ($firstAktivitas) {
-                    if ($firstAktivitas->status_pelaksanaan === 'selesai') {
-                        $status = 'selesai';
-                    } elseif ($firstAktivitas->status_pelaksanaan === 'berjalan') {
-                        $status = 'berlangsung';
-                    } else {
-                        $status = 'diterima';
-                    }
-                } else {
-                    $status = $p->status_pengajuan;
-                }
-            }
-
-            return [
-                'id' => $p->id_pengajuan,
-                'kode_unik' => $p->kode_unik,
-                'judul' => $judul,
-                'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
-                'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
-                'status' => $status,
-                'catatan' => $p->logs->whereIn('status_baru', [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK])
-                    ->first()?->catatan,
-                'instansi_mitra' => $p->instansi_mitra,
-                'no_telepon' => $p->no_telepon,
-                'provinsi' => $p->provinsi,
-                'kota_kabupaten' => $p->kota_kabupaten,
-                'kecamatan' => $p->kecamatan,
-                'kelurahan_desa' => $p->kelurahan_desa,
-                'alamat_lengkap' => $p->alamat_lengkap,
-                'latitude' => $p->latitude,
-                'longitude' => $p->longitude,
-                'lokasi_tambahan' => $p->lokasi_tambahan,
-                'is_tahun_saja' => $p->is_tahun_saja,
-                'proposal' => $p->proposal,
-                'surat_permohonan' => $p->surat_permohonan,
-                'aktivitas' => $firstAktivitas ? [
-                    'status_pelaksanaan' => $firstAktivitas->status_pelaksanaan,
-                    'catatan_pelaksanaan' => $firstAktivitas->catatan_pelaksanaan,
-                ] : null,
-                'logs' => $p->logs->map(function ($log) {
-                    $stBaru = $log->status_baru;
-                    $stLama = $log->status_lama;
-
-                    // Mask internal statuses for User Timeline
-                    if ($stBaru === Pengajuan::STATUS_REVISI_DIREKTUR)
-                        $stBaru = Pengajuan::STATUS_DIPROSES;
-                    if ($stLama === Pengajuan::STATUS_REVISI_DIREKTUR)
-                        $stLama = Pengajuan::STATUS_DIPROSES;
-
-                    if ($stBaru === Pengajuan::STATUS_DIAJUKAN)
-                        $stBaru = 'Menunggu Keputusan Direktur';
-                    if ($stLama === Pengajuan::STATUS_DIAJUKAN)
-                        $stLama = 'Menunggu Keputusan Direktur';
-
-                    // Only show notes for specific user-facing statuses
-                    $userFacingStatuses = [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK, Pengajuan::STATUS_DITERIMA, Pengajuan::STATUS_SELESAI];
-                    $catatan = in_array($log->status_baru, $userFacingStatuses) ? $log->catatan : null;
-
-                    return [
-                        'id' => $log->id,
-                        'status_lama' => $stLama,
-                        'status_baru' => $stBaru,
-                        'catatan' => $catatan,
-                        'created_at' => $log->created_at?->format('d M Y, H:i'),
-                    ];
-                })->values(),
-                'tipe_pengusul' => $this->resolveSubmitterType($p),
-                'jenis_pkm' => $firstAktivitas?->jenisPkm->first()?->nama_jenis,
-                'nama_pengusul' => $this->resolveSubmitterName($p),
-                'email_pengusul' => $this->resolveSubmitterEmail($p),
-                'kebutuhan' => $p->kebutuhan,
-            ];
-        })->toArray() : [];
-
+                ->get()
+                ->map(fn($p) => [
+                    'id' => $p->id_pengajuan,
+                    'kode_unik' => $p->kode_unik,
+                    'judul' => $p->judul_kegiatan,
+                    'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
+                    'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
+                    'status' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'revisi_direktur', 'ditolak'])
+                        ? $p->status_pengajuan
+                        : ($p->aktivitas
+                            ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
+                                : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'diterima'))
+                            : $p->status_pengajuan),
+                    'catatan' => $p->catatan_admin ?: $p->catatan_direktur,
+                    'instansi_mitra' => $p->instansi_mitra,
+                    'no_telepon' => $p->no_telepon,
+                    'provinsi' => $p->provinsi,
+                    'kota_kabupaten' => $p->kota_kabupaten,
+                    'kecamatan' => $p->kecamatan,
+                    'kelurahan_desa' => $p->kelurahan_desa,
+                    'alamat_lengkap' => $p->alamat_lengkap,
+                    'latitude' => $p->latitude,
+                    'longitude' => $p->longitude,
+                    'lokasi_tambahan' => $p->lokasi_tambahan,
+                    'tgl_mulai' => $p->tgl_mulai ? $p->tgl_mulai->format('Y-m-d') : null,
+                    'tgl_selesai' => $p->tgl_selesai ? $p->tgl_selesai->format('Y-m-d') : null,
+                    'is_tahun_saja' => $p->is_tahun_saja,
+                    'proposal' => $p->proposal,
+                    'surat_permohonan' => $p->surat_permohonan,
+                    'rab' => $p->rab,
+                    'rab_items' => $p->rab_items ?? [],
+                    'sumber_dana' => $p->sumber_dana,
+                    'total_anggaran' => $p->total_anggaran,
+                    'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
+                    'dana_pemerintah' => $p->dana_pemerintah,
+                    'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
+                    'dana_lembaga_luar' => $p->dana_lembaga_luar,
+                    'tipe_pengusul' => $this->resolveSubmitterType($p),
+                    'jenis_pkm' => $p->jenisPkm ? $p->jenisPkm->nama_jenis : null,
+                    'nama_pengusul' => $this->resolveSubmitterName($p),
+                    'email_pengusul' => $this->resolveSubmitterEmail($p),
+                    'kebutuhan' => $p->kebutuhan,
+                    'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
+                        'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
+                        'peran' => $t->peran_tim,
+                    ]),
+                ])
+                ->values()
+                ->toArray()
+            : [];
         $jenisPkmOptions = JenisPkm::select('id_jenis_pkm', 'nama_jenis')
             ->get()
             ->map(fn($j) => ['value' => $j->id_jenis_pkm, 'label' => $j->nama_jenis]);
@@ -494,11 +454,9 @@ class PengajuanUserController extends Controller
         $primaryLokasi = $lokasiList[0];
         $lokasiTambahan = array_slice($lokasiList, 1);
 
-        // Ambil default jenis PKM
-        $defaultJenisPkm = \App\Models\JenisPkm::first();
-
         Pengajuan::create([
             'id_user' => Auth::id(),
+            'id_jenis_pkm' => null,
             'tipe_pengusul' => 'masyarakat',
             'provinsi' => $primaryLokasi['provinsi'] ?? '',
             'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',

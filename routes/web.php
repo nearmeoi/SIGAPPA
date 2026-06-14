@@ -6,16 +6,13 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EvaluasiSistemController;
 use App\Http\Controllers\Admin\HistorisController;
 use App\Http\Controllers\Admin\KontakController;
-use App\Http\Controllers\Admin\MailTestController;
 use App\Http\Controllers\Admin\MasterDataController;
-use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\PegawaiController;
 use App\Http\Controllers\Admin\PengajuanController;
 use App\Http\Controllers\Admin\SearchController;
 use App\Http\Controllers\Admin\TemplateDokumenController;
 use App\Http\Controllers\Admin\TestimoniController;
 use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Api\GeocodeController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Direktur\DirekturController;
 use App\Http\Controllers\LandingController;
@@ -23,12 +20,14 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Secret\AppreciationController;
 use App\Http\Controllers\Secret\SiteSettingController;
 use App\Http\Controllers\User\PengajuanUserController;
+use App\Mail\UndanganMail;
 use App\Models\Aktivitas;
 use App\Models\DeveloperAppreciation;
 use App\Models\DeveloperDocumentation;
 use App\Models\Pegawai;
 use App\Models\Pengajuan;
 use App\Models\TemplateDokumen;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -43,36 +42,124 @@ Route::get('/', [LandingController::class, 'welcome'])->name('welcome');
 Route::get('/beranda', [LandingController::class, 'index'])->name('beranda');
 
 // Panduan page
-Route::get('/panduan', [LandingController::class, 'panduan'])->name('panduan');
+Route::get('/panduan', function () {
+    $panduan = TemplateDokumen::where('jenis', 'panduan')->first();
+    $pdfUrl = $panduan && Storage::disk('public')->exists($panduan->file_path)
+        ? '/storage/' . $panduan->file_path
+        : '/panduan_penggunaan.pdf';
+
+    return Inertia::render('Panduan', ['pdfUrl' => $pdfUrl]);
+})->name('panduan');
 
 // Testimoni publik (Umum)
 Route::post('/testimoni/public', [LandingController::class, 'storePublicTestimoni'])->middleware('throttle:10,1')->name('testimoni.public.store');
 
 // Evaluasi Sistem (Umum)
-Route::get('/evaluasi', [LandingController::class, 'showEvaluasi'])->name('evaluasi.index');
+Route::get('/evaluasi', function () {
+    return Inertia::render('Public/Evaluasi');
+})->name('evaluasi.index');
 Route::post('/evaluasi-sistem', [LandingController::class, 'storeEvaluasiSistem'])->middleware('throttle:60,1')->name('evaluasi.store');
 
 // Developer Crew
-Route::get('/developer-crew', [LandingController::class, 'developerCrew']);
+Route::get('/developer-crew', function () {
+    $developers = DeveloperAppreciation::orderBy('urutan')->get();
+    $docs = DeveloperDocumentation::orderBy('urutan')->get();
+
+    return Inertia::render('Public/DeveloperAppreciation', [
+        'developers' => $developers,
+        'docs' => $docs,
+    ]);
+});
 
 // Geocode proxy — Rate limited 30 req/menit per IP
-Route::get('/api/geocode', [GeocodeController::class, 'search'])->middleware('throttle:30,1')->name('api.geocode');
+Route::get('/api/geocode', function (Request $request) {
+    $query = $request->input('q', '');
+    if (strlen($query) < 2) {
+        return response()->json([]);
+    }
+
+    $params = http_build_query([
+        'q' => $query . ', Indonesia',
+        'format' => 'json',
+        'limit' => '8',
+        'countrycodes' => 'id',
+        'addressdetails' => '1',
+    ]);
+
+    $url = "https://nominatim.openstreetmap.org/search?{$params}";
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => "User-Agent: SIGAP-PKM/1.0\r\nAccept-Language: id\r\n",
+            'timeout' => 10,
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        return response()->json([]);
+    }
+
+    return response($response)->header('Content-Type', 'application/json');
+})->middleware('throttle:30,1')->name('api.geocode');
 
 // Reverse geocode — lat/lng → address
-Route::get('/api/reverse-geocode', [GeocodeController::class, 'reverse'])->middleware('throttle:30,1')->name('api.reverse-geocode');
+Route::get('/api/reverse-geocode', function (Request $request) {
+    $lat = $request->input('lat');
+    $lon = $request->input('lon');
+    if (!$lat || !$lon) {
+        return response()->json([]);
+    }
+
+    $params = http_build_query([
+        'lat' => $lat,
+        'lon' => $lon,
+        'format' => 'json',
+        'addressdetails' => '1',
+    ]);
+
+    $url = "https://nominatim.openstreetmap.org/reverse?{$params}";
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => "User-Agent: SIGAP-PKM/1.0\r\nAccept-Language: id\r\n",
+            'timeout' => 10,
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+
+    if ($response === false) {
+        return response()->json([]);
+    }
+
+    return response($response)->header('Content-Type', 'application/json');
+})->middleware('throttle:30,1')->name('api.reverse-geocode');
 
 // ─────────────────────────────────────────────
 // Pengumpulan Arsip Publik
 // ─────────────────────────────────────────────
-Route::get('/kumpul-arsip', [LandingController::class, 'showArsipKumpulIndex'])->name('arsip.kumpul.index');
+Route::get('/kumpul-arsip', function () {
+    return Inertia::render('Public/PengumpulanArsip', [
+        'namaKegiatan' => 'Pengumpulan Arsip PKM',
+        'kode' => '',
+    ]);
+})->name('arsip.kumpul.index');
 
 Route::get('/kumpul-arsip/{kode}', [LandingController::class, 'showArsipKumpul'])->name('arsip.kumpul.public');
+Route::post('/kumpul-arsip', [LandingController::class, 'storeArsipKumpulByKode'])->middleware('throttle:10,1')->name('arsip.kumpul.store');
 Route::post('/kumpul-arsip/{kode}', [LandingController::class, 'storeArsipKumpul'])->middleware('throttle:10,1')->name('arsip.kumpul.public.store');
 
 // ─────────────────────────────────────────────
 // Pengisian Testimoni Publik
 // ─────────────────────────────────────────────
-Route::get('/testimoni', [LandingController::class, 'showTestimoniIndex'])->name('testimoni.index');
+Route::get('/testimoni', function () {
+    return Inertia::render('Public/Testimoni', [
+        'namaKegiatan' => 'Testimoni PKM',
+        'kode' => '',
+    ]);
+})->name('testimoni.index');
 
 Route::get('/testimoni/{kode}', [LandingController::class, 'showTestimoni'])->name('testimoni.public');
 Route::post('/testimoni/{kode}', [LandingController::class, 'storeTestimoni'])->middleware('throttle:10,1')->name('testimoni.public.store_activity');
@@ -91,7 +178,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/login/dosen', [AuthController::class, 'showLoginDosen'])->name('login.dosen');
     Route::get('/login/masyarakat', [AuthController::class, 'showLoginMasyarakat'])->name('login.masyarakat');
 
-    Route::get('/verify-email', [AuthController::class, 'verifyEmail'])->name('verification.notice');
 });
 
 // Public Template Downloader (Accessible for guests and authenticated users)
@@ -107,6 +193,36 @@ Route::get('/cek-status', [PengajuanUserController::class, 'index'])->middleware
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+    Route::get('/verify-email', function (Request $request) {
+        return Inertia::render('Auth/VerifyEmail', [
+            'status' => $request->session()->get('status'),
+        ]);
+    })->name('verification.notice');
+
+    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        $request->fulfill();
+
+        return redirect('/')->with('success', 'Email berhasil diverifikasi.');
+    })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        if ($request->user()->hasVerifiedEmail()) {
+            return back()->with('success', 'Email Anda sudah terverifikasi.');
+        }
+
+        try {
+            $request->user()->sendEmailVerificationNotification();
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->with('error', 'Email verifikasi belum bisa dikirim. Periksa konfigurasi email lokal.');
+        }
+
+        return back()
+            ->with('status', 'verification-link-sent')
+            ->with('success', 'Tautan verifikasi baru telah dikirim ke email Anda.');
+    })->middleware('throttle:6,1')->name('verification.send');
+
     // Profile edit (all roles)
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile/edit', [ProfileController::class, 'update'])->name('profile.update');
@@ -117,13 +233,20 @@ Route::middleware('auth')->group(function () {
     Route::post('/pengajuan/{kode}/resubmit', [PengajuanUserController::class, 'resubmit'])->name('pengajuan.resubmit');
 
     // Pegawai names for autocomplete recommendations
-    Route::get('/api/pegawai-options', [PegawaiController::class, 'options'])->name('api.pegawai-options');
+    Route::get('/api/pegawai-options', function () {
+        $pegawai = Pegawai::select('nama_pegawai', 'jabatan')->get();
+
+        return response()->json([
+            'dosen' => $pegawai->filter(fn($p) => stripos($p->jabatan, 'dosen') !== false)->pluck('nama_pegawai')->values(),
+            'staff' => $pegawai->filter(fn($p) => stripos($p->jabatan, 'dosen') === false)->pluck('nama_pegawai')->values(),
+        ]);
+    })->name('api.pegawai-options');
 
     // ─────────────────────────────────────────
     // Direktur routes
     // ─────────────────────────────────────────
     Route::prefix('direktur')->name('direktur.')->middleware('direktur')->group(function () {
-        Route::redirect('/', '/direktur/dashboard');
+        Route::get('/', fn() => redirect()->route('direktur.dashboard'));
         Route::get('/dashboard', [DirekturController::class, 'index'])->name('dashboard');
         Route::get('/pengajuan/{id}', [DirekturController::class, 'show'])->name('pengajuan.show');
         Route::post('/pengajuan/{id}/approve', [DirekturController::class, 'approve'])->name('pengajuan.approve');
@@ -166,6 +289,8 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/pengajuan/export', [PengajuanController::class, 'export'])->name('pengajuan.export');
         Route::get('/pengajuan', [PengajuanController::class, 'index'])->name('pengajuan.index');
+        Route::post('/pengajuan/{id}/tim', [PengajuanController::class, 'storeTim'])->name('pengajuan.store_tim');
+        Route::put('/pengajuan/{id}/tim', [PengajuanController::class, 'syncTim'])->name('pengajuan.sync_tim');
         Route::get('/pengajuan/{id}', [PengajuanController::class, 'show'])->name('pengajuan.show');
         Route::put('/pengajuan/{id}', [PengajuanController::class, 'update'])->name('pengajuan.update');
         Route::put('/pengajuan/{id}/tanggal-pengajuan', [PengajuanController::class, 'updateTanggalPengajuan'])->name('pengajuan.update_tanggal_pengajuan');
@@ -173,7 +298,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/pengajuan/{id}', [PengajuanController::class, 'destroy'])->name('pengajuan.destroy');
         Route::put('/pengajuan/{id}/status', [PengajuanController::class, 'updateStatus'])->name('pengajuan.update_status');
         Route::put('/pengajuan/{id}/lokasi', [PengajuanController::class, 'updateLokasi'])->name('pengajuan.update_lokasi');
-        Route::put('/pengajuan/{id}/force-status', [PengajuanController::class, 'updateForceStatus'])->name('pengajuan.force_status');
+        Route::delete('/pengajuan/{pengajuanId}/tim/{timId}', [PengajuanController::class, 'destroyTim'])->name('pengajuan.destroy_tim');
 
         // Pengajuan Logs — superadmin only edit/delete
         Route::put('/pengajuan-logs/{id}', [PengajuanController::class, 'updateLog'])->name('pengajuan_logs.update');
@@ -183,11 +308,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/pegawai', [PegawaiController::class, 'index'])->name('pegawai.index');
         Route::post('/pegawai/import', [PegawaiController::class, 'import'])->name('pegawai.import');
         Route::post('/pegawai', [PegawaiController::class, 'store'])->name('pegawai.store');
-        Route::delete('/pegawai/bulk', [PegawaiController::class, 'bulkDestroy'])->name('pegawai.bulk_destroy');
-        Route::put('/pegawai/bulk-restore', [PegawaiController::class, 'bulkRestore'])->name('pegawai.bulk_restore');
         Route::put('/pegawai/{id}', [PegawaiController::class, 'update'])->name('pegawai.update');
+        Route::delete('/pegawai/bulk', [PegawaiController::class, 'bulkDestroy'])->name('pegawai.bulk_destroy');
         Route::delete('/pegawai/{id}', [PegawaiController::class, 'destroy'])->name('pegawai.destroy');
-        Route::put('/pegawai/{id}/restore', [PegawaiController::class, 'restore'])->name('pegawai.restore');
 
         // Users CRUD
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -200,15 +323,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/aktivitas/export', [AktivitasController::class, 'export'])->name('aktivitas.export');
         Route::post('/aktivitas/send-undangan', [AktivitasController::class, 'sendUndangan'])->name('aktivitas.send_undangan');
         Route::get('/aktivitas', [AktivitasController::class, 'index'])->name('aktivitas.index');
-        Route::post('/aktivitas', [AktivitasController::class, 'store'])->name('aktivitas.store');   // ← BARU
         Route::get('/aktivitas/{id}', [AktivitasController::class, 'show'])->name('aktivitas.show');
         Route::put('/aktivitas/{id}', [AktivitasController::class, 'update'])->name('aktivitas.update');
         Route::delete('/aktivitas/bulk', [AktivitasController::class, 'bulkDestroy'])->name('aktivitas.bulk_destroy');
         Route::delete('/aktivitas/{id}', [AktivitasController::class, 'destroy'])->name('aktivitas.destroy');
-        // Tim routes — berbasis Aktivitas (bukan Pengajuan)
-        Route::post('/aktivitas/{id}/tim', [AktivitasController::class, 'storeTim'])->name('aktivitas.store_tim');
-        Route::put('/aktivitas/{id}/tim', [AktivitasController::class, 'syncTim'])->name('aktivitas.sync_tim');
-        Route::delete('/aktivitas/{aktivitasId}/tim/{timId}', [AktivitasController::class, 'destroyTim'])->name('aktivitas.destroy_tim');
 
         // Testimoni CRUD
         Route::get('/testimoni', [TestimoniController::class, 'index'])->name('testimoni.index');
@@ -250,12 +368,71 @@ Route::middleware('auth')->group(function () {
         Route::delete('/evaluasi-sistem/bulk', [EvaluasiSistemController::class, 'bulkDestroy'])->name('evaluasi-sistem.bulk_destroy');
         Route::delete('/evaluasi-sistem/{id}', [EvaluasiSistemController::class, 'destroy'])->name('evaluasi-sistem.destroy');
 
-        Route::get('/api/notifications', [NotificationController::class, 'index'])->name('api.notifications');
-        Route::post('/api/notifications/mark-read', [NotificationController::class, 'markRead'])->name('api.notifications.mark-read');
-        Route::post('/api/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('api.notifications.mark-all-read');
+        Route::get('/api/notifications', function () {
+            $counts = Pengajuan::selectRaw("
+                SUM(status_pengajuan = 'diproses')  as pengajuan_baru,
+                SUM(status_pengajuan IN ('direvisi', 'revisi_direktur'))  as perlu_direvisi,
+                SUM(status_pengajuan = 'diterima')  as diterima,
+                SUM(status_pengajuan = 'diajukan')  as diajukan
+            ")->first();
+
+            $kegiatanBerjalan = Aktivitas::where('status_pelaksanaan', 'berjalan')->count();
+
+            $items = Pengajuan::notifikasi()
+                ->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'created_at', 'admin_read_at')
+                ->orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            return response()->json([
+                'counts' => [
+                    'pengajuan_baru' => (int) ($counts->pengajuan_baru ?? 0),
+                    'perlu_direvisi' => (int) ($counts->perlu_direvisi ?? 0),
+                    'pengajuan_diterima' => (int) ($counts->diterima ?? 0),
+                    'pengajuan_diajukan' => (int) ($counts->diajukan ?? 0),
+                    'kegiatan_berjalan' => $kegiatanBerjalan,
+                ],
+                'items' => $items,
+            ]);
+        })->name('api.notifications');
+
+        Route::post('/api/notifications/mark-read', function (Request $request) {
+            $validated = $request->validate([
+                'ids' => 'required|array',
+                'ids.*' => 'required|integer|exists:pengajuan,id_pengajuan',
+            ]);
+
+            Pengajuan::whereIn('id_pengajuan', $validated['ids'])
+                ->notifikasi()
+                ->update(['admin_read_at' => now()]);
+
+            return response()->json(['success' => true]);
+        })->name('api.notifications.mark-read');
+
+        Route::post('/api/notifications/mark-all-read', function () {
+            Pengajuan::belumDibaca()->update(['admin_read_at' => now()]);
+
+            return response()->json(['success' => true]);
+        })->name('api.notifications.mark-all-read');
 
         // (Import History routes merged into /historis)
         // Test email route (development only)
-        Route::get('/test-email/{email}', [MailTestController::class, 'send']);
+        Route::get('/test-email/{email}', function (string $email) {
+            $mail = new UndanganMail(
+                'Akmal Rijal',
+                'PKM Pemberdayaan Masyarakat Desa Telling',
+                'Undangan Kegiatan PKM - Politeknik Tourism Makassar',
+                'Dengan hormat, kami mengundang Anda untuk menghadiri kegiatan Program Kreativitas Masyarakat (PKM) yang akan segera dilaksanakan. Mohon persiapan dan konfirmasi kehadiran Anda sebelum tanggal pelaksanaan.',
+                $email,
+                '15 April 2026',
+                '30 April 2026',
+                'Makassar, Sulawesi Selatan',
+                'PKM Pengabdian'
+            );
+
+            Mail::to($email)->send($mail);
+
+            return response()->json(['success' => true, 'message' => 'Test email sent to ' . $email]);
+        });
     });
 });

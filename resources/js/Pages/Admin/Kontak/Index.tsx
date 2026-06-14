@@ -3,8 +3,7 @@ import { Head, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { PageProps } from '@/types';
 import { Edit, Eye, Plus, Save, Trash2, X, Check } from 'lucide-react';
-import BulkActionBar, { CheckboxCell, CheckboxHeader } from '@/Components/ui/BulkActionBar';
-import { formatNumberID } from '@/utils/formatters';
+import BulkActionBar, { CheckboxCell, CheckboxHeader } from '@/Components/BulkActionBar';
 
 interface Kontak {
     id_kontak: number;
@@ -25,7 +24,7 @@ interface KontakIndexProps {
     visitorData: VisitorData;
 }
 
-function KontakIndex({ auth, kontaks, visitorData }: KontakIndexProps) {
+export default function KontakIndex({ auth, kontaks, visitorData }: KontakIndexProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -141,7 +140,11 @@ function KontakIndex({ auth, kontaks, visitorData }: KontakIndexProps) {
         <>
             <Head title="Manajemen Kontak" />
 
-            <div className="flex justify-end mb-6">
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Manajemen Kontak</h1>
+                    <p className="text-sm text-slate-500 mt-1">Kelola data kontak dinamis untuk ditampilkan pada Landing Page</p>
+                </div>
                 <button
                     onClick={() => { resetForm(); setIsModalOpen(true); }}
                     className="flex items-center gap-2 px-4 py-2 bg-poltekpar-primary text-white rounded-lg hover:bg-poltekpar-navy transition-colors font-medium text-sm shadow-sm"
@@ -223,15 +226,15 @@ function KontakIndex({ auth, kontaks, visitorData }: KontakIndexProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                     <div className="bg-slate-50 rounded-lg px-4 py-3 border border-slate-100">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Kunjungan Tercatat</p>
-                        <p className="text-2xl font-black text-slate-900">{formatNumberID(vd.visitor_count)}</p>
+                        <p className="text-2xl font-black text-slate-900">{vd.visitor_count.toLocaleString('id-ID')}</p>
                     </div>
                     <div className="bg-slate-50 rounded-lg px-4 py-3 border border-slate-100">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-0.5">Offset Awal</p>
-                        <p className="text-2xl font-black text-slate-900">{formatNumberID(vd.visitor_count_offset)}</p>
+                        <p className="text-2xl font-black text-slate-900">{vd.visitor_count_offset.toLocaleString('id-ID')}</p>
                     </div>
                     <div className="bg-poltekpar-primary/5 rounded-lg px-4 py-3 border border-poltekpar-primary/20">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-poltekpar-primary/70 mb-0.5">Total Ditampilkan</p>
-                        <p className="text-2xl font-black text-poltekpar-primary">{formatNumberID(vd.visitor_count + vd.visitor_count_offset)}</p>
+                        <p className="text-2xl font-black text-poltekpar-primary">{(vd.visitor_count + vd.visitor_count_offset).toLocaleString('id-ID')}</p>
                     </div>
                 </div>
 
@@ -326,5 +329,3 @@ function KontakIndex({ auth, kontaks, visitorData }: KontakIndexProps) {
 }
 
 KontakIndex.layout = (page: React.ReactNode) => <AdminLayout title="Manajemen Kontak">{page}</AdminLayout>;
-
-export default KontakIndex;

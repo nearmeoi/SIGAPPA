@@ -6,18 +6,16 @@ export default function Welcome() {
     return (
         <>
             <Head>
-                <title>SIGAPPA Poltekpar Makassar</title>
-                <meta name="description" content="SIGAPPA - Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar" />
+                <title>Portal Resmi</title>
+                <meta name="description" content="Portal SIGAPPA Politeknik Pariwisata Makassar. Layanan geospasial dan akses pelayanan pariwisata terpadu." />
                 <link rel="canonical" href="https://sigappa.poltekparmakassar.ac.id" />
                 <script type="application/ld+json">
                     {JSON.stringify({
                         "@context": "https://schema.org",
                         "@type": "Organization",
-                        "name": "SIGAPPA Poltekpar Makassar",
-                        "alternateName": "SIGAPPA",
+                        "name": "Politeknik Pariwisata Makassar",
                         "url": "https://sigappa.poltekparmakassar.ac.id",
                         "logo": "https://sigappa.poltekparmakassar.ac.id/logo-poltekpar.png",
-                        "description": "SIGAPPA - Sistem Informasi Geospasial dan Akses Pelayanan Pariwisata Politeknik Pariwisata Makassar",
                         "contactPoint": {
                             "@type": "ContactPoint",
                             "telephone": "+62-411-XXXXXX",

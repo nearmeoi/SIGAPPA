@@ -84,7 +84,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
         } else if (flash.error) {
             setToast({ show: true, type: 'error', title: 'Gagal', message: flash.error });
         }
-    }, [flash.success, flash.error]);
+    }, [flash.id, flash.success, flash.error]);
 
     const closeToast = useCallback(() => setToast(prev => ({ ...prev, show: false })), []);
 

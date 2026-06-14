@@ -71,9 +71,10 @@ class LandingController extends Controller
                     : (match ($p->status_pengajuan) {
                         'diproses' => 'ada_pengajuan',
                         'direvisi' => 'direvisi',
+                        'revisi_direktur' => 'revisi_direktur',
                         default => 'belum_mulai',
                     }),
-                'is_review' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'diterima']) && $p->admin_read_at !== null,
+                'is_review' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'revisi_direktur', 'diterima']) && $p->admin_read_at !== null,
                 'deskripsi' => $p->kebutuhan ?? '',
                 'thumbnail' => $p->aktivitas->first()?->url_thumbnail ?? '',
                 'provinsi' => $p->provinsi ?? '',
@@ -255,15 +256,18 @@ class LandingController extends Controller
     }
 
     /**
-     * Tampilkan halaman awal testimoni publik.
+     * Simpan arsip publik dari halaman tanpa kode di URL.
      */
-    public function showTestimoniIndex()
+    public function storeArsipKumpulByKode(Request $request)
     {
-        return Inertia::render('Public/Testimoni', [
-            'namaKegiatan' => 'Testimoni PKM',
-            'kode' => '',
+        $validated = $request->validate([
+            'kode' => 'required|string|exists:pengajuan,kode_unik',
+        ], [
+            'kode.required' => 'Kode kegiatan wajib diisi.',
+            'kode.exists' => 'Kode kegiatan tidak ditemukan.',
         ]);
-    }
+
+        return $this->storeArsipKumpul($request, $validated['kode']);    }
 
     /**
      * Tampilkan form testimoni publik.
@@ -336,7 +340,7 @@ class LandingController extends Controller
 
     public function storeEvaluasiSistem(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'nama' => 'required|string|max:255',
             'asal_instansi' => 'nullable|string|max:255',
             'no_telp' => 'required|string|max:50',
@@ -348,7 +352,14 @@ class LandingController extends Controller
             'masukan' => 'nullable|string|max:1000',
         ]);
 
-        EvaluasiSistem::create($request->all());
+        EvaluasiSistem::create($validated);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Terima kasih atas feedback Anda.',
+            ]);
+        }
 
         return redirect()->back()->with('success', 'Terima kasih atas feedback Anda.');
     }

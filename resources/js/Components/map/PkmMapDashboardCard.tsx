@@ -20,6 +20,17 @@ const parseCoordinate = (value: unknown): number | null => {
     return Number.isFinite(parsed) ? parsed : null;
 };
 
+type PkmMapPoint = {
+    pkm: PkmData;
+    lat: number;
+    lng: number;
+    pointIndex: number;
+    locationLabel: string;
+    locationAddress: string;
+};
+
+const buildLocationAddress = (...values: unknown[]) => values.map(normalizeText).filter(Boolean).join(', ') || '-';
+
 if (typeof window !== 'undefined' && L?.Icon?.Default) {
     (L.Icon.Default.prototype as any)._getIconUrl = undefined;
     L.Icon.Default.mergeOptions({
@@ -142,6 +153,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
     const [isLegendPanelOpen, setIsLegendPanelOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
     const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number; trigger: number } | null>(null);
+    const [activeLocationIndex, setActiveLocationIndex] = useState<number | null>(null);
 
     useEffect(() => {
         const syncViewport = () => setIsMobile(window.innerWidth < 768);
@@ -156,10 +168,11 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
         }
     }, [isMobile]);
 
-    const handleFlyTo = (lat: any, lng: any) => {
+    const handleLocationFlyTo = (locationIndex: number, lat: any, lng: any) => {
         const nLat = parseCoordinate(lat);
         const nLng = parseCoordinate(lng);
         if (nLat !== null && nLng !== null) {
+            setActiveLocationIndex(locationIndex);
             setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
         }
     };
@@ -176,30 +189,43 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
     }, [pkmData, searchKeyword, selectedStatuses, selectedTypes, selectedYear]);
 
     const mappablePkmData = useMemo(() => {
-        const sourceData = selectedPkm ? [selectedPkm] : filteredPkmData;
-        return sourceData
+        return filteredPkmData
             .flatMap((pkm) => {
-                const results = [];
+                const results: PkmMapPoint[] = [];
+                const hasAdditionalLocations = Array.isArray(pkm.lokasi_tambahan) && pkm.lokasi_tambahan.length > 0;
                 const mainLat = parseCoordinate(pkm.lat);
                 const mainLng = parseCoordinate(pkm.lng);
                 if (mainLat !== null && mainLng !== null) {
-                    results.push({ pkm, lat: mainLat, lng: mainLng });
+                    results.push({
+                        pkm,
+                        lat: mainLat,
+                        lng: mainLng,
+                        pointIndex: 0,
+                        locationLabel: hasAdditionalLocations ? 'Lokasi 1' : 'Lokasi',
+                        locationAddress: buildLocationAddress(pkm.desa, pkm.kecamatan, pkm.kabupaten, pkm.provinsi),
+                    });
                 }
 
-                // Only show additional markers if a PKM is selected to avoid clutter in global view
-                if (selectedPkm && pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
-                    pkm.lokasi_tambahan.forEach((loc: any) => {
+                if (pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
+                    pkm.lokasi_tambahan.forEach((loc: any, index: number) => {
                         const lat = parseCoordinate(loc.latitude);
                         const lng = parseCoordinate(loc.longitude);
                         if (lat !== null && lng !== null) {
-                            results.push({ pkm, lat, lng });
+                            results.push({
+                                pkm,
+                                lat,
+                                lng,
+                                pointIndex: index + 1,
+                                locationLabel: `Lokasi ${index + 2}`,
+                                locationAddress: buildLocationAddress(loc.kelurahan_desa || loc.desa, loc.kecamatan, loc.kota_kabupaten || loc.kabupaten, loc.provinsi),
+                            });
                         }
                     });
                 }
 
                 return results;
             });
-    }, [filteredPkmData, selectedPkm]);
+    }, [filteredPkmData]);
 
     const typesMeta = useMemo(() => extractDynamicPkmTypes(pkmData), [pkmData]);
 
@@ -223,13 +249,38 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
         return yearOptions;
     }, [pkmData]);
 
-    const totalPkm = filteredPkmData.length;
-    const totalSelesai = filteredPkmData.filter((item) => item.status === 'selesai').length;
-    const totalBerlangsung = filteredPkmData.filter((item) => item.status === 'berlangsung').length;
-    const totalBelumMulai = filteredPkmData.filter((item) => item.status === 'belum_mulai').length;
+    const uniqueFilteredPkmData = useMemo(() => {
+        const seen = new Set<string>();
+
+        return filteredPkmData.filter((item) => {
+            const key = String(item.id ?? `${item.nama}-${item.tahun}`);
+            if (seen.has(key)) return false;
+            seen.add(key);
+
+            return true;
+        });
+    }, [filteredPkmData]);
+
+    const totalPkm = uniqueFilteredPkmData.length;
+    const totalSelesai = uniqueFilteredPkmData.filter((item) => item.status === 'selesai').length;
+    const totalBerlangsung = uniqueFilteredPkmData.filter((item) => item.status === 'berlangsung').length;
+    const totalBelumMulai = uniqueFilteredPkmData.filter((item) => item.status === 'belum_mulai').length;
     const selectedLat = selectedPkm ? parseCoordinate(selectedPkm.lat) : null;
     const selectedLng = selectedPkm ? parseCoordinate(selectedPkm.lng) : null;
-    const hasSelectedCoordinates = selectedLat !== null && selectedLng !== null;
+    const routeLat = selectedPkm ? (flyToTarget?.lat ?? selectedLat) : null;
+    const routeLng = selectedPkm ? (flyToTarget?.lng ?? selectedLng) : null;
+    const hasSelectedCoordinates = routeLat !== null && routeLng !== null;
+    const selectedAdditionalLocations = Array.isArray(selectedPkm?.lokasi_tambahan) ? selectedPkm.lokasi_tambahan : [];
+    const hasMultipleLocations = selectedAdditionalLocations.length > 0;
+    const getLocationBadgeClass = (locationIndex: number) => activeLocationIndex === locationIndex
+        ? 'bg-slate-500/50 text-slate-700 shadow-sm'
+        : 'bg-slate-100 text-slate-500';
+    const getLocationTextClass = (locationIndex: number) => activeLocationIndex === locationIndex
+        ? 'text-slate-700'
+        : 'text-slate-500';
+    const getLocationButtonClass = (locationIndex: number) => activeLocationIndex === locationIndex
+            ? 'bg-slate-500/50 text-slate-700 border-slate-500/50 hover:bg-slate-500/60'
+            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100';
 
     return (
         <div className="space-y-4 sm:space-y-5">
@@ -241,12 +292,25 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
             <div className="bg-white rounded-2xl sm:rounded-[32px] lg:rounded-[40px] shadow-2xl shadow-sigappa-navy/5 border border-slate-100 overflow-hidden mb-6 sm:mb-8 p-3 sm:p-4 md:p-6">
                 <div className="relative w-full h-[380px] sm:h-[500px] md:h-[650px] lg:h-[75vh] min-h-[380px] rounded-2xl sm:rounded-[24px] lg:rounded-[32px] border border-slate-100 overflow-hidden z-10 shadow-inner">
                     <MapContainer center={[-2.5, 118]} zoom={5} className="w-full h-full" zoomControl={false}>
-                        <MapClickHandler onClick={() => setSelectedPkm(null)} />
+                        <MapClickHandler onClick={() => { setSelectedPkm(null); setFlyToTarget(null); setActiveLocationIndex(null); }} />
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
-                        {mappablePkmData.map(({ pkm, lat, lng }, index) => {
+                        {mappablePkmData.map(({ pkm, lat, lng, pointIndex }) => {
                             const typeMeta = typesMeta.find(t => t.key === normalizeTypeKey(pkm?.jenis_pkm));
                             const markerColor = typeMeta ? typeMeta.color : '#15325F';
-                            return <Marker key={`${pkm.id}-${index}`} position={[lat, lng]} icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review)} eventHandlers={{ click: () => setSelectedPkm(pkm) }} />;
+                            return (
+                                <Marker
+                                    key={`${pkm.id}-${pointIndex}`}
+                                    position={[lat, lng]}
+                                    icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review)}
+                                    eventHandlers={{
+                                        click: () => {
+                                            setSelectedPkm(pkm);
+                                            setActiveLocationIndex(pointIndex);
+                                            setFlyToTarget({ lat, lng, trigger: Date.now() });
+                                        },
+                                    }}
+                                />
+                            );
                         })}
                         <MapSizeInvalidator watchKey={watchKey} />
                         <FlyToMarker 
@@ -293,7 +357,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                     Filter
                                 </button>
                             )}
-                            <button onClick={() => { setIsListSidebarOpen(true); setSelectedPkm(null); setIsLegendPanelOpen(false); }} className="bg-white/95 backdrop-blur-md border border-slate-100 shadow-xl rounded-2xl px-3 sm:px-6 md:px-5 py-2.5 md:py-3 flex items-center gap-2 md:gap-3 text-[10px] md:text-sm font-black text-slate-700 hover:text-poltekpar-primary hover:scale-[1.02] active:scale-95 transition-all min-h-[40px] md:min-h-[44px]">
+                            <button onClick={() => { setIsListSidebarOpen(true); setSelectedPkm(null); setFlyToTarget(null); setActiveLocationIndex(null); setIsLegendPanelOpen(false); }} className="bg-white/95 backdrop-blur-md border border-slate-100 shadow-xl rounded-2xl px-3 sm:px-6 md:px-5 py-2.5 md:py-3 flex items-center gap-2 md:gap-3 text-[10px] md:text-sm font-black text-slate-700 hover:text-poltekpar-primary hover:scale-[1.02] active:scale-95 transition-all min-h-[40px] md:min-h-[44px]">
                                 <i className="fa-solid fa-list-ul"></i><span className="hidden sm:inline">DAFTAR KEGIATAN PKM</span><span className="sm:hidden">Daftar</span>
                             </button>
                         </div>
@@ -312,7 +376,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                 <div className="p-4 sm:p-6 md:p-8 pb-4 bg-white/95 backdrop-blur-xl z-20 border-b border-slate-100 flex-shrink-0 animate-in fade-in duration-300">
                                     <div className="flex items-center gap-4">
                                         {isListSidebarOpen && (
-                                            <button onClick={() => setSelectedPkm(null)} className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-200 transition-all flex items-center justify-center flex-shrink-0"><i className="fa-solid fa-arrow-left"></i></button>
+                                            <button onClick={() => { setSelectedPkm(null); setFlyToTarget(null); setActiveLocationIndex(null); }} className="w-10 h-10 rounded-xl bg-slate-50 text-slate-500 hover:bg-slate-200 transition-all flex items-center justify-center flex-shrink-0"><i className="fa-solid fa-arrow-left"></i></button>
                                         )}
                                         <div className="flex-1 min-w-0">
                                             <h3 className="text-xl font-black text-slate-900 tracking-tight truncate">{selectedPkm.nama}</h3>
@@ -323,12 +387,13 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                                     'selesai': 'bg-emerald-100 text-emerald-700',
                                                     'ada_pengajuan': 'bg-sky-100 text-sky-700',
                                                     'direvisi': 'bg-orange-100 text-orange-700',
+                                                    'revisi_direktur': 'bg-orange-100 text-orange-700',
                                                 };
                                                 const statusClasses = statusClassesMap[selectedPkm.status] || 'bg-slate-100 text-slate-700';
                                                 return <span className={`inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${statusClasses}`}><i className={`fa-solid ${statusMeta.markerIcon}`}></i> {statusMeta.label}</span>;
                                             })()}
                                         </div>
-                                        <button onClick={() => { setIsListSidebarOpen(false); setSelectedPkm(null); }} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0"><i className="fa-solid fa-xmark"></i></button>
+                                        <button onClick={() => { setIsListSidebarOpen(false); setSelectedPkm(null); setFlyToTarget(null); setActiveLocationIndex(null); }} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors flex-shrink-0"><i className="fa-solid fa-xmark"></i></button>
                                     </div>
                                 </div>
                                 <div className="p-4 sm:p-8 overflow-y-auto flex-1 space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-right-8 duration-500 custom-scrollbar overscroll-contain">
@@ -346,42 +411,30 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                                     <div className="leading-tight mt-1 flex flex-col gap-1.5">
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div className="flex items-start gap-2 min-w-0">
-                                                                {(selectedPkm.lokasi_tambahan && Array.isArray(selectedPkm.lokasi_tambahan) && selectedPkm.lokasi_tambahan.length > 0) && (
-                                                                    <span className="text-poltekpar-primary font-black text-[9px] bg-poltekpar-primary/10 px-2 py-0.5 rounded-md shrink-0">
-                                                                        {(selectedPkm.lokasi_tambahan && Array.isArray(selectedPkm.lokasi_tambahan) && selectedPkm.lokasi_tambahan.length > 0) ? 'Lokasi 1' : 'Lokasi'}
+                                                                {hasMultipleLocations && (
+                                                                    <span className={`font-black text-[9px] px-2 py-0.5 rounded-md shrink-0 transition-colors ${getLocationBadgeClass(0)}`}>
+                                                                        Lokasi 1
                                                                     </span>
                                                                 )}
-                                                                <span className="text-[11px] leading-relaxed">{[selectedPkm.desa, selectedPkm.kecamatan, selectedPkm.kabupaten, selectedPkm.provinsi].filter(Boolean).join(', ') || '-'}</span>
+                                                                <span className={`text-[11px] leading-relaxed transition-colors ${getLocationTextClass(0)}`}>{[selectedPkm.desa, selectedPkm.kecamatan, selectedPkm.kabupaten, selectedPkm.provinsi].filter(Boolean).join(', ') || '-'}</span>
                                                             </div>
                                                             <button 
-                                                                onClick={() => {
-                                                                    const nLat = parseCoordinate(selectedPkm.lat);
-                                                                    const nLng = parseCoordinate(selectedPkm.lng);
-                                                                    if (nLat !== null && nLng !== null) {
-                                                                        setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
-                                                                    }
-                                                                }}
-                                                                className="flex-shrink-0 text-[10px] font-black text-poltekpar-primary bg-white border border-poltekpar-primary/20 px-2 py-1 rounded-lg hover:bg-poltekpar-primary hover:text-white transition-all shadow-sm flex items-center gap-1.5"
+                                                                onClick={() => handleLocationFlyTo(0, selectedPkm.lat, selectedPkm.lng)}
+                                                                className={`flex-shrink-0 text-[10px] font-black border px-2 py-1 rounded-lg transition-all shadow-sm flex items-center gap-1.5 ${getLocationButtonClass(0)}`}
                                                             >
                                                                 <i className="fa-solid fa-eye"></i> Lihat
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    {selectedPkm.lokasi_tambahan && Array.isArray(selectedPkm.lokasi_tambahan) && selectedPkm.lokasi_tambahan.map((loc: any, idx: number) => (
+                                                    {selectedAdditionalLocations.map((loc: any, idx: number) => (
                                                         <div key={idx} className="flex items-start justify-between gap-3 pt-2 border-t border-slate-100/50">
                                                             <div className="flex items-start gap-2 min-w-0">
-                                                                <span className="text-slate-500 font-black text-[9px] bg-slate-100 px-2 py-0.5 rounded-md shrink-0">Lokasi {idx + 2}</span>
-                                                                <span className="text-[11px] leading-relaxed text-slate-500">{[loc.kelurahan_desa || loc.desa, loc.kecamatan, loc.kota_kabupaten || loc.kabupaten, loc.provinsi].filter(Boolean).join(', ') || '-'}</span>
+                                                                <span className={`font-black text-[9px] px-2 py-0.5 rounded-md shrink-0 transition-colors ${getLocationBadgeClass(idx + 1)}`}>Lokasi {idx + 2}</span>
+                                                                <span className={`text-[11px] leading-relaxed transition-colors ${getLocationTextClass(idx + 1)}`}>{[loc.kelurahan_desa || loc.desa, loc.kecamatan, loc.kota_kabupaten || loc.kabupaten, loc.provinsi].filter(Boolean).join(', ') || '-'}</span>
                                                             </div>
                                                             <button 
-                                                                onClick={() => {
-                                                                    const nLat = parseCoordinate(loc.latitude);
-                                                                    const nLng = parseCoordinate(loc.longitude);
-                                                                    if (nLat !== null && nLng !== null) {
-                                                                        setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
-                                                                    }
-                                                                }}
-                                                                className="flex-shrink-0 text-[10px] font-black text-slate-500 bg-white border border-slate-200 px-2 py-1 rounded-lg hover:bg-slate-100 transition-all shadow-sm flex items-center gap-1.5"
+                                                                onClick={() => handleLocationFlyTo(idx + 1, loc.latitude, loc.longitude)}
+                                                                className={`flex-shrink-0 text-[10px] font-black border px-2 py-1 rounded-lg transition-all shadow-sm flex items-center gap-1.5 ${getLocationButtonClass(idx + 1)}`}
                                                             >
                                                                 <i className="fa-solid fa-eye"></i> Lihat
                                                             </button>
@@ -393,7 +446,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                         </div>
                                         <div className="flex flex-wrap gap-2 pt-2">
                                             {hasSelectedCoordinates && (
-                                                <a href={`https://www.google.com/maps/dir/?api=1&destination=${selectedLat},${selectedLng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors">
+                                                <a href={`https://www.google.com/maps/dir/?api=1&destination=${routeLat},${routeLng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors">
                                                     <i className="fa-solid fa-map-location-dot"></i> Rute
                                                 </a>
                                             )}
@@ -463,22 +516,34 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                                     </div>
                                 </div>
                                 <div className="p-4 sm:p-8 pt-4 overflow-y-auto flex-1 space-y-3 sm:space-y-4 custom-scrollbar overscroll-contain">
-                                    {filteredPkmData.map((pkm) => {
+                                    {mappablePkmData.map(({ pkm, lat, lng, pointIndex, locationLabel, locationAddress }) => {
                                         const typeMeta = typesMeta.find(t => t.key === normalizeTypeKey(pkm?.jenis_pkm));
                                         const typeColor = typeMeta ? typeMeta.color : '#15325F';
                                         return (
-                                            <button key={pkm.id} onClick={() => setSelectedPkm(pkm)} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-col gap-3 text-left hover:bg-poltekpar-primary hover:text-white hover:border-poltekpar-primary transition-all group shadow-sm cursor-pointer">
+                                            <button
+                                                key={`${pkm.id ?? normalizeText(pkm.nama)}-${pointIndex}`}
+                                                onClick={() => {
+                                                    setSelectedPkm(pkm);
+                                                    setActiveLocationIndex(pointIndex);
+                                                    setFlyToTarget({ lat, lng, trigger: Date.now() });
+                                                }}
+                                                className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 sm:p-5 flex flex-col gap-3 text-left hover:bg-poltekpar-primary hover:text-white hover:border-poltekpar-primary transition-all group shadow-sm cursor-pointer"
+                                            >
                                                 <div className="flex items-center justify-between w-full">
                                                     <div className="flex items-center gap-3 w-[92%]"><div className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-sm group-hover:ring-2 group-hover:ring-white/50" style={{ backgroundColor: typeColor }}></div><div className="font-black text-[13px] sm:text-sm text-slate-800 group-hover:text-white transition-colors truncate">{normalizeText(pkm.nama) || 'Tanpa Judul'}</div></div>
                                                 </div>
-                                                <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 group-hover:text-white/80">
-                                                    <span className="flex items-center gap-1.5"><i className="fa-solid fa-location-dot"></i> {normalizeText(pkm.desa) || '-'}</span>
+                                                <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-slate-500 group-hover:text-white/80">
+                                                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-slate-500 group-hover:bg-white/20 group-hover:text-white">{locationLabel}</span>
                                                     <span className="flex items-center gap-1.5"><i className="fa-solid fa-calendar"></i> {pkm.tahun}</span>
+                                                </div>
+                                                <div className="flex items-start gap-1.5 text-[10px] font-bold leading-relaxed text-slate-500 group-hover:text-white/80">
+                                                    <i className="fa-solid fa-location-dot mt-0.5 shrink-0"></i>
+                                                    <span>{locationAddress}</span>
                                                 </div>
                                             </button>
                                         );
                                     })}
-                                    {filteredPkmData.length === 0 && (
+                                    {mappablePkmData.length === 0 && (
                                         <div className="flex flex-col items-center justify-center py-10 text-slate-400">
                                             <i className="fa-solid fa-folder-open text-3xl mb-3"></i>
                                             <p className="text-xs font-bold">Tidak ada PKM ditemukan</p>

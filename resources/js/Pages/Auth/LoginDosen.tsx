@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import Layout from '@/Layouts/DefaultLayout';
-import LoginDosenMobile from '@/Components/auth/LoginDosenMobile';
-import PkmMapDashboardCard from '@/Components/map/PkmMapDashboardCard';
-import { resolveUserSubmissionData, resolveUserSubmissionHistory } from '@/data/sigapData';
-import { usePkmData } from '@/hooks/usePkmData';
+import LoginDosenMobile from '@/Components/LoginDosenMobile';
+import PkmMapDashboardCard from '@/Components/PkmMapDashboardCard';
+import { resolveUserPkmData, resolveUserSubmissionData, resolveUserSubmissionHistory } from '@/data/sigapData';
 import { PkmData } from '@/types';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
 import '../../../css/landing.css';
 import '../../../css/lecturer-form.css';
 
@@ -38,9 +36,11 @@ export default function LoginDosen({
     userPkmData = null,
     userSubmissionData = null,
     userSubmissionHistory = null,
-}: LoginDosenProps): React.ReactNode {
-    const isMobileViewport = useMediaQuery('(max-width: 768px)');
-    const { data: pkmData } = usePkmData({ type: 'user', serverData: userPkmData ?? serverPkmData });
+}: LoginDosenProps) {
+    const [isMobileViewport, setIsMobileViewport] = useState(() => (
+        typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)').matches : false
+    ));
+    const [pkmData] = useState<PkmData[]>(() => resolveUserPkmData(userPkmData ?? serverPkmData));
     const [pengajuanData, setPengajuanData] = useState<SubmissionData[]>(() => resolveUserSubmissionData(userSubmissionData, { role: 'dosen' }));
     const [submissionHistoryData] = useState<PengajuanData[]>(() => resolveUserSubmissionHistory(userSubmissionHistory, 'dosen'));
 
@@ -75,6 +75,24 @@ export default function LoginDosen({
             ));
         });
     };
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const mediaQuery = window.matchMedia('(max-width: 768px)');
+        const updateViewport = (event: MediaQueryListEvent) => setIsMobileViewport(event.matches);
+        setIsMobileViewport(mediaQuery.matches);
+
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', updateViewport);
+            return () => mediaQuery.removeEventListener('change', updateViewport);
+        }
+
+        mediaQuery.addListener(updateViewport);
+        return () => mediaQuery.removeListener(updateViewport);
+    }, []);
 
     if (isMobileViewport) {
         return (

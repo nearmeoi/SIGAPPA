@@ -2,7 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Kontak;
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -35,30 +39,48 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        try {
+            $user = $request->user();
+        } catch (\Throwable $exception) {
+            $user = null;
+            Log::warning('Failed to resolve shared auth user: ' . $exception->getMessage());
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? [
-                    'id' => $request->user()->id_user,
-                    'name' => $request->user()->name,
-                    'email' => $request->user()->email,
-                    'role' => $request->user()->role,
-                    'email_verified_at' => $request->user()->email_verified_at,
+                'user' => $user ? [
+                    'id' => $user->id_user,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'email_verified_at' => $user->email_verified_at,
                 ] : null,
             ],
             'flash' => [
                 'success' => fn() => $request->session()->get('success'),
                 'error' => fn() => $request->session()->get('error'),
+                'id' => fn() => ($request->session()->has('success') || $request->session()->has('error'))
+                    ? uniqid('flash_', true)
+                    : null,
             ],
-            'visitorStats' => \App\Models\SiteSetting::getVisitorStats(),
-            'listKontak' => \App\Models\Kontak::orderBy('created_at', 'asc')
-                ->get()
-                ->map(fn($k) => [
-                    'id_kontak' => $k->id_kontak,
-                    'ikon' => $k->ikon,
-                    'label' => $k->label,
-                    'nilai_kontak' => $k->nilai_kontak,
-                ]),
+            'visitorStats' => Inertia::lazy(fn() => SiteSetting::getVisitorStats()),
+            'listKontak' => Inertia::lazy(function () {
+                try {
+                    return Kontak::orderBy('created_at', 'asc')
+                        ->get()
+                        ->map(fn($k) => [
+                            'id_kontak' => $k->id_kontak,
+                            'ikon' => $k->ikon,
+                            'label' => $k->label,
+                            'nilai_kontak' => $k->nilai_kontak,
+                        ]);
+                } catch (\Throwable $exception) {
+                    Log::warning('Failed to resolve shared contact list: ' . $exception->getMessage());
+
+                    return [];
+                }
+            }),
         ];
     }
 }

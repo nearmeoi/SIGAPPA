@@ -1,5 +1,3 @@
-import type { PkmData, TestimoniItem } from '@/types';
-
 const SIGAP_DEMO_DATA_ENABLED = import.meta.env.VITE_ENABLE_SIGAP_DEMO_DATA !== 'false';
 
 const demoTestimoni = [
@@ -247,7 +245,7 @@ const demoPkmRecords = [
 const demoSubmissionHistoryByRole = {
     dosen: [
         {
-            id: 1,
+            id: 'history-accepted',
             judul: 'PKM Literasi Digital Pelaku UMKM',
             tanggal: '14 Feb 2026',
             status: 'diterima',
@@ -255,7 +253,7 @@ const demoSubmissionHistoryByRole = {
             catatan: 'Dokumen proposal, RAB, dan susunan tim dinilai telah sesuai.',
         },
         {
-            id: 2,
+            id: 'history-suspended',
             judul: 'PKM Pelatihan Hygiene Kuliner',
             tanggal: '28 Jan 2026',
             status: 'ditangguhkan',
@@ -263,7 +261,7 @@ const demoSubmissionHistoryByRole = {
             catatan: 'Perlu unggah ulang dokumen proposal revisi sebelum diproses kembali.',
         },
         {
-            id: 3,
+            id: 'history-rejected',
             judul: 'PKM Penguatan Branding Desa Wisata',
             tanggal: '07 Des 2025',
             status: 'ditolak',
@@ -273,7 +271,7 @@ const demoSubmissionHistoryByRole = {
     ],
     masyarakat: [
         {
-            id: 1,
+            id: 'history-accepted',
             judul: 'PKM Literasi Digital Pelaku UMKM',
             tanggal: '14 Feb 2026',
             status: 'diterima',
@@ -281,7 +279,7 @@ const demoSubmissionHistoryByRole = {
             catatan: 'Dokumen pengantar dan kebutuhan kegiatan dinilai telah sesuai.',
         },
         {
-            id: 2,
+            id: 'history-suspended',
             judul: 'PKM Pelatihan Hygiene Kuliner',
             tanggal: '28 Jan 2026',
             status: 'ditangguhkan',
@@ -289,7 +287,7 @@ const demoSubmissionHistoryByRole = {
             catatan: 'Lengkapi detail kebutuhan dan unggah ulang dokumen pendukung sebelum diproses kembali.',
         },
         {
-            id: 3,
+            id: 'history-rejected',
             judul: 'PKM Penguatan Branding Desa Wisata',
             tanggal: '07 Des 2025',
             status: 'ditolak',
@@ -304,20 +302,9 @@ const previewSummaryByRole = {
     masyarakat: 'Pratinjau status pengajuan untuk halaman akun masyarakat.',
 };
 
-type SubmissionRole = 'dosen' | 'masyarakat';
+const cloneData = (value: any) => JSON.parse(JSON.stringify(value));
 
-type SubmissionRecord = {
-    id: number;
-    judul: string;
-    tanggal: string;
-    status: string;
-    ringkasan: string;
-    catatan?: string;
-};
-
-const cloneData = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
-
-const resolveCollection = <T,>(serverData: T[] | null | undefined, demoData: T[]): T[] => {
+const resolveCollection = (serverData: any, demoData: any) => {
     if (Array.isArray(serverData)) {
         return cloneData(serverData);
     }
@@ -337,29 +324,22 @@ const getPreviewStatusFromLocation = () => {
     return new URLSearchParams(window.location.search).get('preview_status');
 };
 
-export const resolvePublicPkmData = (serverData: unknown[] | null | undefined): PkmData[] => {
-    const data = resolveCollection(serverData as PkmData[] | null | undefined, demoPkmRecords as PkmData[]);
-    return data.map((item) => {
-        const rec = item as PkmData & { deskripsi_jenis?: string; testimoni?: TestimoniItem[] };
-        return {
-            ...rec,
-            deskripsi_jenis: rec.deskripsi_jenis ?? '',
-            testimoni: rec.testimoni ?? (rec.status === 'selesai' ? demoTestimoni : []),
-        } as PkmData;
-    });
+export const resolvePublicPkmData = (serverData: any) => {
+    const data = resolveCollection(serverData, demoPkmRecords);
+    return data.map((item: any) => ({
+        ...item,
+        deskripsi_jenis: item.deskripsi_jenis ?? '',
+        testimoni: item.testimoni ?? (item.status === 'selesai' ? demoTestimoni : []),
+    }));
 };
 
-export const resolveUserPkmData = (serverData: unknown[] | null | undefined): PkmData[] =>
-    resolveCollection(serverData as PkmData[] | null | undefined, demoPkmRecords as PkmData[]);
+export const resolveUserPkmData = (serverData: any) => resolveCollection(serverData, demoPkmRecords);
 
-export const resolveUserSubmissionHistory = (serverData: SubmissionRecord[] | null | undefined, role: SubmissionRole = 'dosen'): SubmissionRecord[] => (
-    resolveCollection(serverData, demoSubmissionHistoryByRole[role] ?? [])
+export const resolveUserSubmissionHistory = (serverData: any, role: string = 'dosen') => (
+    resolveCollection(serverData, demoSubmissionHistoryByRole[role as keyof typeof demoSubmissionHistoryByRole] ?? [])
 );
 
-export const resolveUserSubmissionData = (
-    serverData: SubmissionRecord[] | null | undefined,
-    { role = 'dosen' as SubmissionRole, previewStatus }: { role?: SubmissionRole; previewStatus?: string } = {},
-): SubmissionRecord[] => {
+export const resolveUserSubmissionData = (serverData: any, { role = 'dosen', previewStatus }: { role?: string; previewStatus?: string | null } = {}) => {
     if (Array.isArray(serverData)) {
         return cloneData(serverData);
     }
@@ -376,12 +356,12 @@ export const resolveUserSubmissionData = (
     }
 
     return [{
-        id: 0,
+        id: `demo-${role}-${activePreviewStatus}`,
         judul: 'Demo Status Pengajuan PKM',
-        ringkasan: previewSummaryByRole[role] ?? previewSummaryByRole.dosen,
+        ringkasan: previewSummaryByRole[role as keyof typeof previewSummaryByRole] ?? previewSummaryByRole.dosen,
         tanggal: '28 Mar 2026',
         status: activePreviewStatus,
-    } as SubmissionRecord];
+    }];
 };
 
 export { SIGAP_DEMO_DATA_ENABLED };

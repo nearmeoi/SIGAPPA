@@ -13,16 +13,22 @@ class MasterDataController extends Controller
     // === JENIS PKM ===
     public function indexJenis(Request $request)
     {
-        $sortField = $request->get('sort', 'nama_jenis');
-        $sortDir = $request->get('direction', 'asc');
+        $allowedSorts = ['nama_jenis', 'warna_icon', 'created_at'];
+        $sortField = in_array($request->get('sort'), $allowedSorts, true) ? $request->get('sort') : 'nama_jenis';
+        $sortDir = $request->get('direction') === 'desc' ? 'desc' : 'asc';
 
-        $listJenisPkm = JenisPkm::orderBy($sortField, $sortDir)->paginate(10)->withQueryString();
+        $listJenisPkm = JenisPkm::query()
+            ->when($request->search, fn ($query, $search) => $this->applyJenisSearchFilter($query, $search))
+            ->orderBy($sortField, $sortDir)
+            ->paginate(10)
+            ->withQueryString();
 
         return Inertia::render('Admin/MasterData/JenisPkm', [
             'listJenisPkm' => $listJenisPkm,
             'filters' => [
                 'sort' => $sortField,
                 'direction' => $sortDir,
+                'search' => $request->search ?? '',
             ],
         ]);
     }
@@ -88,7 +94,9 @@ class MasterDataController extends Controller
 
         if ($request->all) {
             $query = JenisPkm::query();
-            // Optional: add search logic if needed for JenisPkm
+            if ($request->filled('search')) {
+                $this->applyJenisSearchFilter($query, $request->search);
+            }
             
             $items = $query->get();
             $blocked = [];
@@ -126,5 +134,20 @@ class MasterDataController extends Controller
         JenisPkm::whereIn('id_jenis_pkm', $request->ids)->delete();
 
         return redirect()->back()->with('success', count($request->ids).' jenis PKM berhasil dihapus massal.');
+    }
+
+    private function applyJenisSearchFilter($query, string $search): void
+    {
+        $escaped = addcslashes(trim($search), '\\%_');
+
+        if ($escaped === '') {
+            return;
+        }
+
+        $query->where(function ($q) use ($escaped) {
+            $q->where('nama_jenis', 'like', "%{$escaped}%")
+                ->orWhere('warna_icon', 'like', "%{$escaped}%")
+                ->orWhere('deskripsi', 'like', "%{$escaped}%");
+        });
     }
 }

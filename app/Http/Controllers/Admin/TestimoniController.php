@@ -16,9 +16,15 @@ class TestimoniController extends Controller
         $listGroupedTestimoni = Aktivitas::whereHas('testimoni')
             ->with(['pengajuan', 'testimoni'])
             ->when($request->search, function ($query, $search) {
-                $query->whereHas('pengajuan', fn($q) => $q->where('instansi_mitra', 'like', "%{$search}%"))
-                      ->orWhere('judul_pkm', 'like', "%{$search}%");
-            })
+                $escaped = addcslashes(trim($search), '\\%_');
+                $query->where(function ($q) use ($escaped) {
+                    $q->whereHas('pengajuan', fn ($pengajuan) => $pengajuan->where('judul_kegiatan', 'like', "%{$escaped}%"))
+                        ->orWhereHas('testimoni', function ($testimoni) use ($escaped) {
+                            $testimoni->where('nama_pemberi', 'like', "%{$escaped}%")
+                                ->orWhere('pesan_ulasan', 'like', "%{$escaped}%")
+                                ->orWhere('masukan', 'like', "%{$escaped}%");
+                        });
+                });            })
             ->paginate(12)
             ->withQueryString();
 

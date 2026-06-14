@@ -14,6 +14,8 @@ use Inertia\Inertia;
 
 class AuthController extends Controller
 {
+    private const ADMIN_ROLES = ['admin', 'superadmin', 'secret_account', 'secret'];
+
     /**
      * Redirect URL berdasarkan role user.
      */
@@ -23,14 +25,7 @@ class AuthController extends Controller
         if ($role === 'direktur') {
             return '/direktur/dashboard';
         }
-        if (in_array($role, ['admin', 'superadmin', 'secret_account'])) {
-            return '/admin/dashboard';
-        }
-        if ($role === 'dosen') {
-            return '/cek-status';
-        }
-        return '/beranda';
-    }
+        return in_array(Auth::user()?->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda';    }
 
     public function showLogin()
     {
@@ -157,23 +152,28 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
         $loginSource = $request->input('login_source', 'general');
+        $user = User::where('email', $credentials['email'])->first();
+
+        if ($user?->role === 'dosen' && $loginSource !== 'dosen') {
+            return back()->withErrors([
+                'email' => 'Akun ini terdaftar sebagai dosen. Silakan gunakan menu "Masuk / Daftar sebagai Dosen" untuk verifikasi NIP dan akses akun dosen.',
+            ])->onlyInput('email');
+        }
+
+        if ($user && $loginSource === 'dosen' && $user->role !== 'dosen') {
+            return back()->withErrors([
+                'email' => 'Akun ini bukan akun dosen. Silakan masuk melalui halaman login umum.',
+            ])->onlyInput('email');
+        }
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
             $user = Auth::user();
 
-            $default = '/';
-            if ($user->role === 'direktur') {
-                $default = '/direktur/dashboard';
-            } elseif (in_array($user->role, ['admin', 'superadmin', 'secret_account'])) {
-                $default = '/admin/dashboard';
-            } elseif ($user->role === 'dosen') {
-                $default = '/cek-status';
-            } elseif ($user->role === 'masyarakat') {
-                $default = '/beranda';
-            }
-
-            return redirect()->intended($default);
+            $default = $user->role === 'direktur'
+                ? '/direktur/dashboard'
+                : (in_array($user->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda');
+            return redirect($default);
         }
 
         return back()->withErrors([
@@ -246,21 +246,9 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        if ($portalDosenFlow && $role === 'dosen') {
-            return redirect('/cek-status')->with('success', 'Registrasi berhasil dan Anda telah masuk otomatis.');
-        }
-
-        $redirectTo = '/';
-        if ($user->role === 'direktur') {
-            $redirectTo = '/direktur/dashboard';
-        } elseif (in_array($user->role, ['admin', 'superadmin', 'secret_account'])) {
-            $redirectTo = '/admin/dashboard';
-        } elseif ($user->role === 'dosen') {
-            $redirectTo = '/cek-status';
-        } elseif ($user->role === 'masyarakat') {
-            $redirectTo = '/beranda';
-        }
-
+        $redirectTo = $user->role === 'direktur'
+            ? '/direktur/dashboard'
+            : (in_array($user->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda');
         return redirect($redirectTo);
     }
 

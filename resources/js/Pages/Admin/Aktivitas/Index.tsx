@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import {
@@ -16,6 +16,12 @@ interface AktivitasItem {
         tgl_selesai?: string;
         provinsi?: string;
         kota_kabupaten?: string;
+        kecamatan?: string;
+        kelurahan_desa?: string;
+        alamat_lengkap?: string;
+        latitude?: number;
+        longitude?: number;
+        lokasi_tambahan?: any;
         nama_pengusul?: string;
         email_pengusul?: string;
         user?: { name: string; email?: string };
@@ -34,7 +40,7 @@ interface PaginatedData {
 
 interface Props {
     listAktivitas: PaginatedData;
-    filters?: { sort?: string; direction?: string; status?: string; tahun?: string; jenis_pkm?: string };
+    filters?: { sort?: string; direction?: string; search?: string; status?: string; tahun?: string; jenis_pkm?: string };
     availableYears?: number[];
     listJenisPkm?: { id_jenis_pkm: number; nama_jenis: string; warna_icon: string }[];
 }
@@ -44,6 +50,33 @@ const getRecipientName = (act: AktivitasItem): string =>
 
 const getRecipientEmail = (act: AktivitasItem): string =>
     act.pengajuan?.email_pengusul || act.pengajuan?.user?.email || '';
+
+const parseLocations = (value: any): any[] => {
+    try {
+        const parsed = typeof value === 'string' ? JSON.parse(value || '[]') : value;
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
+
+const getLocationSummary = (pengajuan?: AktivitasItem['pengajuan']): string => {
+    if (!pengajuan) return 'Lokasi 1 belum ditentukan';
+
+    const additional = parseLocations(pengajuan.lokasi_tambahan);
+    const primaryParts = [pengajuan.kota_kabupaten, pengajuan.provinsi].filter(Boolean);
+    const locations = [
+        primaryParts.length > 0 ? primaryParts.join(', ') : 'belum ditentukan',
+        ...additional.map((location) => {
+            const parts = [location.kota_kabupaten, location.provinsi].filter(Boolean);
+            return parts.length > 0 ? parts.join(', ') : 'belum ditentukan';
+        }),
+    ];
+
+    return locations
+        .map((location, index) => `Lokasi ${index + 1} - ${location}`)
+        .join('; ');
+};
 
 const formatDate = (dateStr?: string): string => {
     if (!dateStr) return 'Akan ditentukan';
@@ -66,7 +99,7 @@ const canSendUndangan = (act: AktivitasItem): boolean => {
 };
 
 const AktivitasPage: React.FC<Props> = ({ listAktivitas, filters, availableYears = [], listJenisPkm = [] }) => {
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState(filters?.search || '');
     const [filterStatus, setFilterStatus] = useState(filters?.status || '');
     const [tahun, setTahun] = useState(filters?.tahun || '');
     const [filterJenisPkm, setFilterJenisPkm] = useState(filters?.jenis_pkm || '');
@@ -92,8 +125,7 @@ const AktivitasPage: React.FC<Props> = ({ listAktivitas, filters, availableYears
         const p = firstSelected?.pengajuan;
         const tglMulai = formatDate(p?.tgl_mulai);
         const tglSelesai = formatDate(p?.tgl_selesai);
-        const lokasiParts = [p?.kota_kabupaten, p?.provinsi].filter(Boolean);
-        const lokasi = lokasiParts.length > 0 ? lokasiParts.join(', ') : 'Akan ditentukan';
+        const lokasi = getLocationSummary(p);
 
         return `Dengan hormat,
 
@@ -115,17 +147,32 @@ Politeknik Pariwisata Makassar`;
         setShowUndangan(true);
     }, [buildDefaultSubject, buildDefaultBody]);
 
-    const applyFilters = useCallback((newSortField?: string, newSortDir?: string, newTahun?: string, newJenisPkm?: string) => {
+    const applyFilters = useCallback((newSortField?: string, newSortDir?: string, newTahun?: string, newJenisPkm?: string, newStatus?: string, newSearch?: string) => {
+        const resolvedSearch = newSearch !== undefined ? newSearch : search;
+        const resolvedStatus = newStatus !== undefined ? newStatus : filterStatus;
+        const resolvedTahun = newTahun !== undefined ? newTahun : tahun;
+        const resolvedJenisPkm = newJenisPkm !== undefined ? newJenisPkm : filterJenisPkm;
         const params: Record<string, string> = {
             sort: newSortField !== undefined ? newSortField : sortField,
             direction: newSortDir !== undefined ? newSortDir : sortDir,
         };
-        if (filterStatus) params.status = filterStatus;
-        if (newTahun !== undefined ? newTahun : tahun) params.tahun = newTahun !== undefined ? newTahun : tahun;
-        const resolvedJenisPkm = newJenisPkm !== undefined ? newJenisPkm : filterJenisPkm;
+        if (resolvedSearch.trim()) params.search = resolvedSearch.trim();
+        if (resolvedStatus) params.status = resolvedStatus;
+        if (resolvedTahun) params.tahun = resolvedTahun;
         if (resolvedJenisPkm) params.jenis_pkm = resolvedJenisPkm;
+        setSelectedIds([]);
         router.get('/admin/aktivitas', params, { preserveState: true, replace: true });
-    }, [filterStatus, sortField, sortDir, tahun, filterJenisPkm]);
+    }, [filterStatus, sortField, sortDir, tahun, filterJenisPkm, search]);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            if (search !== (filters?.search || '')) {
+                applyFilters(sortField, sortDir, tahun, filterJenisPkm, filterStatus, search);
+            }
+        }, 350);
+
+        return () => window.clearTimeout(timer);
+    }, [search]);
 
     const handleSort = (field: string) => {
         const isAsc = sortField === field && sortDir === 'asc';
@@ -137,11 +184,7 @@ Politeknik Pariwisata Makassar`;
 
     const handleStatusChange = (newStatus: string) => {
         setFilterStatus(newStatus);
-        const params: Record<string, string> = { sort: sortField, direction: sortDir };
-        if (newStatus) params.status = newStatus;
-        if (tahun) params.tahun = tahun;
-        if (filterJenisPkm) params.jenis_pkm = filterJenisPkm;
-        router.get('/admin/aktivitas', params, { preserveState: true, replace: true });
+        applyFilters(sortField, sortDir, tahun, filterJenisPkm, newStatus);
     };
 
     const clearFilters = () => {
@@ -149,10 +192,11 @@ Politeknik Pariwisata Makassar`;
         setFilterStatus('');
         setTahun('');
         setFilterJenisPkm('');
+        setSelectedIds([]);
         router.get('/admin/aktivitas', { sort: sortField, direction: sortDir }, { preserveState: true, replace: true });
     };
 
-    const hasFilters = filterStatus || tahun || filterJenisPkm;
+    const hasFilters = search || filterStatus || tahun || filterJenisPkm;
 
     const handleExport = () => {
         const params = new URLSearchParams();
@@ -218,82 +262,84 @@ Politeknik Pariwisata Makassar`;
     return (
         <>
             {/* Page Header */}
-            <div className="mb-8">
-                <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Aktivitas</h1>
-                <p className="text-[14px] text-zinc-500 mt-1">Pantau seluruh status pelaksanaan kegiatan PKM.</p>
-            </div>
-
-            {/* Toolbar */}
-            <div className="flex flex-row items-center justify-between gap-4 mb-4 w-full">
-                {/* Tabs */}
-                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto min-w-0 flex-1 hide-scrollbar">
-                    {STATUS_OPTIONS.map(opt => (
-                        <button
-                            key={opt.value}
-                            onClick={() => handleStatusChange(opt.value)}
-                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap shrink-0 ${filterStatus === opt.value
-                                    ? 'bg-white text-zinc-900 shadow-sm'
-                                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
-                                }`}
-                        >
-                            {opt.label}
-                        </button>
-                    ))}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8">
+                <div className="shrink-0">
+                    <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Aktivitas</h1>
+                    <p className="text-[14px] text-zinc-500 mt-1">Pantau seluruh status pelaksanaan kegiatan PKM.</p>
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto shrink-0 hide-scrollbar">
-                    <div className="relative shrink-0">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                        <input
-                            type="text"
-                            placeholder="Cari kegiatan..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && applyFilters()}
-                            className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
-                        />
+                {/* Toolbar */}
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full lg:w-auto lg:flex-1 lg:justify-end">
+                    {/* Tabs */}
+                    <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full shrink-0">
+                        {STATUS_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                onClick={() => handleStatusChange(opt.value)}
+                                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${filterStatus === opt.value
+                                        ? 'bg-white text-zinc-900 shadow-sm'
+                                        : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
+                                    }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
                     </div>
 
-                    <select
-                        value={tahun}
-                        onChange={e => {
-                            setTahun(e.target.value);
-                            applyFilters(sortField, sortDir, e.target.value);
-                        }}
-                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer shrink-0 min-w-[120px]"
-                    >
-                        <option value="">Semua Tahun</option>
-                        {(availableYears || []).map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                            <input
+                                type="text"
+                                placeholder="Cari kegiatan..."
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && applyFilters(sortField, sortDir, tahun, filterJenisPkm, filterStatus, search)}
+                                className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
+                            />
+                        </div>
 
-                    <select
-                        value={filterJenisPkm}
-                        onChange={e => {
-                            setFilterJenisPkm(e.target.value);
-                            applyFilters(sortField, sortDir, tahun, e.target.value);
-                        }}
-                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer shrink-0 min-w-[140px]"
-                    >
-                        <option value="">Semua Jenis PKM</option>
-                        {(listJenisPkm || []).map(j => (
-                            <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
-                        ))}
-                    </select>
+                        <select
+                            value={tahun}
+                            onChange={e => {
+                                setTahun(e.target.value);
+                                applyFilters(sortField, sortDir, e.target.value);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[120px]"
+                        >
+                            <option value="">Semua Tahun</option>
+                            {(availableYears || []).map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
 
-                    {hasFilters && (
-                        <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Hapus filter">
-                            <X size={14} />
+                        <select
+                            value={filterJenisPkm}
+                            onChange={e => {
+                                setFilterJenisPkm(e.target.value);
+                                applyFilters(sortField, sortDir, tahun, e.target.value);
+                            }}
+                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[140px]"
+                        >
+                            <option value="">Semua Jenis PKM</option>
+                            {(listJenisPkm || []).map(j => (
+                                <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
+                            ))}
+                        </select>
+
+                        {hasFilters && (
+                            <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors" title="Hapus filter">
+                                <X size={14} />
+                            </button>
+                        )}
+
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-md text-[13px] font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+                        >
+                            <Download size={14} /> Export
                         </button>
-                    )}
-
-                    <button
-                        onClick={handleExport}
-                        className="flex items-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-md text-[13px] font-medium text-zinc-600 hover:bg-zinc-50 transition-colors shrink-0"
-                    >
-                        <Download size={14} /> Export
-                    </button>
+                    </div>
                 </div>
             </div>
 
@@ -353,12 +399,10 @@ Politeknik Pariwisata Makassar`;
                                 <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 w-12 border-r border-zinc-100 bg-zinc-50 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('id_aktivitas')}>
                                     No {sortField === 'id_aktivitas' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('judul_pkm')}>
-                                    Nama Kegiatan {sortField === 'judul_pkm' && (sortDir === 'asc' ? '↑' : '↓')}
+                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('created_at')}>
+                                    Nama Kegiatan {sortField === 'created_at' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('kota_kabupaten')}>
-                                    Jenis & Lokasi {sortField === 'kota_kabupaten' && (sortDir === 'asc' ? '↑' : '↓')}
-                                </th>
+                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Jenis & Lokasi</th>
                                 <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 text-right w-32 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('status_pelaksanaan')}>
                                     Status {sortField === 'status_pelaksanaan' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
@@ -412,16 +456,20 @@ Politeknik Pariwisata Makassar`;
                                             </div>
                                             <div className="flex items-center gap-1 text-zinc-500 text-[12px]">
                                                 <MapPin size={12} className="text-zinc-400" />
-                                                {act.pengajuan?.kota_kabupaten ? `${act.pengajuan.kota_kabupaten}, ${act.pengajuan.provinsi}` : 'Lokasi TBD'}
+                                                {getLocationSummary(act.pengajuan)}
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-right">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider border ${normalizedStatus === 'selesai'
+                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider border ${normalizedStatus === 'selesai'
                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                                     : normalizedStatus === 'belum_mulai'
                                                         ? 'bg-slate-100 text-slate-600 border-slate-200'
                                                         : 'bg-amber-50 text-amber-700 border-amber-100'
                                                 }`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${normalizedStatus === 'selesai' ? 'bg-emerald-500'
+                                                        : normalizedStatus === 'belum_mulai' ? 'bg-slate-400'
+                                                            : 'bg-amber-500'
+                                                    }`}></span>
                                                 {normalizedStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                             </span>
                                         </td>
@@ -623,7 +671,7 @@ Politeknik Pariwisata Makassar`;
                                         <div className="border-t border-[#E2E8F0] mt-4 pt-4">
                                             <p className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider mb-1">Lokasi Kegiatan</p>
                                             <p className="text-[14px] font-bold text-[#0D1F3C]">
-                                                {[firstSelected?.pengajuan?.kota_kabupaten, firstSelected?.pengajuan?.provinsi].filter(Boolean).join(', ') || 'Akan ditentukan'}
+                                                {getLocationSummary(firstSelected?.pengajuan)}
                                             </p>
                                         </div>
                                     </div>
@@ -710,5 +758,4 @@ Politeknik Pariwisata Makassar`;
 
 
 AktivitasPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
-
 export default AktivitasPage;

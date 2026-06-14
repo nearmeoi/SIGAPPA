@@ -9,7 +9,7 @@ interface Props {
     };
 }
 
-function SiteSettings({ settings }: Props) {
+export default function SiteSettings({ settings }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         visitor_count_offset: settings.visitor_count_offset,
     });
@@ -79,5 +79,3 @@ function SiteSettings({ settings }: Props) {
 }
 
 SiteSettings.layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Situs">{page}</AdminLayout>;
-
-export default SiteSettings;
