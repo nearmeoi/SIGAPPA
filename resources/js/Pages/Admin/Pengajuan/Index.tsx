@@ -1,8 +1,8 @@
-// BUILD_VERSION: 2026-04-08-STRICT-CHECK-V2
 import React, { useState, useCallback } from 'react';
 import { Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import ConfirmDialog from '@/Components/ConfirmDialog';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import { SkeletonTable } from '@/Components/ui/SkeletonTable';
 import {
     Filter, Search, ChevronRight, Clock, X,
     Trash2, AlertCircle, Check
@@ -33,6 +33,7 @@ interface Pengajuan {
     provinsi?: string;
     kota_kabupaten?: string;
     tim_kegiatan?: { nama_mahasiswa?: string; peran_tim?: string; pegawai?: { nama_pegawai?: string } }[];
+    incomplete_reasons?: string[];
 }
 
 interface PaginatedData {
@@ -90,61 +91,9 @@ const getSubmitterEmail = (item: Pengajuan): string =>
     item.email_pengusul || item.user?.email || '-';
 
 const getIncompleteReasons = (item: Pengajuan): string[] => {
-    const reasons: string[] = [];
-    const isDosen = getSubmitterType(item) === 'dosen';
-
-    // Helper to check if a value is effectively empty
-    const isEmpty = (val: any) => {
-        if (val === null || val === undefined) return true;
-        const s = String(val).trim();
-        return s === '' || s === '-' || s === '[]' || s === '{}' || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined';
-    };
-
-    // Submitter Info
-    const sName = getSubmitterName(item);
-    const sEmail = getSubmitterEmail(item);
-    if (isEmpty(sName)) reasons.push('nama pengusul');
-    if (isEmpty(sEmail)) reasons.push('email pengusul');
-    if (isEmpty(item.no_telepon)) reasons.push('kontak/wa');
-    if (isEmpty(item.instansi_mitra)) reasons.push('instansi');
-
-    // Common fields
-    if (isEmpty(item.kebutuhan)) reasons.push(isDosen ? 'deskripsi kegiatan' : 'kebutuhan pkm');
-    if (isEmpty(item.provinsi) || isEmpty(item.kota_kabupaten)) reasons.push('lokasi (provinsi/kota)');
-    if (isEmpty(item.surat_permohonan)) reasons.push('surat permohonan');
-
-    // RAB Check (Consistent with Detail page)
-    const hasRabItems = Array.isArray(item.rab_items) && item.rab_items.length > 0 && item.rab_items.some((ri) =>
-        !isEmpty(ri.nama_item) && Number(ri.jumlah || 0) > 0
-    );
-
-    // Fallback for Masyarakat who might use the link field instead of table
-    const hasRabLink = !isEmpty((item as any).rab);
-
-    if (!hasRabItems && !hasRabLink) reasons.push('dokumen/rincian RAB');
-
-    // Team Check
-    const tim = item.tim_kegiatan || [];
-    const hasKetua = tim.some(m => !isEmpty(m.peran_tim) && String(m.peran_tim).toLowerCase().includes('ketua'));
-
-    if (isDosen) {
-        if (!hasKetua) reasons.push('ketua tim');
-        const anggotaCount = tim.filter(m => !String(m.peran_tim || '').toLowerCase().includes('ketua')).length;
-        if (anggotaCount === 0) reasons.push('anggota tim (dosen/staff/mhs)');
-
-        if (isEmpty(item.judul_kegiatan)) reasons.push('judul kegiatan');
-
-        const hasFunding = Number(item.dana_perguruan_tinggi || 0) > 0
-            || Number(item.dana_pemerintah || 0) > 0
-            || Number(item.dana_lembaga_dalam || 0) > 0
-            || Number(item.dana_lembaga_luar || 0) > 0
-            || (!isEmpty(item.sumber_dana));
-
-        if (!hasFunding) reasons.push('sumber dana');
-    }
-
-    return reasons;
+    return item.incomplete_reasons || [];
 };
+
 
 const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears }) => {
     const [search, setSearch] = useState(filters.search || '');
@@ -260,7 +209,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
     const hasFilters = search || tab || tahun;
 
     return (
-        <AdminLayout title="">
+        <div className="space-y-6">
             {/* ── Page Header ── */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
                 <div>
@@ -270,14 +219,14 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
             </div>
 
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <div className="flex flex-row items-center justify-between gap-4 mb-4 w-full">
                 {/* Tabs */}
-                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg">
+                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto min-w-0 flex-1 hide-scrollbar">
                     {TABS.map(t => (
                         <button
                             key={t.id}
                             onClick={() => handleTabChange(t.id)}
-                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${tab === t.id
+                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap shrink-0 ${tab === t.id
                                 ? 'bg-white text-zinc-900 shadow-sm'
                                 : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
                                 }`}
@@ -287,9 +236,9 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 overflow-x-auto shrink-0 hide-scrollbar">
                     {/* Search */}
-                    <div className="relative">
+                    <div className="relative shrink-0">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                         <input
                             type="text"
@@ -306,7 +255,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                             setTahun(e.target.value);
                             applyFilters(sortField, sortDir, e.target.value);
                         }}
-                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[120px]"
+                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer shrink-0 min-w-[120px]"
                     >
                         <option value="">Semua Tahun</option>
                         {availableYears.map(y => (
@@ -314,7 +263,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                         ))}
                     </select>
                     {hasFilters && (
-                        <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors" title="Hapus filter">
+                        <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Hapus filter">
                             <X size={14} />
                         </button>
                     )}
@@ -406,10 +355,12 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                                         {allChecked && <Check size={12} className="text-white" />}
                                     </button>
                                 </th>
-                                <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('judul_kegiatan')}>
-                                    Nama Kegiatan {sortField === 'judul_kegiatan' && (sortDir === 'asc' ? '↑' : '↓')}
+                                <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('instansi_mitra')}>
+                                    Nama Kegiatan {sortField === 'instansi_mitra' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Pengaju</th>
+                                <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('nama_pengusul')}>
+                                    Pengaju {sortField === 'nama_pengusul' && (sortDir === 'asc' ? '↑' : '↓')}
+                                </th>
                                 <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Detail</th>
                                 <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Kelengkapan</th>
                                 <th className="py-3 px-4 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 text-center cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('status_pengajuan')}>
@@ -507,8 +458,7 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
 
                                             {/* Status badge */}
                                             <td className="py-3 px-4 text-center">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wider uppercase border ${st.bg} ${st.text} border-zinc-100`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`}></span>
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold tracking-wider uppercase border ${st.bg} ${st.text} border-zinc-100`}>
                                                     {st.label}
                                                 </span>
                                             </td>
@@ -580,8 +530,10 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears })
                 onCancel={() => setDeleteTarget(null)}
                 variant="danger"
             />
-        </AdminLayout>
+        </div>
     );
 };
+
+Index.layout = (page: React.ReactNode) => <AdminLayout title="Daftar Pengajuan">{page}</AdminLayout>;
 
 export default Index;

@@ -29,7 +29,7 @@ class Pengajuan extends Model
 
     protected $fillable = [
         'id_user',
-        'id_jenis_pkm',
+        'kode_unik',
         'tipe_pengusul',
         'provinsi',
         'kota_kabupaten',
@@ -39,7 +39,6 @@ class Pengajuan extends Model
         'latitude',
         'longitude',
         'lokasi_tambahan',
-        'judul_kegiatan',
         'nama_pengusul',
         'email_pengusul',
         'kebutuhan',
@@ -47,16 +46,6 @@ class Pengajuan extends Model
         'no_telepon',
         'proposal',
         'surat_permohonan',
-        'rab',
-        'rab_items',
-        'sumber_dana',
-        'total_anggaran',
-        'dana_perguruan_tinggi',
-        'dana_pemerintah',
-        'dana_lembaga_dalam',
-        'dana_lembaga_luar',
-        'tgl_mulai',
-        'tgl_selesai',
         'is_tahun_saja',
         'status_pengajuan',
         'catatan_admin',
@@ -82,17 +71,9 @@ class Pengajuan extends Model
     protected function casts(): array
     {
         return [
-            'total_anggaran' => 'decimal:2',
-            'dana_perguruan_tinggi' => 'decimal:2',
-            'dana_pemerintah' => 'decimal:2',
-            'dana_lembaga_dalam' => 'decimal:2',
-            'dana_lembaga_luar' => 'decimal:2',
-            'rab_items' => 'array',
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'lokasi_tambahan' => 'array',
-            'tgl_mulai' => 'date',
-            'tgl_selesai' => 'date',
             'is_tahun_saja' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
@@ -112,19 +93,9 @@ class Pengajuan extends Model
         return $this->belongsTo(User::class, 'id_user');
     }
 
-    public function jenisPkm()
-    {
-        return $this->belongsTo(JenisPkm::class, 'id_jenis_pkm', 'id_jenis_pkm');
-    }
-
-    public function timKegiatan()
-    {
-        return $this->hasMany(TimKegiatan::class, 'id_pengajuan', 'id_pengajuan');
-    }
-
     public function aktivitas()
     {
-        return $this->hasOne(Aktivitas::class, 'id_pengajuan', 'id_pengajuan');
+        return $this->hasMany(Aktivitas::class, 'id_pengajuan', 'id_pengajuan');
     }
 
     public function arsip()

@@ -1,7 +1,7 @@
 {
-  "name": "SIGAP-PKM",
+  "name": "SIGAPPA",
   "version": "1.0.0",
-  "description": "Sitem Informasi Pengabdian Kepada Masyarakat",
+  "description": "Sistem Informasi Geospasial dan Akses Pelayanan Pengabdian kepada Masyarakat - P3M Poltekpar Makassar",
   "main": "script.js",
   "type": "module",
   "scripts": {

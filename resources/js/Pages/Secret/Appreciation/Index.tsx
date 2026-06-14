@@ -21,7 +21,7 @@ interface Doc {
     urutan: number;
 }
 
-export default function AppreciationAdmin({ auth, developers, docs }: any) {
+function AppreciationAdmin({ auth, developers, docs }: any) {
     const [submitting, setSubmitting] = useState(false);
 
     // Dev Modal
@@ -146,7 +146,7 @@ export default function AppreciationAdmin({ auth, developers, docs }: any) {
     };
 
     return (
-        <AdminLayout title="Secret Panel">
+        <>
 
             <div className="flex justify-between items-center mb-6">
                 <div>
@@ -299,6 +299,10 @@ export default function AppreciationAdmin({ auth, developers, docs }: any) {
                 </div>
             )}
 
-        </AdminLayout>
+        </>
     );
 }
+
+AppreciationAdmin.layout = (page: React.ReactNode) => <AdminLayout title="Secret Panel">{page}</AdminLayout>;
+
+export default AppreciationAdmin;

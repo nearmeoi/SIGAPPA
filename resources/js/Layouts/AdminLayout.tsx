@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import Toast from '../Components/Toast';
-import CommandPalette from '../Components/CommandPalette';
-import ProfileDropdown from '../Components/ProfileDropdown';
-import NotificationBell from '../Components/NotificationBell';
+import Toast from '@/Components/ui/Toast';
+import CommandPalette from '@/Components/dashboard/CommandPalette';
+import ProfileDropdown from '@/Components/auth/ProfileDropdown';
+import NotificationBell from '@/Components/auth/NotificationBell';
 import {
     Layout,
     Users,
@@ -159,8 +159,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
 
     const isActive = (href?: string) => {
         if (!href || href === '#') return false;
-        if (href === '/admin') return url === '/admin' || url === '/admin/dashboard';
-        return url === href || url.startsWith(`${href}/`);
+        const currentPath = url.split('?')[0];
+        if (href === '/admin') return currentPath === '/admin' || currentPath === '/admin/dashboard';
+        return currentPath === href || currentPath.startsWith(`${href}/`);
     };
 
     const isChildrenActive = (childrenItems?: { href: string }[]) => {
@@ -259,6 +260,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                                                     <Link
                                                         key={child.label}
                                                         href={child.href}
+                                                        prefetch="hover"
                                                         onClick={() => setSidebarOpen(false)}
                                                         className={`block px-4 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${childIsActive
                                                             ? 'text-poltekpar-gold bg-white/5'
@@ -279,6 +281,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                             <Link
                                 key={item.label}
                                 href={item.href || '#'}
+                                prefetch="hover"
                                 onClick={() => setSidebarOpen(false)}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-bold transition-all duration-300 relative group ${active
                                     ? 'bg-poltekpar-primary text-white shadow-lg shadow-poltekpar-primary/20 translate-x-1'

@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Link } from '@inertiajs/react';
 import Layout from '@/Layouts/DefaultLayout';
-import ActionFeedbackDialog from '@/Components/ActionFeedbackDialog';
+import ActionFeedbackDialog from '@/Components/ui/ActionFeedbackDialog';
 import { FeedbackDialogProps } from '@/types';
 
 // @ts-ignore

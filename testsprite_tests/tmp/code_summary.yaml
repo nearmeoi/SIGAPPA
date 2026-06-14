@@ -1,0 +1,108 @@
+version: "2"
+type: frontend
+tech_stack:
+  - PHP
+  - TypeScript
+  - Laravel
+  - React
+  - Inertia.js
+  - Tailwind CSS
+routes:
+  - path: /
+    file: resources/js/Pages/Welcome.tsx
+    auth_required: false
+    description: Welcome landing page of SIGAPPA
+  - path: /beranda
+    file: resources/js/Pages/LandingPage.tsx
+    auth_required: false
+    description: Public map dashboard showing PKM activities
+  - path: /login
+    file: resources/js/Pages/Auth/Login.tsx
+    auth_required: false
+    description: Public login selector and standard credentials form
+  - path: /login/dosen
+    file: resources/js/Pages/Auth/DosenPortal.tsx
+    auth_required: false
+    description: Specialized login portal for lecturers with NIP verification
+  - path: /register
+    file: resources/js/Pages/Auth/Register.tsx
+    auth_required: false
+    description: Registration form for new users
+  - path: /cek-status
+    file: resources/js/Pages/User/Index.tsx
+    auth_required: true
+    description: User dashboard to track own submissions and correlation
+  - path: /pengajuan
+    file: resources/js/Pages/User/Index.tsx
+    auth_required: true
+    description: Form to submit a new PKM proposal
+  - path: /admin/dashboard
+    file: resources/js/Pages/Admin/Dashboard.tsx
+    auth_required: true
+    description: P3M admin statistical dashboard
+  - path: /admin/historis
+    file: resources/js/Pages/Admin/Historis/Index.tsx
+    auth_required: true
+    description: Manual input and Excel importing for historical PKM data
+  - path: /admin/pengajuan
+    file: resources/js/Pages/Admin/Pengajuan/Index.tsx
+    auth_required: true
+    description: List and review of all PKM submissions
+  - path: /admin/pegawai
+    file: resources/js/Pages/Admin/Pegawai/Index.tsx
+    auth_required: true
+    description: CRUD management of lecturer and staff records
+  - path: /admin/users
+    file: resources/js/Pages/Admin/Users/Index.tsx
+    auth_required: true
+    description: CRUD management of user accounts
+features:
+  - name: Lecturer NIP Verification Login
+    description: Lecturers verify their NIP first. If registered, they input password. If not, they complete registration.
+    files:
+      - resources/js/Pages/Auth/DosenPortal.tsx
+      - app/Http/Controllers/Auth/AuthController.php
+    entry_route: /login/dosen
+    user_interactions:
+      - Input NIP in NIP check field
+      - Click Cek NIP button
+      - Fill password or fill email/password to register
+      - Click submit to enter portal
+    api_calls:
+      - method: POST
+        endpoint: /check-nip
+      - method: POST
+        endpoint: /login
+      - method: POST
+        endpoint: /register
+    auth_required: false
+  - name: Historical PKM Import
+    description: Admin uploads spreadsheet to import past PKM records using smart name matching.
+    files:
+      - app/Http/Controllers/Admin/HistorisController.php
+      - resources/js/Pages/Admin/Historis/Index.tsx
+    entry_route: /admin/historis
+    user_interactions:
+      - Select Excel file containing PKM list
+      - Click preview to verify columns
+      - Click import to submit and run database seeding
+    api_calls:
+      - method: POST
+        endpoint: /admin/historis/preview
+      - method: POST
+        endpoint: /admin/historis/excel
+    auth_required: true
+  - name: Submissions Correlation Check
+    description: Lecturers see all PKM they are involved in, whether as head of team or team member.
+    files:
+      - app/Http/Controllers/User/PengajuanUserController.php
+      - resources/js/Pages/User/Index.tsx
+    entry_route: /cek-status
+    user_interactions:
+      - Navigate to Cek Status
+      - View list of proposals where user is Ketua Tim or Anggota Dosen
+    api_calls:
+      - method: GET
+        endpoint: /cek-status
+    auth_required: true
+known_limitations: []

@@ -13,6 +13,8 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $isSecret = $request->user()?->role === 'secret_account';
+        $sortField = $request->get('sort', 'created_at');
+        $sortDir = $request->get('direction', 'desc');
 
         $users = User::when(!$isSecret, fn($q) => $q->where('role', '!=', 'secret_account'))
             ->when($request->search, function ($query, $search) {
@@ -20,7 +22,7 @@ class UserController extends Controller
             $query->where('name', 'like', "%{$escaped}%")
                 ->orWhere('email', 'like', "%{$escaped}%");
         })
-            ->latest()
+            ->orderBy($sortField, $sortDir)
             ->paginate(15)
             ->through(fn($u) => [
                 'id_user' => $u->id_user,
@@ -50,7 +52,7 @@ class UserController extends Controller
         ]);
 
         if ($request->role === 'dosen') {
-            $pegawai = \App\Models\Pegawai::where('nip', $request->nip)->first();
+            $pegawai = \App\Models\Pegawai::whereRaw("REGEXP_REPLACE(nip, '[^0-9]', '') = ?", [$request->nip])->first();
             if (!$pegawai && !$request->boolean('force_create_pegawai')) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'nip_not_found' => 'NIP tidak terdata di Data Pegawai.'

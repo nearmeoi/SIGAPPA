@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import ConfirmDialog from '@/Components/ConfirmDialog';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { FileText, UploadCloud, FileDown, CheckCircle } from 'lucide-react';
 
 interface TemplateProps {
     templates: Record<string, { id: number, jenis: string, nama_file: string, file_path: string, updated_at: string }>;
 }
 
-export default function Index({ templates }: TemplateProps) {
+function Index({ templates }: TemplateProps) {
     return (
-        <AdminLayout title="Atur Template Dokumen">
+        <>
             <Head title="Admin - Atur Template Dokumen" />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -38,7 +38,7 @@ export default function Index({ templates }: TemplateProps) {
                     description="Upload file PDF Panduan Penggunaan yang akan dilihat oleh user (masyarakat & dosen) di halaman menu Panduan."
                 />
             </div>
-        </AdminLayout>
+        </>
     );
 }
 
@@ -201,3 +201,7 @@ function TemplateUploaderCard({ title, jenis, templateData, description }: { tit
         </div>
     );
 }
+
+Index.layout = (page: React.ReactNode) => <AdminLayout title="Atur Template Dokumen">{page}</AdminLayout>;
+
+export default Index;

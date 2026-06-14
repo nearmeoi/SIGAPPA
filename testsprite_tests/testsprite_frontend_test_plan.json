@@ -1,0 +1,1272 @@
+[
+  {
+    "id": "TC001",
+    "title": "Login as a registered lecturer with NIP verification",
+    "description": "A registered lecturer can verify their NIP, reach the password login form, and enter the authenticated user area.",
+    "category": "Lecturer NIP Verification Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login/dosen"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a registered NIP into the NIP field"
+      },
+      {
+        "type": "action",
+        "description": "Verify the NIP"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user dashboard is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC002",
+    "title": "Access control blocks unauthenticated users from protected pages",
+    "description": "A visitor who has not logged in is prevented from reaching protected user and admin pages and is shown the login gate instead.",
+    "category": "Submission Status Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /cek-status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the login gate is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /pengajuan"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the login gate is displayed"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the login gate is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC003",
+    "title": "Submit a new PKM proposal successfully",
+    "description": "An authenticated user can complete the proposal form and see the new submission recorded for review.",
+    "category": "New PKM Proposal Submission",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /pengajuan"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the PKM proposal form with valid proposal details"
+      },
+      {
+        "type": "action",
+        "description": "Submit the proposal form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a submission confirmation is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new proposal is recorded for review"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC004",
+    "title": "Open the public welcome page",
+    "description": "A visitor can open SIGAPPA’s public entry page and continue to public access or authentication options.",
+    "category": "Welcome and Public Access",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the welcome page is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify public access and authentication options are available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC005",
+    "title": "Log in with existing standard credentials",
+    "description": "An existing user can submit email and password on the standard login page and reach the authenticated user area.",
+    "category": "User Registration and Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated user area is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC006",
+    "title": "Register a new lecturer after NIP verification",
+    "description": "A lecturer with an unregistered NIP can verify it, complete registration, and reach the authenticated user area.",
+    "category": "Lecturer NIP Verification Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login/dosen"
+      },
+      {
+        "type": "action",
+        "description": "Fill in an unregistered NIP into the NIP field"
+      },
+      {
+        "type": "action",
+        "description": "Verify the NIP"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a valid email address into the email field"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a valid password into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the user dashboard is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC007",
+    "title": "Create a standard user account",
+    "description": "A new user can register with standard credentials and reach the authenticated user area.",
+    "category": "User Registration and Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /register"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the registration details with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the authenticated user area is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC008",
+    "title": "View the public PKM map dashboard",
+    "description": "A visitor can open the public dashboard and review PKM activity locations and basic information.",
+    "category": "Welcome and Public Access",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /beranda"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the public PKM map dashboard is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify activity locations and basic activity information are visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC009",
+    "title": "Review linked PKM proposals in status tracking",
+    "description": "An authenticated user can open the status page and see their related PKM proposals grouped for review.",
+    "category": "Submission Status Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /cek-status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify related PKM proposals are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify team leader and team member correlation information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC010",
+    "title": "Review the list of submitted PKM proposals",
+    "description": "An administrator can open the submission review page and see the current list of PKM proposals available for inspection.",
+    "category": "PKM Submission Review",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/pengajuan"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the PKM submission list is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify at least one submission detail is visible or an empty state message is shown"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC011",
+    "title": "Track proposal status and team correlation",
+    "description": "An authenticated user can open the status page and review submitted proposals together with team correlation information.",
+    "category": "User Submission and Status Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the status tracking area"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify submitted proposals are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify team correlation information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC012",
+    "title": "Add a new user account",
+    "description": "An admin can create a new user account and see it appear in the account list after saving.",
+    "category": "User Account Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open user account management"
+      },
+      {
+        "type": "action",
+        "description": "Start adding a new account"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a unique name for the account"
+      },
+      {
+        "type": "action",
+        "description": "Fill in a unique email for the account"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid role for the account"
+      },
+      {
+        "type": "action",
+        "description": "Save the new account"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new account appears in the account list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC013",
+    "title": "Review PKM submissions in the admin list",
+    "description": "An admin can open the submission review list and inspect existing PKM proposals for processing.",
+    "category": "Admin Review and Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the admin submission review area"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify PKM submissions are listed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify proposal review details are available"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC014",
+    "title": "Open the admin dashboard and review summary metrics",
+    "description": "An authenticated admin can open the dashboard and see submission statistics and progress overview content.",
+    "category": "Admin Dashboard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify summary statistics are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify PKM progress information is displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC015",
+    "title": "View the admin submission dashboard",
+    "description": "An admin can sign in and review summary statistics on the admin dashboard.",
+    "category": "Admin Review and Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the admin dashboard area"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify submission summary statistics are displayed"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC016",
+    "title": "Update an existing user account",
+    "description": "An admin can edit an existing user account and see the changes reflected after saving.",
+    "category": "User Account Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open user account management"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing account for editing"
+      },
+      {
+        "type": "action",
+        "description": "Change the account name"
+      },
+      {
+        "type": "action",
+        "description": "Save the account changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated account appears in the account list"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC017",
+    "title": "Open a submission for administrative review",
+    "description": "An administrator can inspect a submitted PKM proposal from the submission review list and view its details for processing.",
+    "category": "PKM Submission Review",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/pengajuan"
+      },
+      {
+        "type": "action",
+        "description": "Open a PKM submission from the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the selected submission details are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the review view exposes the proposal information needed for processing"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC018",
+    "title": "Add a lecturer or staff record",
+    "description": "An administrator can create a new lecturer or staff record and see it appear in the employee list.",
+    "category": "Lecturer and Staff Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/pegawai"
+      },
+      {
+        "type": "action",
+        "description": "Start adding a new employee record"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the employee identity fields with valid lecturer or staff details"
+      },
+      {
+        "type": "action",
+        "description": "Save the employee record"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the new employee record is displayed in the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC019",
+    "title": "Keep required proposal fields from submitting incomplete data",
+    "description": "An authenticated user cannot submit a proposal when required fields are left empty and the form shows validation feedback.",
+    "category": "New PKM Proposal Submission",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /pengajuan"
+      },
+      {
+        "type": "action",
+        "description": "Submit the proposal form without completing required fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify validation errors are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the proposal is not recorded for review"
+      }
+    ],
+    "priority": "High"
+  },
+  {
+    "id": "TC020",
+    "title": "Import historical PKM data after review",
+    "description": "An administrator can preview an uploaded historical PKM Excel file and complete the import so the imported data appears in the historical data area.",
+    "category": "Historical PKM Import",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/historis"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid Excel file containing PKM records"
+      },
+      {
+        "type": "action",
+        "description": "Preview the uploaded file"
+      },
+      {
+        "type": "action",
+        "description": "Import the historical records"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the historical import completes successfully"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the imported historical data is displayed in the data area"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC021",
+    "title": "Remove a user account",
+    "description": "An admin can delete an existing user account and no longer see it in the account list afterward.",
+    "category": "User Account Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open user account management"
+      },
+      {
+        "type": "action",
+        "description": "Delete an existing account"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the deleted account is no longer shown in the account list"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC022",
+    "title": "Update an existing lecturer or staff record",
+    "description": "An administrator can edit an existing employee record and see the updated details reflected in the employee list.",
+    "category": "Lecturer and Staff Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/pegawai"
+      },
+      {
+        "type": "action",
+        "description": "Open an existing employee record for editing"
+      },
+      {
+        "type": "action",
+        "description": "Update one or more employee fields with valid values"
+      },
+      {
+        "type": "action",
+        "description": "Save the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the updated employee record is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a success confirmation is visible"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC023",
+    "title": "View current activity charts on the admin dashboard",
+    "description": "An authenticated admin can review chart-based activity summaries on the dashboard for monitoring PKM progress.",
+    "category": "Admin Dashboard",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify activity charts are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify current PKM progress data is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC024",
+    "title": "Preview an Excel import of historical PKM data",
+    "description": "An administrator can select a valid historical PKM Excel file and preview the parsed records before importing them.",
+    "category": "Historical PKM Import",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/historis"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid Excel file containing PKM records"
+      },
+      {
+        "type": "action",
+        "description": "Preview the uploaded file"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the parsed historical records are displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the detected columns or field matches are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC025",
+    "title": "View the user account list",
+    "description": "An admin can open the user account management page and see the existing account list.",
+    "category": "User Account Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open user account management"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the account list is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC026",
+    "title": "Import historical PKM data from Excel",
+    "description": "An admin can preview imported historical data and complete an Excel import workflow in the historical data page.",
+    "category": "Admin Historical Import",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the historical data import area"
+      },
+      {
+        "type": "action",
+        "description": "Upload a valid Excel file with historical PKM data"
+      },
+      {
+        "type": "action",
+        "description": "Preview the parsed import data"
+      },
+      {
+        "type": "action",
+        "description": "Complete the import"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the imported historical records are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC027",
+    "title": "Review recognized names in a historical import preview",
+    "description": "An administrator can preview historical PKM data and confirm that matching lecturer or staff names are detected for import.",
+    "category": "Historical PKM Import",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/historis"
+      },
+      {
+        "type": "action",
+        "description": "Select a valid Excel file containing PKM records"
+      },
+      {
+        "type": "action",
+        "description": "Preview the uploaded file"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify matched names are shown in the preview"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify unmatched or ambiguous rows are clearly identified if present"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC028",
+    "title": "See an empty status view with no related proposals",
+    "description": "An authenticated user with no linked proposals can open the status page and see an empty state instead of proposal records.",
+    "category": "Submission Status Tracking",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}} and {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /cek-status"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no related PKM proposals are displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC029",
+    "title": "Prevent saving a user account with missing required details",
+    "description": "An admin sees validation feedback when trying to save a new user account without required information.",
+    "category": "User Account Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open user account management"
+      },
+      {
+        "type": "action",
+        "description": "Start adding a new account"
+      },
+      {
+        "type": "action",
+        "description": "Leave a required account field empty"
+      },
+      {
+        "type": "action",
+        "description": "Save the new account"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify a validation error is displayed"
+      }
+    ],
+    "priority": "Medium"
+  },
+  {
+    "id": "TC030",
+    "title": "See when a lecturer NIP is not recognized",
+    "description": "A visitor entering an unrecognized NIP can see that the NIP is not accepted and cannot continue to login or registration.",
+    "category": "Lecturer NIP Verification Login",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login/dosen"
+      },
+      {
+        "type": "action",
+        "description": "Fill in an unrecognized NIP into the NIP field"
+      },
+      {
+        "type": "action",
+        "description": "Verify the NIP"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an unrecognized NIP message is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the password login form is not shown"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC031",
+    "title": "See an empty submission review list when no proposals are available",
+    "description": "An administrator can open the submission review page and see a clear empty state when there are no PKM submissions to review.",
+    "category": "PKM Submission Review",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/pengajuan"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify an empty state message is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no submission rows are shown"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC032",
+    "title": "Keep the account list open after cancelling changes",
+    "description": "An admin can abandon account creation or editing and return to the account list without saving changes.",
+    "category": "User Account Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Click the link to open user account management"
+      },
+      {
+        "type": "action",
+        "description": "Start adding or editing an account"
+      },
+      {
+        "type": "action",
+        "description": "Cancel the change"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the account list is displayed"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC033",
+    "title": "See the employee management page in an empty state",
+    "description": "An administrator can open the employee management page and see the list area ready for record management.",
+    "category": "Lecturer and Staff Management",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/pegawai"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the employee management workspace is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the employee list area is visible"
+      }
+    ],
+    "priority": "Low"
+  },
+  {
+    "id": "TC034",
+    "title": "See the historical import page in an empty state",
+    "description": "An administrator can open the historical import page without selecting a file and see the import area ready for use.",
+    "category": "Historical PKM Import",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin username field with {{LOGIN_USER}}"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the admin password field with {{LOGIN_PASSWORD}}"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to /admin/historis"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the historical import workspace is displayed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the file upload or preview area is empty"
+      }
+    ],
+    "priority": "Low"
+  }
+]

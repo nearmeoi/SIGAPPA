@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import React from 'react';
+import { router, usePage, Deferred } from '@inertiajs/react';
 import AdminLayout from '../../Layouts/AdminLayout';
 import {
     FileText,
@@ -15,9 +15,11 @@ import {
     ArrowRight,
     UserCheck,
 } from 'lucide-react';
-import PkmMapDashboardCard from '../../Components/PkmMapDashboardCard';
+import PkmMapDashboardCard from '@/Components/map/PkmMapDashboardCard';
 import { PkmData } from '../../types';
 import '../../../css/landing.css';
+import { Skeleton } from '@/Components/ui/Skeleton';
+import { SkeletonChart } from '@/Components/ui/SkeletonChart';
 
 interface DashboardProps {
     stats: {
@@ -33,10 +35,10 @@ interface DashboardProps {
         aktivitasBerjalan: number;
         aktivitasSelesai: number;
     };
-    recentPengajuan: any[];
-    pkmMapData: any[];
-    pieChartData: any[];
-    barChartData: any;
+    recentPengajuan?: any[];
+    pkmMapData?: any[];
+    pieChartData?: any[];
+    barChartData?: any;
 }
 
 export default function Dashboard({
@@ -58,24 +60,6 @@ export default function Dashboard({
 }: DashboardProps) {
     const { auth }: any = usePage().props;
     const isDirektur = auth.user.role === 'direktur';
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    if (!isMounted) {
-        return (
-            <AdminLayout title="Overview">
-                <div className="flex min-h-[240px] items-center justify-center">
-                    <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-poltekpar-primary" />
-                        <span className="text-sm font-semibold text-slate-600">Memuat dashboard</span>
-                    </div>
-                </div>
-            </AdminLayout>
-        );
-    }
 
     const pengajuanCards = [
         { label: 'Pengajuan', value: stats.pengajuanBaru, icon: FileText, color: 'text-poltekpar-primary', bg: 'bg-poltekpar-primary/10', iconBg: 'bg-poltekpar-primary', trend: 'Membutuhkan tindakan', filter: 'pengajuan' },
@@ -107,7 +91,7 @@ export default function Dashboard({
         router.get(url, params, { preserveState: true });
     };
 
-    const pkmData = pkmMapData.map((pkm: any) => ({
+    const pkmData = pkmMapData ? pkmMapData.map((pkm: any) => ({
         id: pkm.id,
         nama: pkm.nama,
         tahun: pkm.tahun,
@@ -130,10 +114,10 @@ export default function Dashboard({
         dokumentasi: pkm.dokumentasi || null,
         tambahan: pkm.tambahan || [],
         lokasi_tambahan: pkm.lokasi_tambahan || [],
-    }));
+    })) : [];
 
     return (
-        <AdminLayout title="System Overview">
+        <div className="space-y-6 lg:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Direktur Notification Banner */}
             {isDirektur && stats.pengajuanDiajukan > 0 && (
                 <div className="mb-8 relative overflow-hidden group">
@@ -160,45 +144,53 @@ export default function Dashboard({
                     </div>
 
                     <div className="relative z-10 px-6 pb-8 sm:px-10 pt-2">
-                        <div className="flex flex-col gap-3">
-                            {recentPengajuan.slice(0, 3).map((item: any) => (
-                                <button
-                                    key={item.id_pengajuan}
-                                    onClick={() => router.visit(`/admin/pengajuan/${item.id_pengajuan}`)}
-                                    className="w-full bg-white hover:bg-slate-50 rounded-xl p-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-black/10 flex items-center justify-between group/card"
-                                >
-                                    <div className="flex-1 min-w-0 pr-4">
-                                        <div className="text-slate-900 font-black text-sm sm:text-[15px] group-hover/card:text-poltekpar-primary transition-colors truncate">
-                                            {item.judul_kegiatan}
-                                        </div>
-                                        <div className="text-slate-500 text-[11px] sm:text-[12px] mt-1 flex items-center gap-2 font-medium">
-                                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{item.jenis_pkm?.nama_jenis || 'PKM'}</span>
-                                            <span>{item.nama_pengusul}</span>
-                                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                            <span>{item.created_at}</span>
-                                        </div>
-                                    </div>
-                                    <div className="shrink-0 bg-poltekpar-primary opacity-90 text-white text-[11px] font-black px-4 py-2 rounded-lg flex items-center gap-2 group-hover/card:opacity-100 group-hover/card:shadow-lg shadow-poltekpar-primary/20 transition-all">
-                                        Tinjau <ArrowRight size={14} className="hidden sm:block" />
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-
-                        {stats.pengajuanDiajukan > 3 && (
-                            <button
-                                onClick={() => handleCardClick('pengajuan', 'diajukan')}
-                                className="mt-4 w-full py-3 bg-white text-poltekpar-primary hover:bg-slate-50 rounded-xl text-[12px] font-black tracking-widest uppercase transition-all flex flex-col sm:flex-row items-center justify-center gap-2 shadow-md shadow-black/5"
-                            >
-                                <span>Lihat {stats.pengajuanDiajukan - 3} Pengajuan Lainnya</span>
-                                <ArrowRight size={14} />
-                            </button>
-                        )}
-                        {stats.pengajuanDiajukan <= 3 && recentPengajuan.length === 0 && (
-                            <div className="py-4 text-white/50 text-center text-sm font-medium">
-                                Data belum ada.
+                        <Deferred data="recentPengajuan" fallback={
+                            <div className="flex flex-col gap-3">
+                                <Skeleton className="h-[72px] w-full rounded-xl" />
+                                <Skeleton className="h-[72px] w-full rounded-xl" />
+                                <Skeleton className="h-[72px] w-full rounded-xl" />
                             </div>
-                        )}
+                        }>
+                            <div className="flex flex-col gap-3">
+                                {recentPengajuan?.slice(0, 3).map((item: any) => (
+                                    <button
+                                        key={item.id_pengajuan}
+                                        onClick={() => router.visit(`/admin/pengajuan/${item.id_pengajuan}`)}
+                                        className="w-full bg-white hover:bg-slate-50 rounded-xl p-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-black/10 flex items-center justify-between group/card"
+                                    >
+                                        <div className="flex-1 min-w-0 pr-4">
+                                            <div className="text-slate-900 font-black text-sm sm:text-[15px] group-hover/card:text-poltekpar-primary transition-colors truncate">
+                                                {item.judul_kegiatan}
+                                            </div>
+                                            <div className="text-slate-500 text-[11px] sm:text-[12px] mt-1 flex items-center gap-2 font-medium">
+                                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{item.jenis_pkm?.nama_jenis || 'PKM'}</span>
+                                                <span>{item.nama_pengusul}</span>
+                                                <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                                <span>{item.created_at}</span>
+                                            </div>
+                                        </div>
+                                        <div className="shrink-0 bg-poltekpar-primary opacity-90 text-white text-[11px] font-black px-4 py-2 rounded-lg flex items-center gap-2 group-hover/card:opacity-100 group-hover/card:shadow-lg shadow-poltekpar-primary/20 transition-all">
+                                            Tinjau <ArrowRight size={14} className="hidden sm:block" />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {stats.pengajuanDiajukan > 3 && (
+                                <button
+                                    onClick={() => handleCardClick('pengajuan', 'diajukan')}
+                                    className="mt-4 w-full py-3 bg-white text-poltekpar-primary hover:bg-slate-50 rounded-xl text-[12px] font-black tracking-widest uppercase transition-all flex flex-col sm:flex-row items-center justify-center gap-2 shadow-md shadow-black/5"
+                                >
+                                    <span>Lihat {stats.pengajuanDiajukan - 3} Pengajuan Lainnya</span>
+                                    <ArrowRight size={14} />
+                                </button>
+                            )}
+                            {stats.pengajuanDiajukan <= 3 && recentPengajuan?.length === 0 && (
+                                <div className="py-4 text-white/50 text-center text-sm font-medium">
+                                    Data belum ada.
+                                </div>
+                            )}
+                        </Deferred>
                     </div>
                 </div>
             )}
@@ -267,6 +259,8 @@ export default function Dashboard({
 
             {/* Map + Chart */}
             <PkmMapDashboardCard pkmData={pkmData} watchKey="admin-map" isAdmin={true} />
-        </AdminLayout>
+        </div>
     );
 }
+
+Dashboard.layout = (page: React.ReactNode) => <AdminLayout title="System Overview">{page}</AdminLayout>;

@@ -3,11 +3,12 @@ import { router } from '@inertiajs/react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import FormHistoris from '../../../Components/FormHistoris';
-import Toast from '../../../Components/Toast';
+import FormHistoris from '@/Components/pkm/FormHistoris';
+import Toast from '@/Components/ui/Toast';
 import { Upload, Download, FileSpreadsheet, Eye, Save, Loader2, ArrowLeft, History, Edit, CheckSquare, Square, X, MapPin, MapPinOff } from 'lucide-react';
+import { formatRupiah } from '@/utils/formatters';
 
-export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
+function HistorisIndex({ listPegawai, listJenisPkm }: any) {
     const [activeTab, setActiveTab] = useState<'manual' | 'excel'>('manual');
     const [toastInfo, setToastInfo] = useState<{show: boolean, type: 'success'|'error', msg: string}>({show: false, type: 'success', msg: ''});
 
@@ -66,11 +67,9 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
         formData.append('file_xlsx', file);
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             const response = await axios.post('/admin/historis/preview', formData, {
                 headers: { 
                     'Content-Type': 'multipart/form-data',
-                    'X-CSRF-TOKEN': csrfToken || ''
                 }
             });
             const rows = response.data.data;
@@ -164,7 +163,7 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
     const rowsWithoutCoordinates = previewData.length - rowsWithCoordinates;
 
     return (
-        <AdminLayout title="Kelola Data Historis">
+        <>
             <Toast show={toastInfo.show} type={toastInfo.type} title={toastInfo.type === 'success' ? 'Berhasil' : 'Gagal'} message={toastInfo.msg} onClose={() => setToastInfo({...toastInfo, show: false})} />
 
             {!previewMode && (
@@ -175,16 +174,16 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                     </div>
 
                     {activeTab === 'manual' && (
-                        <form onSubmit={submitManual} className="max-w-4xl space-y-6 pb-20">
+                        <form onSubmit={submitManual} className="w-full space-y-6 pb-20">
                             <FormHistoris data={manualData} setData={setManualData} listPegawai={listPegawai} listJenisPkm={listJenisPkm} />
-                            <div className="flex justify-end gap-3 sticky bottom-6 z-20">
-                                <button type="submit" className="px-8 py-3 rounded-xl bg-poltekpar-navy hover:bg-poltekpar-primary text-white font-black text-[14px] shadow-lg shadow-poltekpar-navy/20 flex items-center gap-2"><Save size={18}/> Kirim Data Ke Database</button>
+                            <div className="sticky bottom-6 z-20 w-full">
+                                <button type="submit" className="w-full justify-center px-8 py-4 rounded-xl bg-poltekpar-navy hover:bg-poltekpar-primary text-white font-black text-[15px] shadow-lg shadow-poltekpar-navy/20 flex items-center gap-3 transition-all"><Save size={20}/> Kirim Data Ke Database</button>
                             </div>
                         </form>
                     )}
 
                     {activeTab === 'excel' && (
-                        <div className="max-w-4xl space-y-6">
+                        <div className="w-full space-y-6">
                             <div className="bg-gradient-to-br from-indigo-900 to-poltekpar-navy text-white rounded-2xl p-8 shadow-lg flex flex-col md:flex-row justify-between items-center gap-6">
                                 <div>
                                     <h2 className="text-[20px] font-black tracking-tight mb-2 flex items-center gap-2"><History /> Hub Import Historis</h2>
@@ -296,7 +295,7 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                                             <span className="bg-zinc-100 px-2 py-0.5 rounded text-[11px] font-bold text-zinc-600">{row.is_tahun_saja ? (row.tgl_mulai ? (new Date(row.tgl_mulai).getFullYear()) : 'Tanpa Tahun') : (row.tgl_mulai || 'Kosong')}</span>
                                         </td>
                                         <td className="py-3 px-4">
-                                            <div className="text-[12px] text-emerald-600 font-bold">{row.total_anggaran > 0 ? `Rp ${row.total_anggaran.toLocaleString('id-ID')}` : '-'}</div>
+                                            <div className="text-[12px] text-emerald-600 font-bold">{row.total_anggaran > 0 ? formatRupiah(row.total_anggaran) : '-'}</div>
                                         </td>
                                         <td className="py-3 px-4">
                                             <button onClick={(e) => openEditModal(idx, e)} className="mx-auto flex items-center justify-center w-8 h-8 rounded bg-white border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 transition-colors shadow-sm">
@@ -350,6 +349,10 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                     </div>
                 </div>
             )}
-        </AdminLayout>
+        </>
     );
 }
+
+HistorisIndex.layout = (page: React.ReactNode) => <AdminLayout title="Kelola Data Historis">{page}</AdminLayout>;
+
+export default HistorisIndex;

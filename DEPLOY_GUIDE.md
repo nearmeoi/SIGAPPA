@@ -1,4 +1,4 @@
-# 🚀 Panduan Deployment SIGAPPA (VPS & CI/CD)
+# Panduan Deployment SIGAPPA (VPS & CI/CD)
 
 Dokumen ini menjelaskan cara melakukan pembaruan kode (push) ke VPS agar perubahan tampilan (frontend) dan logika (backend) muncul dengan benar.
 

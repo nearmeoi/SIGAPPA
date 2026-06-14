@@ -14,12 +14,20 @@ class PegawaiController extends Controller
 {
     public function index(Request $request)
     {
-        $listPegawai = Pegawai::with('user')
+        $status = $request->status ?? 'active';
+        $sortField = $request->get('sort', 'created_at');
+        $sortDir = $request->get('direction', 'desc');
+
+        $listPegawai = Pegawai::when($status === 'all', fn($q) => $q->withTrashed())
+            ->when($status === 'deleted', fn($q) => $q->onlyTrashed())
+            ->with('user')
             ->when($request->search, function ($query, $search) {
-                $query->where('nama_pegawai', 'like', '%'.addcslashes($search, '\\%_').'%')
-                    ->orWhere('nip', 'like', '%'.addcslashes($search, '\\%_').'%');
+                $query->where(function ($q) use ($search) {
+                    $q->where('nama_pegawai', 'like', '%'.addcslashes($search, '\\%_').'%')
+                      ->orWhere('nip', 'like', '%'.addcslashes($search, '\\%_').'%');
+                });
             })
-            ->latest()
+            ->orderBy($sortField, $sortDir)
             ->paginate(20)
             ->through(fn($p) => [
                 'id_pegawai' => $p->id_pegawai,
@@ -28,6 +36,7 @@ class PegawaiController extends Controller
                 'nama_pegawai' => $p->nama_pegawai,
                 'jabatan' => $p->jabatan,
                 'posisi' => $p->posisi,
+                'deleted_at' => $p->deleted_at,
                 'user' => $p->user ? [
                     'id_user' => $p->user->id_user,
                     'name' => $p->user->name,
@@ -38,7 +47,10 @@ class PegawaiController extends Controller
 
         return Inertia::render('Admin/Pegawai/Index', [
             'listPegawai' => $listPegawai,
-            'filters' => ['search' => $request->search ?? ''],
+            'filters' => [
+                'search' => $request->search ?? '',
+                'status' => $status,
+            ],
         ]);
     }
 
@@ -59,7 +71,7 @@ class PegawaiController extends Controller
         return redirect()->back()->with('success', 'Pegawai berhasil ditambahkan.');
     }
 
-    public function update(Request $request, int $id)
+    public function update(Request $request, $id)
     {
         $request->validate([
             'id_user' => 'nullable|exists:users,id_user',
@@ -77,11 +89,19 @@ class PegawaiController extends Controller
         return redirect()->back()->with('success', 'Pegawai berhasil diperbarui.');
     }
 
-    public function destroy(int $id)
+    public function destroy($id)
     {
         Pegawai::findOrFail($id)->delete();
 
         return redirect()->back()->with('success', 'Pegawai berhasil dihapus.');
+    }
+
+    public function restore($id)
+    {
+        $pegawai = Pegawai::withTrashed()->findOrFail($id);
+        $pegawai->restore();
+
+        return redirect()->back()->with('success', 'Data pegawai berhasil dipulihkan.');
     }
 
     public function bulkDestroy(Request $request)
@@ -114,6 +134,38 @@ class PegawaiController extends Controller
         Pegawai::whereIn('id_pegawai', $request->ids)->delete();
 
         return redirect()->back()->with('success', count($request->ids) . ' pegawai berhasil dihapus massal.');
+    }
+
+    public function bulkRestore(Request $request)
+    {
+        $request->validate([
+            'ids' => 'nullable|array',
+            'ids.*' => 'integer|exists:pegawai,id_pegawai',
+            'all' => 'nullable|boolean',
+            'search' => 'nullable|string',
+        ]);
+
+        if ($request->all) {
+            $query = Pegawai::onlyTrashed();
+            if ($request->search) {
+                $query->where(function($q) use ($request) {
+                    $search = addcslashes($request->search, '\\%_');
+                    $q->where('nama_pegawai', 'like', "%{$search}%")
+                      ->orWhere('nip', 'like', "%{$search}%");
+                });
+            }
+            $count = $query->count();
+            $query->restore();
+            return redirect()->back()->with('success', "{$count} semua data pegawai berhasil dipulihkan.");
+        }
+
+        if (!$request->ids || count($request->ids) === 0) {
+            return redirect()->back()->with('error', 'Tidak ada data yang dipilih.');
+        }
+
+        Pegawai::onlyTrashed()->whereIn('id_pegawai', $request->ids)->restore();
+
+        return redirect()->back()->with('success', count($request->ids) . ' pegawai berhasil dipulihkan massal.');
     }
 
     public function import(Request $request)
@@ -220,5 +272,15 @@ class PegawaiController extends Controller
         }
 
         return redirect()->back()->with('success', "Berhasil mengimpor {$count} data pegawai.");
+    }
+
+    public function options()
+    {
+        $pegawai = Pegawai::select('nama_pegawai', 'jabatan')->get();
+
+        return response()->json([
+            'dosen' => $pegawai->filter(fn($p) => stripos($p->jabatan, 'dosen') !== false)->pluck('nama_pegawai')->values(),
+            'staff' => $pegawai->filter(fn($p) => stripos($p->jabatan, 'dosen') === false)->pluck('nama_pegawai')->values(),
+        ]);
     }
 }

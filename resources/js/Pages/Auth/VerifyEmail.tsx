@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import ActionFeedbackDialog from '@/Components/ActionFeedbackDialog';
+import ActionFeedbackDialog from '@/Components/ui/ActionFeedbackDialog';
 import type { PageProps } from '@/types';
 
 import '../../../css/login.css';
@@ -10,7 +10,7 @@ interface VerifyEmailProps {
     status?: string;
 }
 
-export default function VerifyEmail({ status }: VerifyEmailProps): JSX.Element {
+export default function VerifyEmail({ status }: VerifyEmailProps): React.ReactNode {
     const { props } = usePage<PageProps & { flash?: { success?: string | null; error?: string | null } }>();
     const flash = props.flash ?? {};
     const authUser = props.auth?.user ?? null;

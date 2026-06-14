@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import ConfirmDialog from '../../../Components/ConfirmDialog';
-import Pagination from '../../../Components/Pagination';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import Pagination from '@/Components/ui/Pagination';
 import { Users, Plus, Edit, Trash2, Search, Activity, X, Eye, EyeOff, Check } from 'lucide-react';
-import BulkActionBar, { CheckboxCell, CheckboxHeader } from '../../../Components/BulkActionBar';
+import BulkActionBar, { CheckboxCell, CheckboxHeader } from '@/Components/ui/BulkActionBar';
+import type { PaginatedData } from '../../../types';
 
-interface User {
+interface AdminUser {
     id_user: number;
     name: string;
     email: string;
@@ -14,24 +15,19 @@ interface User {
     created_at?: string;
 }
 
-interface PaginatedData {
-    data: User[];
-    current_page: number;
-    last_page: number;
-    total: number;
-}
-
 interface Props {
-    users: PaginatedData;
+    users: PaginatedData<AdminUser>;
     filters: {
         search: string;
     };
-    errors: any;
+    errors: Record<string, string>;
 }
 
 const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
-    const data = users.data || [];
+    const data: AdminUser[] = users.data || [];
     const [search, setSearch] = useState(filters.search || '');
+    const [sortField, setSortField] = useState('created_at');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [modalOpen, setModalOpen] = useState(false);
     const [editId, setEditId] = useState<number | null>(null);
     const [form, setForm] = useState({ name: '', email: '', password: '', role: 'masyarakat', nip: '', force_create_pegawai: false });
@@ -45,11 +41,19 @@ const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
     useEffect(() => {
         const timer = setTimeout(() => {
             if (search !== filters.search) {
-                router.get('/admin/users', { search }, { preserveState: true, replace: true });
+                router.get('/admin/users', { search, sort: sortField, direction: sortDir }, { preserveState: true, replace: true });
             }
         }, 300);
         return () => clearTimeout(timer);
     }, [search]);
+
+    const handleSort = (field: string) => {
+        const isAsc = sortField === field && sortDir === 'asc';
+        const newDir = isAsc ? 'desc' : 'asc';
+        setSortField(field);
+        setSortDir(newDir);
+        router.get('/admin/users', { search, sort: field, direction: newDir }, { preserveState: true, replace: true });
+    };
 
     const openCreate = () => {
         setEditId(null);
@@ -58,7 +62,7 @@ const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
         setModalOpen(true);
     };
 
-    const openEdit = (user: User) => {
+    const openEdit = (user: AdminUser) => {
         setEditId(user.id_user);
         setForm({ name: user.name, email: user.email, password: '', role: user.role, nip: '', force_create_pegawai: false });
         setShowPassword(false);
@@ -157,11 +161,11 @@ const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
     };
 
     return (
-        <AdminLayout title="">
+        <>
             <div className="flex justify-between items-start mb-8">
                 <div>
                     <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Manajemen User</h1>
-                    <p className="text-zinc-500 text-[14px] mt-1">Kelola pengguna SIGAP P3M.</p>
+                    <p className="text-zinc-500 text-[14px] mt-1">Kelola pengguna SIGAPPA P3M.</p>
                 </div>
                 <button onClick={openCreate}
                     className="flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-medium text-white shadow-sm transition-colors bg-zinc-900 hover:bg-zinc-800">
@@ -204,9 +208,15 @@ const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
                         <thead>
                             <tr className="border-b border-zinc-200">
                                 <CheckboxHeader allChecked={allChecked} onToggleAll={toggleAll} />
-                                <th className="py-3 px-6 text-zinc-500 text-[11px] font-semibold uppercase tracking-wider">User</th>
-                                <th className="py-3 px-6 text-zinc-500 text-[11px] font-semibold uppercase tracking-wider">Role</th>
-                                <th className="py-3 px-6 text-zinc-500 text-[11px] font-semibold uppercase tracking-wider">Tanggal Dibuat</th>
+                                <th className="py-3 px-6 text-zinc-500 text-[11px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('name')}>
+                                    User {sortField === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th className="py-3 px-6 text-zinc-500 text-[11px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('role')}>
+                                    Role {sortField === 'role' && (sortDir === 'asc' ? '↑' : '↓')}
+                                </th>
+                                <th className="py-3 px-6 text-zinc-500 text-[11px] font-semibold uppercase tracking-wider cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('created_at')}>
+                                    Tanggal Dibuat {sortField === 'created_at' && (sortDir === 'asc' ? '↑' : '↓')}
+                                </th>
                                 <th className="py-3 px-6 text-right w-20"></th>
                             </tr>
                         </thead>
@@ -347,8 +357,11 @@ const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
             )}
 
             <ConfirmDialog open={deleteTarget !== null} title="Hapus Akun Pengguna" message="Akun ini akan dihapus. Bila direlasikan, mungkin akan menggagalkan akses ke pengajuan historis miliknya. Lanjutkan?" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} variant="danger" />
-        </AdminLayout>
+        </>
     );
 };
+
+
+ManajemenUser.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 
 export default ManajemenUser;

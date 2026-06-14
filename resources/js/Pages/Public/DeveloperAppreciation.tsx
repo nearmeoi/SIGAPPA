@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Users, Camera, Sparkles, ExternalLink, Github, Linkedin, Mail } from 'lucide-react';
+import { ArrowLeft, Users, Camera, Sparkles, ExternalLink } from 'lucide-react';
 import DefaultLayout from '@/Layouts/DefaultLayout';
 import '@/../css/developer-appreciation.css';
 

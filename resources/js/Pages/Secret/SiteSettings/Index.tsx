@@ -9,7 +9,7 @@ interface Props {
     };
 }
 
-export default function SiteSettings({ settings }: Props) {
+function SiteSettings({ settings }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         visitor_count_offset: settings.visitor_count_offset,
     });
@@ -20,7 +20,7 @@ export default function SiteSettings({ settings }: Props) {
     };
 
     return (
-        <AdminLayout title="Pengaturan Situs">
+        <>
             <Head title="Pengaturan Situs - Secret Area" />
 
             <div className="max-w-2xl">
@@ -74,6 +74,10 @@ export default function SiteSettings({ settings }: Props) {
                     </form>
                 </div>
             </div>
-        </AdminLayout>
+        </>
     );
 }
+
+SiteSettings.layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Situs">{page}</AdminLayout>;
+
+export default SiteSettings;

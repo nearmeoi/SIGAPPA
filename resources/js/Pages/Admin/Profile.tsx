@@ -12,11 +12,11 @@ interface Props {
     };
 }
 
-export default function Profile({ user }: Props) {
+function Profile({ user }: Props) {
     const initial = user.name?.charAt(0)?.toUpperCase() || 'A';
 
     return (
-        <AdminLayout title="Pengaturan Akun">
+        <>
             <div className="max-w-lg">
                 <div className="flex items-center gap-3 mb-8">
                     <Link href="/admin" className="w-9 h-9 flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-sm">
@@ -87,6 +87,10 @@ export default function Profile({ user }: Props) {
                     </div>
                 </div>
             </div>
-        </AdminLayout>
+        </>
     );
 }
+
+Profile.layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Akun">{page}</AdminLayout>;
+
+export default Profile;

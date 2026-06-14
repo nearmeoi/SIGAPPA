@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { Head, router, usePage } from "@inertiajs/react";
 import AdminLayout from "@/Layouts/AdminLayout";
-import ConfirmDialog from "@/Components/ConfirmDialog";
+import ConfirmDialog from "@/Components/ui/ConfirmDialog";
 import { PageProps } from "@/types";
 import { Trash2, Star, Eye, X, Calendar } from "lucide-react";
 import BulkActionBar, {
   CheckboxCell,
   CheckboxHeader,
-} from "@/Components/BulkActionBar";
+} from "@/Components/ui/BulkActionBar";
 
 interface EvaluasiSistem {
   id_evaluasi: number;
@@ -23,7 +23,7 @@ interface EvaluasiSistem {
   created_at: string;
 }
 
-export default function EvaluasiSistemIndex({ auth, evaluasi }: any) {
+function EvaluasiSistemIndex({ auth, evaluasi }: any) {
   const { props } = usePage();
   const isSuperadmin = (props as any).auth?.user?.role === 'superadmin';
 
@@ -79,7 +79,7 @@ export default function EvaluasiSistemIndex({ auth, evaluasi }: any) {
   };
 
   return (
-    <AdminLayout title="Supervisi Feedback">
+    <>
       <Head title="Supervisi Feedback" />
 
       <div className="flex justify-between items-center mb-6">
@@ -408,6 +408,10 @@ export default function EvaluasiSistemIndex({ auth, evaluasi }: any) {
         onCancel={() => setDeleteId(null)}
         variant="danger"
       />
-    </AdminLayout>
+    </>
   );
 }
+
+EvaluasiSistemIndex.layout = (page: React.ReactNode) => <AdminLayout title="Supervisi Feedback">{page}</AdminLayout>;
+
+export default EvaluasiSistemIndex;

@@ -23,25 +23,51 @@ class LandingController extends Controller
         return Inertia::render('Welcome');
     }
 
+    public function panduan()
+    {
+        $panduan = \App\Models\TemplateDokumen::where('jenis', 'panduan')->first();
+        $pdfUrl = $panduan && \Illuminate\Support\Facades\Storage::disk('public')->exists($panduan->file_path)
+            ? '/storage/' . $panduan->file_path
+            : '/panduan_penggunaan.pdf';
+
+        return Inertia::render('Panduan', ['pdfUrl' => $pdfUrl]);
+    }
+
+    public function showEvaluasi()
+    {
+        return Inertia::render('Public/Evaluasi');
+    }
+
+    public function developerCrew()
+    {
+        $developers = \App\Models\DeveloperAppreciation::orderBy('urutan')->get();
+        $docs = \App\Models\DeveloperDocumentation::orderBy('urutan')->get();
+
+        return Inertia::render('Public/DeveloperAppreciation', [
+            'developers' => $developers,
+            'docs' => $docs,
+        ]);
+    }
+
     public function index()
     {
         // Log kunjungan baru
         SiteSetting::logVisit(request()->ip(), request()->userAgent(), request()->path());
 
         // Peta PKM publik: hanya yang sudah diterima/selesai dan memiliki koordinat
-        $pkmData = Pengajuan::with(['aktivitas.testimoni', 'aktivitas.arsip', 'timKegiatan.pegawai', 'jenisPkm'])
+        $pkmData = Pengajuan::with(['aktivitas.testimoni', 'aktivitas.arsip', 'aktivitas.timKegiatan.pegawai', 'aktivitas.jenisPkm'])
             ->whereNotNull('latitude')
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id_pengajuan,
-                'nama' => $p->judul_kegiatan,
-                'tahun' => $p->aktivitas?->tgl_realisasi_mulai?->year ?? $p->tgl_mulai?->year ?? $p->created_at?->year ?? date('Y'),
-                'jenis_pkm' => $p->jenisPkm?->nama_jenis ?? '',
-                'warna_icon' => $p->jenisPkm?->warna_icon ?? '',
-                'deskripsi_jenis' => $p->jenisPkm?->deskripsi ?? '',
-                'status' => $p->aktivitas
-                    ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
-                        : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
+                'nama' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),
+                'tahun' => $p->aktivitas?->first()?->tgl_realisasi_mulai?->year ?? $p->created_at?->year ?? date('Y'),
+                'jenis_pkm' => $p->aktivitas->first()?->jenisPkm->first()?->nama_jenis ?? '',
+                'warna_icon' => $p->aktivitas->first()?->jenisPkm->first()?->warna_icon ?? '',
+                'deskripsi_jenis' => $p->aktivitas->first()?->jenisPkm->first()?->deskripsi ?? '',
+                'status' => $p->aktivitas->first()
+                    ? ($p->aktivitas->first()->status_pelaksanaan === 'selesai' ? 'selesai'
+                        : ($p->aktivitas->first()->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
                     : (match ($p->status_pengajuan) {
                         'diproses' => 'ada_pengajuan',
                         'direvisi' => 'direvisi',
@@ -49,7 +75,7 @@ class LandingController extends Controller
                     }),
                 'is_review' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'diterima']) && $p->admin_read_at !== null,
                 'deskripsi' => $p->kebutuhan ?? '',
-                'thumbnail' => $p->aktivitas?->url_thumbnail ?? '',
+                'thumbnail' => $p->aktivitas->first()?->url_thumbnail ?? '',
                 'provinsi' => $p->provinsi ?? '',
                 'kabupaten' => $p->kota_kabupaten ?? '',
                 'kecamatan' => $p->kecamatan ?? '',
@@ -57,19 +83,19 @@ class LandingController extends Controller
                 'lat' => (float) ($p->latitude ?? 0),
                 'lng' => (float) ($p->longitude ?? 0),
                 'lokasi_tambahan' => is_string($p->lokasi_tambahan) ? json_decode($p->lokasi_tambahan, true) : (is_array($p->lokasi_tambahan) ? $p->lokasi_tambahan : []),
-                'total_anggaran' => $p->total_anggaran ?? 0,
-                'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
+                'total_anggaran' => (float) ($p->aktivitas->sum('total_anggaran') ?? 0),
+                'tim_kegiatan' => $p->aktivitas->flatMap(fn($a) => $a->timKegiatan)->map(fn($t) => [
                     'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
                     'peran' => $t->peran_tim,
-                ])->toArray(),
-                'testimoni' => $p->aktivitas ? $p->aktivitas->testimoni->map(fn($testimoni) => [
+                ])->unique('nama')->values()->toArray(),
+                'testimoni' => $p->aktivitas->flatMap(fn($a) => $a->testimoni)->map(fn($testimoni) => [
                     'nama_pemberi' => $testimoni->nama_pemberi,
                     'rating' => $testimoni->rating,
                     'pesan_ulasan' => $testimoni->pesan_ulasan,
-                ])->toArray() : [],
-                'arsip_laporan' => $p->aktivitas?->arsip?->where('jenis_arsip', 'laporan_akhir')->first()?->url_dokumen ?? null,
-                'dokumentasi' => $p->aktivitas?->arsip?->where('jenis_arsip', 'foto_kegiatan')->first()?->url_dokumen ?? null,
-                'tambahan' => ($p->aktivitas?->arsip?->where('jenis_arsip', 'dokumen_lain') ?? collect())
+                ])->toArray(),
+                'arsip_laporan' => $p->aktivitas->first()?->arsip?->where('jenis_arsip', 'laporan_akhir')->first()?->url_dokumen ?? null,
+                'dokumentasi' => $p->aktivitas->first()?->arsip?->where('jenis_arsip', 'foto_kegiatan')->first()?->url_dokumen ?? null,
+                'tambahan' => ($p->aktivitas->first()?->arsip?->where('jenis_arsip', 'dokumen_lain') ?? collect())
                     ->map(fn($a) => [
                         'nama' => $a->nama_dokumen ?? 'Dokumen Lainnya',
                         'url' => $a->url_dokumen,
@@ -151,6 +177,17 @@ class LandingController extends Controller
     }
 
     /**
+     * Tampilkan halaman awal pengumpulan arsip publik.
+     */
+    public function showArsipKumpulIndex()
+    {
+        return Inertia::render('Public/PengumpulanArsip', [
+            'namaKegiatan' => 'Pengumpulan Arsip PKM',
+            'kode' => '',
+        ]);
+    }
+
+    /**
      * Tampilkan form pengumpulan arsip publik.
      */
     public function showArsipKumpul($kode)
@@ -159,7 +196,7 @@ class LandingController extends Controller
 
         return Inertia::render('Public/PengumpulanArsip', [
             'kode' => $kode,
-            'namaKegiatan' => $pengajuan->judul_kegiatan,
+            'namaKegiatan' => $pengajuan->aktivitas()->first()?->judul_pkm ?? 'Pengajuan PKM',
         ]);
     }
 
@@ -218,6 +255,17 @@ class LandingController extends Controller
     }
 
     /**
+     * Tampilkan halaman awal testimoni publik.
+     */
+    public function showTestimoniIndex()
+    {
+        return Inertia::render('Public/Testimoni', [
+            'namaKegiatan' => 'Testimoni PKM',
+            'kode' => '',
+        ]);
+    }
+
+    /**
      * Tampilkan form testimoni publik.
      */
     public function showTestimoni($kode)
@@ -226,7 +274,7 @@ class LandingController extends Controller
 
         return Inertia::render('Public/Testimoni', [
             'kode' => $kode,
-            'namaKegiatan' => $pengajuan->judul_kegiatan,
+            'namaKegiatan' => $pengajuan->aktivitas()->first()?->judul_pkm ?? 'Pengajuan PKM',
         ]);
     }
 

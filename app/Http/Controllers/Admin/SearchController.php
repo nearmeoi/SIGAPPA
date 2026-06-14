@@ -19,17 +19,17 @@ class SearchController extends Controller
     {
         $q = trim($request->input('q', ''));
 
-        $fmtPengajuan = fn ($p) => ['id' => $p->id_pengajuan, 'title' => $p->judul_kegiatan,  'subtitle' => ucfirst($p->status_pengajuan),                             'url' => '/admin/pengajuan/'.$p->id_pengajuan];
+        $fmtPengajuan = fn ($p) => ['id' => $p->id_pengajuan, 'title' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),  'subtitle' => ucfirst($p->status_pengajuan),                             'url' => '/admin/pengajuan/'.$p->id_pengajuan];
         $fmtUser = fn ($u) => ['id' => $u->id_user,      'title' => $u->name,             'subtitle' => $u->email.' ('.$u->role.')',                               'url' => '/admin/users'];
         $fmtPegawai = fn ($p) => ['id' => $p->id_pegawai,   'title' => $p->nama_pegawai,     'subtitle' => 'NIP: '.($p->nip ?? '-'),                                  'url' => '/admin/pegawai'];
-        $fmtAktivitas = fn ($a) => ['id' => $a->id_aktivitas, 'title' => $a->pengajuan?->judul_kegiatan ?? 'Aktivitas #'.$a->id_aktivitas, 'subtitle' => ucfirst($a->status_pelaksanaan), 'url' => '/admin/aktivitas/'.$a->id_aktivitas];
+        $fmtAktivitas = fn ($a) => ['id' => $a->id_aktivitas, 'title' => $a->judul_pkm ?? ('Pengajuan PKM #' . ($a->pengajuan?->id_pengajuan ?? '')), 'subtitle' => ucfirst($a->status_pelaksanaan), 'url' => '/admin/aktivitas/'.$a->id_aktivitas];
         $fmtTestimoni = fn ($t) => ['id' => $t->id_testimoni, 'title' => $t->nama_pemberi,     'subtitle' => 'Rating: '.$t->rating.'/5',                               'url' => '/admin/testimoni'];
         $fmtArsip = fn ($a) => ['id' => $a->id_arsip,     'title' => $a->nama_dokumen,     'subtitle' => $a->jenis_arsip,                                          'url' => '/admin/arsip'];
 
         // Tanpa query: tampilkan data terbaru sebagai default
         if (strlen($q) < 2) {
             return response()->json([
-                'pengajuan' => Pengajuan::latest()->limit(self::LIMIT)->get(['id_pengajuan', 'judul_kegiatan', 'status_pengajuan'])->map($fmtPengajuan),
+                'pengajuan' => Pengajuan::with('aktivitas')->latest()->limit(self::LIMIT)->get(['id_pengajuan', 'status_pengajuan'])->map($fmtPengajuan),
                 'users' => User::latest()->limit(self::LIMIT)->get(['id_user', 'name', 'email', 'role'])->map($fmtUser),
                 'pegawai' => Pegawai::latest()->limit(self::LIMIT)->get(['id_pegawai', 'nama_pegawai', 'nip'])->map($fmtPegawai),
                 'aktivitas' => Aktivitas::with('pengajuan')->latest()->limit(self::LIMIT)->get(['id_aktivitas', 'id_pengajuan', 'status_pelaksanaan'])->map($fmtAktivitas),
@@ -42,7 +42,7 @@ class SearchController extends Controller
         $like = '%'.addcslashes($q, '\\%_').'%';
 
         return response()->json([
-            'pengajuan' => Pengajuan::where('judul_kegiatan', 'like', $like)->limit(self::LIMIT)->get(['id_pengajuan', 'judul_kegiatan', 'status_pengajuan'])->map($fmtPengajuan),
+            'pengajuan' => Pengajuan::with('aktivitas')->whereHas('aktivitas', fn($q) => $q->where('judul_pkm', 'like', $like))->limit(self::LIMIT)->get(['id_pengajuan', 'status_pengajuan'])->map($fmtPengajuan),
             'users' => User::where('name', 'like', $like)->orWhere('email', 'like', $like)->limit(self::LIMIT)->get(['id_user', 'name', 'email', 'role'])->map($fmtUser),
             'pegawai' => Pegawai::where('nama_pegawai', 'like', $like)->orWhere('nip', 'like', $like)->limit(self::LIMIT)->get(['id_pegawai', 'nama_pegawai', 'nip'])->map($fmtPegawai),
             'aktivitas' => Aktivitas::with('pengajuan')->where('status_pelaksanaan', 'like', $like)->limit(self::LIMIT)->get(['id_aktivitas', 'id_pengajuan', 'status_pelaksanaan'])->map($fmtAktivitas),

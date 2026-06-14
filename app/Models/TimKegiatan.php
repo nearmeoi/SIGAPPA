@@ -14,15 +14,15 @@ class TimKegiatan extends Model
     protected $primaryKey = 'id_tim';
 
     protected $fillable = [
-        'id_pengajuan',
+        'id_aktivitas',
         'id_pegawai',
         'nama_mahasiswa',
         'peran_tim',
     ];
 
-    public function pengajuan()
+    public function aktivitas()
     {
-        return $this->belongsTo(Pengajuan::class, 'id_pengajuan', 'id_pengajuan');
+        return $this->belongsTo(Aktivitas::class, 'id_aktivitas', 'id_aktivitas');
     }
 
     public function pegawai()

@@ -5,7 +5,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-import PageLoadingScreen from './Components/PageLoadingScreen';
+import PageLoadingScreen from '@/Components/ui/PageLoadingScreen';
 
 const rawAppName = import.meta.env.VITE_APP_NAME || 'SIGAPPA';
 const appName = rawAppName.includes('${') ? 'SIGAPPA' : rawAppName;

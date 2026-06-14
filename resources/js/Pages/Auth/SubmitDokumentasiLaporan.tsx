@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import ActionFeedbackDialog from '@/Components/ActionFeedbackDialog';
+import ActionFeedbackDialog from '@/Components/ui/ActionFeedbackDialog';
 import { FeedbackDialogProps } from '@/types';
 
 import '../../../css/login.css';
@@ -23,7 +23,7 @@ interface FormData {
     linkLaporan: string;
 }
 
-export default function SubmitDokumentasiLaporan(): JSX.Element {
+export default function SubmitDokumentasiLaporan(): React.ReactNode {
     const [formData, setFormData] = useState<FormData>({
         pkmId: '',
         linkDokumentasi: '',

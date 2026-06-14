@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
-import Navbar from '@/Components/Navbar';
-import Footer from '@/Components/Footer';
-import SuccessView from '@/Components/SuccessView';
+import Navbar from '@/Components/layout/Navbar';
+import Footer from '@/Components/layout/Footer';
+import SuccessView from '@/Components/ui/SuccessView';
 
 interface Props {
     namaKegiatan?: string;

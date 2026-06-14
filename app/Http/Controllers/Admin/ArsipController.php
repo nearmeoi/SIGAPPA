@@ -15,17 +15,15 @@ class ArsipController extends Controller
         $sortDir = $request->get('direction', 'desc');
 
         $listGroupedArsip = \App\Models\Aktivitas::whereHas('arsip')
-            ->with(['pengajuan.user', 'pengajuan.jenisPkm', 'arsip'])
+            ->with(['pengajuan.user', 'jenisPkm', 'arsip'])
             ->when($request->search, function ($query, $search) {
                 $escaped = addcslashes($search, '\\%_');
                 $query->whereHas('pengajuan', function ($q) use ($escaped) {
-                    $q->where('judul_kegiatan', 'like', "%{$escaped}%");
-                });
+                    $q->where('instansi_mitra', 'like', "%{$escaped}%");
+                })->orWhere('judul_pkm', 'like', "%{$escaped}%");
             })
             ->when($sortField === 'judul_kegiatan', function ($query) use ($sortDir) {
-                // Must join visually to sort natively unless we use complicated macros. We can order by subquery instead.
-                $query->orderBy(\App\Models\Pengajuan::select('judul_kegiatan')
-                    ->whereColumn('pengajuan.id_pengajuan', 'aktivitas.id_pengajuan')->limit(1), $sortDir);
+                $query->orderBy('judul_pkm', $sortDir);
             }, function ($query) use ($sortField, $sortDir) {
                 $query->orderBy("aktivitas.{$sortField}", $sortDir);
             })
@@ -41,7 +39,7 @@ class ArsipController extends Controller
             ->map(fn($a) => [
                 'id_aktivitas' => $a->id_aktivitas,
                 'id_pengajuan' => $a->id_pengajuan,
-                'judul_kegiatan' => $a->pengajuan->judul_kegiatan ?? 'Unknown',
+                'judul_kegiatan' => $a->judul_pkm ?? ('Pengajuan PKM #' . ($a->pengajuan?->id_pengajuan ?? '')),
             ]);
 
         return Inertia::render('Admin/Arsip/Index', [

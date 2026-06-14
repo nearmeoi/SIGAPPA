@@ -216,86 +216,84 @@ Politeknik Pariwisata Makassar`;
     };
 
     return (
-        <AdminLayout title="">
+        <>
             {/* Page Header */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8">
-                <div className="shrink-0">
-                    <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Aktivitas</h1>
-                    <p className="text-[14px] text-zinc-500 mt-1">Pantau seluruh status pelaksanaan kegiatan PKM.</p>
+            <div className="mb-8">
+                <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Aktivitas</h1>
+                <p className="text-[14px] text-zinc-500 mt-1">Pantau seluruh status pelaksanaan kegiatan PKM.</p>
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex flex-row items-center justify-between gap-4 mb-4 w-full">
+                {/* Tabs */}
+                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto min-w-0 flex-1 hide-scrollbar">
+                    {STATUS_OPTIONS.map(opt => (
+                        <button
+                            key={opt.value}
+                            onClick={() => handleStatusChange(opt.value)}
+                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap shrink-0 ${filterStatus === opt.value
+                                    ? 'bg-white text-zinc-900 shadow-sm'
+                                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
+                                }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
                 </div>
 
-                {/* Toolbar */}
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full lg:w-auto lg:flex-1 lg:justify-end">
-                    {/* Tabs */}
-                    <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full shrink-0">
-                        {STATUS_OPTIONS.map(opt => (
-                            <button
-                                key={opt.value}
-                                onClick={() => handleStatusChange(opt.value)}
-                                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${filterStatus === opt.value
-                                        ? 'bg-white text-zinc-900 shadow-sm'
-                                        : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
-                                    }`}
-                            >
-                                {opt.label}
-                            </button>
+                <div className="flex items-center gap-2 overflow-x-auto shrink-0 hide-scrollbar">
+                    <div className="relative shrink-0">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        <input
+                            type="text"
+                            placeholder="Cari kegiatan..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                            className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
+                        />
+                    </div>
+
+                    <select
+                        value={tahun}
+                        onChange={e => {
+                            setTahun(e.target.value);
+                            applyFilters(sortField, sortDir, e.target.value);
+                        }}
+                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer shrink-0 min-w-[120px]"
+                    >
+                        <option value="">Semua Tahun</option>
+                        {(availableYears || []).map(y => (
+                            <option key={y} value={y}>{y}</option>
                         ))}
-                    </div>
+                    </select>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                            <input
-                                type="text"
-                                placeholder="Cari kegiatan..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && applyFilters()}
-                                className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
-                            />
-                        </div>
+                    <select
+                        value={filterJenisPkm}
+                        onChange={e => {
+                            setFilterJenisPkm(e.target.value);
+                            applyFilters(sortField, sortDir, tahun, e.target.value);
+                        }}
+                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer shrink-0 min-w-[140px]"
+                    >
+                        <option value="">Semua Jenis PKM</option>
+                        {(listJenisPkm || []).map(j => (
+                            <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
+                        ))}
+                    </select>
 
-                        <select
-                            value={tahun}
-                            onChange={e => {
-                                setTahun(e.target.value);
-                                applyFilters(sortField, sortDir, e.target.value);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[120px]"
-                        >
-                            <option value="">Semua Tahun</option>
-                            {(availableYears || []).map(y => (
-                                <option key={y} value={y}>{y}</option>
-                            ))}
-                        </select>
-
-                        <select
-                            value={filterJenisPkm}
-                            onChange={e => {
-                                setFilterJenisPkm(e.target.value);
-                                applyFilters(sortField, sortDir, tahun, e.target.value);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[140px]"
-                        >
-                            <option value="">Semua Jenis PKM</option>
-                            {(listJenisPkm || []).map(j => (
-                                <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
-                            ))}
-                        </select>
-
-                        {hasFilters && (
-                            <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors" title="Hapus filter">
-                                <X size={14} />
-                            </button>
-                        )}
-
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-md text-[13px] font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
-                        >
-                            <Download size={14} /> Export
+                    {hasFilters && (
+                        <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Hapus filter">
+                            <X size={14} />
                         </button>
-                    </div>
+                    )}
+
+                    <button
+                        onClick={handleExport}
+                        className="flex items-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-md text-[13px] font-medium text-zinc-600 hover:bg-zinc-50 transition-colors shrink-0"
+                    >
+                        <Download size={14} /> Export
+                    </button>
                 </div>
             </div>
 
@@ -355,10 +353,12 @@ Politeknik Pariwisata Makassar`;
                                 <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 w-12 border-r border-zinc-100 bg-zinc-50 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('id_aktivitas')}>
                                     No {sortField === 'id_aktivitas' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('created_at')}>
-                                    Nama Kegiatan {sortField === 'created_at' && (sortDir === 'asc' ? '↑' : '↓')}
+                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('judul_pkm')}>
+                                    Nama Kegiatan {sortField === 'judul_pkm' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
-                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Jenis & Lokasi</th>
+                                <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('kota_kabupaten')}>
+                                    Jenis & Lokasi {sortField === 'kota_kabupaten' && (sortDir === 'asc' ? '↑' : '↓')}
+                                </th>
                                 <th className="py-3 px-6 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 text-right w-32 cursor-pointer hover:bg-zinc-100" onClick={() => handleSort('status_pelaksanaan')}>
                                     Status {sortField === 'status_pelaksanaan' && (sortDir === 'asc' ? '↑' : '↓')}
                                 </th>
@@ -416,16 +416,12 @@ Politeknik Pariwisata Makassar`;
                                             </div>
                                         </td>
                                         <td className="py-4 px-6 text-right">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider border ${normalizedStatus === 'selesai'
+                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider border ${normalizedStatus === 'selesai'
                                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                                     : normalizedStatus === 'belum_mulai'
                                                         ? 'bg-slate-100 text-slate-600 border-slate-200'
                                                         : 'bg-amber-50 text-amber-700 border-amber-100'
                                                 }`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${normalizedStatus === 'selesai' ? 'bg-emerald-500'
-                                                        : normalizedStatus === 'belum_mulai' ? 'bg-slate-400'
-                                                            : 'bg-amber-500'
-                                                    }`}></span>
                                                 {normalizedStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                                             </span>
                                         </td>
@@ -708,8 +704,11 @@ Politeknik Pariwisata Makassar`;
                     to   { transform: translateY(0);    opacity: 1; }
                 }
             `}</style>
-        </AdminLayout>
+        </>
     );
 };
+
+
+AktivitasPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 
 export default AktivitasPage;

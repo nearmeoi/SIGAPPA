@@ -24,97 +24,130 @@ class PengajuanUserController extends Controller
         $search = $request->input('search');
 
         // Ambil pengajuan milik user dari database dengan pagination dan search
-        $submissionsPaginator = $user
-            ? Pengajuan::where('id_user', $user->id_user)
-                ->when($search, function ($query, $search) {
-                    $query->where('judul_kegiatan', 'like', "%{$search}%");
-                })
-                ->with(['timKegiatan.pegawai', 'jenisPkm', 'user', 'aktivitas', 'logs'])
+        $submissionsPaginator = null;
+        if ($user) {
+            $query = Pengajuan::query();
+
+            // Dosen should see:
+            // 1. Their own submissions (id_user matches their user id)
+            // 2. Submissions where they are part of the team (in tim_kegiatan table)
+            if ($user->role === 'dosen') {
+                $pegawai = Pegawai::where('id_user', $user->id_user)->first();
+                if ($pegawai) {
+                    $query->where(function ($q) use ($user, $pegawai) {
+                        $q->where('pengajuan.id_user', $user->id_user)
+                          ->orWhereHas('aktivitas.timKegiatan', function ($timQuery) use ($pegawai) {
+                              $timQuery->where('tim_kegiatan.id_pegawai', $pegawai->id_pegawai);
+                          });
+                    });
+                } else {
+                    $query->where('pengajuan.id_user', $user->id_user);
+                }
+            } else {
+                $query->where('pengajuan.id_user', $user->id_user);
+            }
+
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->whereHas('aktivitas', function ($actQuery) use ($search) {
+                        $actQuery->where('judul_pkm', 'like', "%{$search}%");
+                    })
+                    ->orWhere('kebutuhan', 'like', "%{$search}%")
+                    ->orWhere('instansi_mitra', 'like', "%{$search}%");
+                });
+            }
+
+            $submissionsPaginator = $query->with(['user', 'aktivitas.jenisPkm', 'aktivitas.timKegiatan.pegawai', 'logs'])
                 ->latest()
                 ->paginate(10)
-                ->withQueryString()
-            : null;
+                ->withQueryString();
+        }
 
-        $userSubmissions = $submissionsPaginator ? collect($submissionsPaginator->items())->map(fn($p) => [
-            'id' => $p->id_pengajuan,
-            'kode_unik' => $p->kode_unik,
-            'judul' => $p->judul_kegiatan,
-            'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
-            'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
-            'status' => in_array($p->status_pengajuan, ['diproses', 'direvisi', 'ditolak'])
-                ? $p->status_pengajuan
-                : ($p->status_pengajuan === 'diajukan' ? 'Menunggu Keputusan Direktur'
-                    : ($p->status_pengajuan === 'revisi_direktur' ? 'diproses'
-                        : ($p->aktivitas
-                            ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
-                                : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'diterima'))
-                            : $p->status_pengajuan))),
-            'catatan' => $p->logs->whereIn('status_baru', [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK])
-                ->first()?->catatan,
-            'instansi_mitra' => $p->instansi_mitra,
-            'no_telepon' => $p->no_telepon,
-            'provinsi' => $p->provinsi,
-            'kota_kabupaten' => $p->kota_kabupaten,
-            'kecamatan' => $p->kecamatan,
-            'kelurahan_desa' => $p->kelurahan_desa,
-            'alamat_lengkap' => $p->alamat_lengkap,
-            'latitude' => $p->latitude,
-            'longitude' => $p->longitude,
-            'lokasi_tambahan' => $p->lokasi_tambahan,
-            'tgl_mulai' => $p->tgl_mulai ? $p->tgl_mulai->format('Y-m-d') : null,
-            'tgl_selesai' => $p->tgl_selesai ? $p->tgl_selesai->format('Y-m-d') : null,
-            'is_tahun_saja' => $p->is_tahun_saja,
-            'proposal' => $p->proposal,
-            'surat_permohonan' => $p->surat_permohonan,
-            'aktivitas' => $p->aktivitas ? [
-                'status_pelaksanaan' => $p->aktivitas->status_pelaksanaan,
-                'catatan_pelaksanaan' => $p->aktivitas->catatan_pelaksanaan,
-            ] : null,
-            'logs' => $p->logs->map(function ($log) {
-                $stBaru = $log->status_baru;
-                $stLama = $log->status_lama;
+        $userSubmissions = $submissionsPaginator ? collect($submissionsPaginator->items())->map(function ($p) {
+            $firstAktivitas = $p->aktivitas->first();
+            $judul = $firstAktivitas?->judul_pkm ?: 'Pengajuan PKM';
 
-                // Mask internal statuses for User Timeline
-                if ($stBaru === Pengajuan::STATUS_REVISI_DIREKTUR)
-                    $stBaru = Pengajuan::STATUS_DIPROSES;
-                if ($stLama === Pengajuan::STATUS_REVISI_DIREKTUR)
-                    $stLama = Pengajuan::STATUS_DIPROSES;
+            $status = $p->status_pengajuan;
+            if (in_array($p->status_pengajuan, ['diproses', 'direvisi', 'ditolak'])) {
+                $status = $p->status_pengajuan;
+            } elseif ($p->status_pengajuan === 'diajukan') {
+                $status = 'Menunggu Keputusan Direktur';
+            } elseif ($p->status_pengajuan === 'revisi_direktur') {
+                $status = 'diproses';
+            } else {
+                if ($firstAktivitas) {
+                    if ($firstAktivitas->status_pelaksanaan === 'selesai') {
+                        $status = 'selesai';
+                    } elseif ($firstAktivitas->status_pelaksanaan === 'berjalan') {
+                        $status = 'berlangsung';
+                    } else {
+                        $status = 'diterima';
+                    }
+                } else {
+                    $status = $p->status_pengajuan;
+                }
+            }
 
-                if ($stBaru === Pengajuan::STATUS_DIAJUKAN)
-                    $stBaru = 'Menunggu Keputusan Direktur';
-                if ($stLama === Pengajuan::STATUS_DIAJUKAN)
-                    $stLama = 'Menunggu Keputusan Direktur';
+            return [
+                'id' => $p->id_pengajuan,
+                'kode_unik' => $p->kode_unik,
+                'judul' => $judul,
+                'ringkasan' => $p->kebutuhan ?: ($p->instansi_mitra ?: '-'),
+                'tanggal' => optional($p->created_at)->format('d M Y') ?? '-',
+                'status' => $status,
+                'catatan' => $p->logs->whereIn('status_baru', [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK])
+                    ->first()?->catatan,
+                'instansi_mitra' => $p->instansi_mitra,
+                'no_telepon' => $p->no_telepon,
+                'provinsi' => $p->provinsi,
+                'kota_kabupaten' => $p->kota_kabupaten,
+                'kecamatan' => $p->kecamatan,
+                'kelurahan_desa' => $p->kelurahan_desa,
+                'alamat_lengkap' => $p->alamat_lengkap,
+                'latitude' => $p->latitude,
+                'longitude' => $p->longitude,
+                'lokasi_tambahan' => $p->lokasi_tambahan,
+                'is_tahun_saja' => $p->is_tahun_saja,
+                'proposal' => $p->proposal,
+                'surat_permohonan' => $p->surat_permohonan,
+                'aktivitas' => $firstAktivitas ? [
+                    'status_pelaksanaan' => $firstAktivitas->status_pelaksanaan,
+                    'catatan_pelaksanaan' => $firstAktivitas->catatan_pelaksanaan,
+                ] : null,
+                'logs' => $p->logs->map(function ($log) {
+                    $stBaru = $log->status_baru;
+                    $stLama = $log->status_lama;
 
-                // Only show notes for specific user-facing statuses
-                $userFacingStatuses = [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK, Pengajuan::STATUS_DITERIMA, Pengajuan::STATUS_SELESAI];
-                $catatan = in_array($log->status_baru, $userFacingStatuses) ? $log->catatan : null;
+                    // Mask internal statuses for User Timeline
+                    if ($stBaru === Pengajuan::STATUS_REVISI_DIREKTUR)
+                        $stBaru = Pengajuan::STATUS_DIPROSES;
+                    if ($stLama === Pengajuan::STATUS_REVISI_DIREKTUR)
+                        $stLama = Pengajuan::STATUS_DIPROSES;
 
-                return [
-                    'id' => $log->id,
-                    'status_lama' => $stLama,
-                    'status_baru' => $stBaru,
-                    'catatan' => $catatan,
-                    'created_at' => $log->created_at?->format('d M Y, H:i'),
-                ];
-            })->values(),
-            'rab' => $p->rab,
-            'rab_items' => $p->rab_items ?? [],
-            'sumber_dana' => $p->sumber_dana,
-            'total_anggaran' => $p->total_anggaran,
-            'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
-            'dana_pemerintah' => $p->dana_pemerintah,
-            'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
-            'dana_lembaga_luar' => $p->dana_lembaga_luar,
-            'tipe_pengusul' => $this->resolveSubmitterType($p),
-            'jenis_pkm' => $p->jenisPkm ? $p->jenisPkm->nama_jenis : null,
-            'nama_pengusul' => $this->resolveSubmitterName($p),
-            'email_pengusul' => $this->resolveSubmitterEmail($p),
-            'kebutuhan' => $p->kebutuhan,
-            'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
-                'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
-                'peran' => $t->peran_tim,
-            ]),
-        ])->toArray() : [];
+                    if ($stBaru === Pengajuan::STATUS_DIAJUKAN)
+                        $stBaru = 'Menunggu Keputusan Direktur';
+                    if ($stLama === Pengajuan::STATUS_DIAJUKAN)
+                        $stLama = 'Menunggu Keputusan Direktur';
+
+                    // Only show notes for specific user-facing statuses
+                    $userFacingStatuses = [Pengajuan::STATUS_DIREVISI, Pengajuan::STATUS_DITOLAK, Pengajuan::STATUS_DITERIMA, Pengajuan::STATUS_SELESAI];
+                    $catatan = in_array($log->status_baru, $userFacingStatuses) ? $log->catatan : null;
+
+                    return [
+                        'id' => $log->id,
+                        'status_lama' => $stLama,
+                        'status_baru' => $stBaru,
+                        'catatan' => $catatan,
+                        'created_at' => $log->created_at?->format('d M Y, H:i'),
+                    ];
+                })->values(),
+                'tipe_pengusul' => $this->resolveSubmitterType($p),
+                'jenis_pkm' => $firstAktivitas?->jenisPkm->first()?->nama_jenis,
+                'nama_pengusul' => $this->resolveSubmitterName($p),
+                'email_pengusul' => $this->resolveSubmitterEmail($p),
+                'kebutuhan' => $p->kebutuhan,
+            ];
+        })->toArray() : [];
 
         $jenisPkmOptions = JenisPkm::select('id_jenis_pkm', 'nama_jenis')
             ->get()
@@ -153,31 +186,14 @@ class PengajuanUserController extends Controller
 
         // Logic for Dosen
         $request->validate([
-            'id_jenis_pkm' => 'nullable|exists:jenis_pkm,id_jenis_pkm',
-            'judul_kegiatan' => 'required|string|max:255',
             'nama_dosen' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'instansi_mitra' => 'nullable|string|max:255',
             'no_telepon' => 'nullable|string|max:20',
             'lokasi_list' => 'nullable|string',
-            'sumber_dana' => 'nullable|string|max:255',
-            'total_anggaran' => 'nullable|numeric|min:0',
-            'tgl_mulai' => 'nullable|date',
-            'tgl_selesai' => 'nullable|date|after_or_equal:tgl_mulai',
             'is_tahun_saja' => 'nullable|boolean',
             'surat_proposal' => 'required|file|mimes:pdf,doc,docx|max:10240',
             'surat_permohonan' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
-            'rab' => 'nullable|string|max:2048',
-            'rab_items' => 'nullable|array',
-            'rab_items.*.nama_item' => 'nullable|string|max:255',
-            'rab_items.*.jumlah' => 'nullable|numeric|min:1',
-            'rab_items.*.harga' => 'nullable|numeric|min:0',
-            'dosen_terlibat' => 'nullable|array',
-            'dosen_terlibat.*' => 'string|max:255',
-            'staff_terlibat' => 'nullable|array',
-            'staff_terlibat.*' => 'string|max:255',
-            'mahasiswa_terlibat' => 'nullable|array',
-            'mahasiswa_terlibat.*' => 'string|max:255',
         ]);
 
         $defaultJenisPkm = JenisPkm::first();
@@ -216,7 +232,6 @@ class PengajuanUserController extends Controller
 
         $pengajuan = Pengajuan::create([
             'id_user' => $user->id_user,
-            'id_jenis_pkm' => $request->id_jenis_pkm ?? $defaultJenisPkm?->id_jenis_pkm ?? 1,
             'tipe_pengusul' => 'dosen',
             'provinsi' => $primaryLokasi['provinsi'] ?? '',
             'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
@@ -226,61 +241,18 @@ class PengajuanUserController extends Controller
             'latitude' => $primaryLokasi['latitude'] ?? null,
             'longitude' => $primaryLokasi['longitude'] ?? null,
             'lokasi_tambahan' => $lokasiTambahan,
-            'judul_kegiatan' => $request->judul_kegiatan,
             'nama_pengusul' => $request->nama_dosen,
             'email_pengusul' => $request->email ?: $user->email,
             'kebutuhan' => $request->kebutuhan ?? '',
             'instansi_mitra' => $request->instansi_mitra ?? '',
             'no_telepon' => $request->no_telepon ?? '',
-            'sumber_dana' => $request->sumber_dana ?? '',
-            'total_anggaran' => $rabItems !== [] ? collect($rabItems)->sum('total') : ($request->total_anggaran ?? 0),
-            'dana_perguruan_tinggi' => $request->dana_perguruan_tinggi,
-            'dana_pemerintah' => $request->dana_pemerintah,
-            'dana_lembaga_dalam' => $request->dana_lembaga_dalam,
-            'dana_lembaga_luar' => $request->dana_lembaga_luar,
             'is_tahun_saja' => $request->boolean('is_tahun_saja'),
-            'tgl_mulai' => $request->tgl_mulai,
-            'tgl_selesai' => $request->tgl_selesai,
             'proposal' => $suratProposalUrl ?? '',
             'surat_permohonan' => $suratPermohonanUrl ?? '',
-            'rab' => $request->rab ?? '',
-            'rab_items' => $rabItems,
             'status_pengajuan' => 'diproses',
         ]);
 
-        // Cari data pegawai milik user (Dosen) yang sedang login
-        $pegawai = Pegawai::where('id_user', $user->id_user)->first();
 
-        // Dosen pengusul utama dimasukkan ke tim sebagai Ketua
-        $teamMembers = [];
-        if ($pegawai) {
-            $teamMembers[] = [
-                'id_pegawai' => $pegawai->id_pegawai,
-                'nama_mahasiswa' => null,
-                'peran_tim' => 'Ketua/Dosen Pengusul',
-            ];
-        } else {
-            // Fallback jika data pegawai belum di-link ke user
-            $teamMembers[] = [
-                'id_pegawai' => null,
-                'nama_mahasiswa' => trim($request->nama_dosen),
-                'peran_tim' => 'Ketua/Dosen Pengusul',
-            ];
-        }
-
-        $this->addTeamMembers($teamMembers, $request->dosen_terlibat, 'Dosen');
-        $this->addTeamMembers($teamMembers, $request->staff_terlibat, 'Staff');
-        $this->addTeamMembers($teamMembers, $request->mahasiswa_terlibat, 'Mahasiswa');
-
-        if (count($teamMembers) > 0) {
-            $now = now();
-            $rows = array_map(fn($m) => array_merge($m, [
-                'id_pengajuan' => $pengajuan->id_pengajuan,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]), $teamMembers);
-            TimKegiatan::insert($rows);
-        }
 
         try { broadcast(new \App\Events\NotificationUpdated('new', 'Pengajuan baru masuk')); } catch (\Throwable) {}
 
@@ -304,31 +276,14 @@ class PengajuanUserController extends Controller
         }
 
         $request->validate([
-            'id_jenis_pkm' => 'nullable|exists:jenis_pkm,id_jenis_pkm',
-            'judul_kegiatan' => 'required|string|max:255',
             'nama_dosen' => 'required|string|max:255',
             'email' => 'nullable|email|max:255',
             'instansi_mitra' => 'nullable|string|max:255',
             'no_telepon' => 'nullable|string|max:20',
             'lokasi_list' => 'nullable|string',
-            'sumber_dana' => 'nullable|string|max:255',
-            'total_anggaran' => 'nullable|numeric|min:0',
-            'tgl_mulai' => 'nullable|date',
-            'tgl_selesai' => 'nullable|date|after_or_equal:tgl_mulai',
             'is_tahun_saja' => 'nullable|boolean',
             'surat_proposal' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
             'surat_permohonan' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
-            'rab' => 'nullable|string|max:2048',
-            'rab_items' => 'nullable|array',
-            'rab_items.*.nama_item' => 'nullable|string|max:255',
-            'rab_items.*.jumlah' => 'nullable|numeric|min:1',
-            'rab_items.*.harga' => 'nullable|numeric|min:0',
-            'dosen_terlibat' => 'nullable|array',
-            'dosen_terlibat.*' => 'string|max:255',
-            'staff_terlibat' => 'nullable|array',
-            'staff_terlibat.*' => 'string|max:255',
-            'mahasiswa_terlibat' => 'nullable|array',
-            'mahasiswa_terlibat.*' => 'string|max:255',
         ]);
 
         $suratPermohonanUrl = $pengajuan->surat_permohonan;
@@ -364,7 +319,6 @@ class PengajuanUserController extends Controller
         $lokasiTambahan = array_slice($lokasiList, 1);
 
         $pengajuan->update([
-            'id_jenis_pkm' => $request->id_jenis_pkm ?? $pengajuan->id_jenis_pkm,
             'provinsi' => $primaryLokasi['provinsi'] ?? '',
             'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
             'kecamatan' => $primaryLokasi['kecamatan'] ?? '',
@@ -373,25 +327,14 @@ class PengajuanUserController extends Controller
             'latitude' => $primaryLokasi['latitude'] ?? null,
             'longitude' => $primaryLokasi['longitude'] ?? null,
             'lokasi_tambahan' => $lokasiTambahan,
-            'judul_kegiatan' => $request->judul_kegiatan,
             'nama_pengusul' => $request->nama_dosen,
             'email_pengusul' => $request->email ?: $user->email,
             'kebutuhan' => $request->kebutuhan ?? '',
             'instansi_mitra' => $request->instansi_mitra ?? '',
             'no_telepon' => $request->no_telepon ?? '',
-            'sumber_dana' => $request->sumber_dana ?? '',
-            'total_anggaran' => $rabItems !== [] ? collect($rabItems)->sum('total') : ($request->total_anggaran ?? 0),
-            'dana_perguruan_tinggi' => $request->dana_perguruan_tinggi,
-            'dana_pemerintah' => $request->dana_pemerintah,
-            'dana_lembaga_dalam' => $request->dana_lembaga_dalam,
-            'dana_lembaga_luar' => $request->dana_lembaga_luar,
             'is_tahun_saja' => $request->has('is_tahun_saja') ? $request->boolean('is_tahun_saja') : $pengajuan->is_tahun_saja,
-            'tgl_mulai' => $request->tgl_mulai ?? $pengajuan->tgl_mulai,
-            'tgl_selesai' => $request->tgl_selesai ?? $pengajuan->tgl_selesai,
             'proposal' => $suratProposalUrl ?? '',
             'surat_permohonan' => $suratPermohonanUrl ?? '',
-            'rab' => $request->rab ?? '',
-            'rab_items' => $rabItems,
             'status_pengajuan' => 'diproses',
             'admin_read_at' => null,
         ]);
@@ -399,37 +342,7 @@ class PengajuanUserController extends Controller
         // Realtime notification
         broadcast(new \App\Events\NotificationUpdated('updated', "Pengajuan {$pengajuan->judul_kegiatan} telah diperbarui"));
 
-        TimKegiatan::where('id_pengajuan', $pengajuan->id_pengajuan)->delete();
 
-        $pegawai = Pegawai::where('id_user', $user->id_user)->first();
-        $teamMembers = [];
-        if ($pegawai) {
-            $teamMembers[] = [
-                'id_pegawai' => $pegawai->id_pegawai,
-                'nama_mahasiswa' => null,
-                'peran_tim' => 'Ketua/Dosen Pengusul',
-            ];
-        } else {
-            $teamMembers[] = [
-                'id_pegawai' => null,
-                'nama_mahasiswa' => trim($request->nama_dosen),
-                'peran_tim' => 'Ketua/Dosen Pengusul',
-            ];
-        }
-
-        $this->addTeamMembers($teamMembers, $request->dosen_terlibat, 'Dosen');
-        $this->addTeamMembers($teamMembers, $request->staff_terlibat, 'Staff');
-        $this->addTeamMembers($teamMembers, $request->mahasiswa_terlibat, 'Mahasiswa');
-
-        if (count($teamMembers) > 0) {
-            $now = now();
-            $rows = array_map(fn($m) => array_merge($m, [
-                'id_pengajuan' => $pengajuan->id_pengajuan,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]), $teamMembers);
-            TimKegiatan::insert($rows);
-        }
 
         return redirect()->back()
             ->with('success', 'Pengajuan PKM berhasil diperbarui!');
@@ -516,22 +429,9 @@ class PengajuanUserController extends Controller
             'email_pengusul' => $request->email,
             'instansi_mitra' => $request->institution,
             'no_telepon' => $request->whatsapp,
-            'kebutuhan' => $request->needs,
-            'judul_kegiatan' => 'Pengajuan PKM dari ' . $request->institution,
-            'provinsi' => $primaryLokasi['provinsi'] ?? '',
-            'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
-            'kecamatan' => $primaryLokasi['kecamatan'] ?? '',
-            'kelurahan_desa' => $primaryLokasi['kelurahan_desa'] ?? '',
-            'alamat_lengkap' => $primaryLokasi['alamat_lengkap'] ?? '',
-            'latitude' => $primaryLokasi['latitude'] ?? null,
-            'longitude' => $primaryLokasi['longitude'] ?? null,
-            'lokasi_tambahan' => $lokasiTambahan,
             'is_tahun_saja' => $request->has('is_tahun_saja') ? $request->boolean('is_tahun_saja') : $pengajuan->is_tahun_saja,
-            'tgl_mulai' => $request->tgl_mulai ?? $pengajuan->tgl_mulai,
-            'tgl_selesai' => $request->tgl_selesai ?? $pengajuan->tgl_selesai,
             'surat_permohonan' => $suratPermohonanUrl,
             'proposal' => $suratProposalUrl,
-            'rab' => $request->input('link_tambahan') ?: ($pengajuan->rab ?? ''),
             'status_pengajuan' => 'diproses',
             'admin_read_at' => null,
         ]);
@@ -599,7 +499,6 @@ class PengajuanUserController extends Controller
 
         Pengajuan::create([
             'id_user' => Auth::id(),
-            'id_jenis_pkm' => $defaultJenisPkm?->id_jenis_pkm ?? 1,
             'tipe_pengusul' => 'masyarakat',
             'provinsi' => $primaryLokasi['provinsi'] ?? '',
             'kota_kabupaten' => $primaryLokasi['kota_kabupaten'] ?? '',
@@ -610,9 +509,6 @@ class PengajuanUserController extends Controller
             'longitude' => $primaryLokasi['longitude'] ?? null,
             'lokasi_tambahan' => $lokasiTambahan,
             'is_tahun_saja' => $request->boolean('is_tahun_saja'),
-            'tgl_mulai' => $request->tgl_mulai,
-            'tgl_selesai' => $request->tgl_selesai,
-            'judul_kegiatan' => 'Pengajuan PKM dari ' . $request->institution,
             'nama_pengusul' => $request->name,
             'email_pengusul' => $request->email,
             'kebutuhan' => $request->needs,
@@ -620,7 +516,6 @@ class PengajuanUserController extends Controller
             'no_telepon' => $request->whatsapp,
             'surat_permohonan' => $suratPermohonanUrl,
             'proposal' => $suratProposalUrl,
-            'rab' => $request->input('link_tambahan') ?: '',
             'status_pengajuan' => 'diproses',
         ]);
 
@@ -689,14 +584,7 @@ class PengajuanUserController extends Controller
         }
 
         if ($this->resolveSubmitterType($pengajuan) === 'dosen') {
-            $ketuaTim = $pengajuan->timKegiatan->first(function ($tim) {
-                return Str::contains(Str::lower((string) $tim->peran_tim), 'ketua');
-            });
-
-            $ketuaName = $ketuaTim?->pegawai?->nama_pegawai ?? $ketuaTim?->nama_mahasiswa;
-            if (!empty($ketuaName)) {
-                return $ketuaName;
-            }
+            return $pengajuan->user?->name ?? '';
         }
 
         return $pengajuan->user?->name ?? '';

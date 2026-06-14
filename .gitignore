@@ -25,3 +25,5 @@ type-check-result.txt
 .claude/
 .idea/
 .vscode/
+
+testsprite_tests\tmp\config.json

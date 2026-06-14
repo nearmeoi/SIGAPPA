@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://127.0.0.1:8000",
+  "executionArgs": {
+    "projectName": "SIGAPPA",
+    "projectPath": "d:\\02 MAGANG POLTEKPAR\\SIGAPPA",
+    "testIds": [],
+    "additionalInstruction": "Focus on testing the Lecturer Portal login flow, NIP verification, status checking, and correlation of team members.",
+    "serverMode": "production",
+    "envs": {
+      "API_KEY": "sk-user-AjeVESFGFrYfOECAoWSYsh5BcssPX-z6IR8z4HgZ1x7nE3V8neG237rg8NDT7cKA6XiU8rcFBlGk5AbyoAyucjULTw53HyxKu1FTe1L43UUPSuBrGRyFk41OsdNob98yA8I"
+    }
+  },
+  "serverPort": 61817
+}

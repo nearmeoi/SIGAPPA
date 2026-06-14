@@ -22,7 +22,7 @@ interface EditProfileProps {
     pegawaiData: PegawaiData | null;
 }
 
-export default function EditProfile({ userData, pegawaiData }: EditProfileProps) {
+function EditProfile({ userData, pegawaiData }: EditProfileProps) {
     const { props } = usePage();
     const flash = (props as any).flash || {};
 
@@ -101,10 +101,12 @@ export default function EditProfile({ userData, pegawaiData }: EditProfileProps)
                 )}
 
                 {/* Page Header */}
-                <div className="mb-8">
-                    <h1 className="text-2xl font-black text-slate-800">Edit Profil</h1>
-                    <p className="text-sm text-slate-500 mt-1">Perbarui informasi akun Anda</p>
-                </div>
+                {!isAdminRole && (
+                    <div className="mb-8">
+                        <h1 className="text-2xl font-black text-slate-800">Edit Profil</h1>
+                        <p className="text-sm text-slate-500 mt-1">Perbarui informasi akun Anda</p>
+                    </div>
+                )}
 
                 {/* Profile Card */}
                 <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6">
@@ -321,9 +323,9 @@ export default function EditProfile({ userData, pegawaiData }: EditProfileProps)
     // Dynamic layout selection based on role
     if (isAdminRole) {
         return (
-            <AdminLayout title="Edit Profil">
+            <>
                 {formContent}
-            </AdminLayout>
+            </>
         );
     }
 
@@ -333,3 +335,7 @@ export default function EditProfile({ userData, pegawaiData }: EditProfileProps)
         </DefaultLayout>
     );
 }
+
+EditProfile.layout = (page: React.ReactNode) => <AdminLayout title="Edit Profil">{page}</AdminLayout>;
+
+export default EditProfile;

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Head } from '@inertiajs/react';
 import Layout from '@/Layouts/DefaultLayout';
-import DosenSubmissionCard from '@/Components/DosenSubmissionCard';
-import MasyarakatSubmissionCard from '@/Components/MasyarakatSubmissionCard';
+import DosenSubmissionCard from '@/Components/pkm/DosenSubmissionCard';
+import MasyarakatSubmissionCard from '@/Components/pkm/MasyarakatSubmissionCard';
 import '../../../css/landing.css';
 import '../../../css/lecturer-form.css';
 

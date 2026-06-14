@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import ConfirmDialog from '../../../Components/ConfirmDialog';
-import Pagination from '../../../Components/Pagination';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import Pagination from '@/Components/ui/Pagination';
 import { Edit, Trash2, X, Plus, Search, Upload, Check, Grid, Type } from 'lucide-react';
-import BulkActionBar, { CheckboxCell, CheckboxHeader } from '../../../Components/BulkActionBar';
+import BulkActionBar, { CheckboxCell, CheckboxHeader } from '@/Components/ui/BulkActionBar';
 
 interface JenisPkm {
     id_jenis_pkm: number;
@@ -166,7 +166,7 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
     };
 
     return (
-        <AdminLayout title="">
+        <>
             <div className="flex justify-between items-start mb-8">
                 <div>
                     <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Jenis PKM</h1>
@@ -334,8 +334,11 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
                 onCancel={() => setDeleteTarget(null)}
                 variant="danger"
             />
-        </AdminLayout>
+        </>
     );
 };
+
+
+JenisPkmPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 
 export default JenisPkmPage;

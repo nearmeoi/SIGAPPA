@@ -31,23 +31,23 @@ class DashboardController extends Controller
 
         // Card diterima & belum mulai: hanya data tahun 2025 ke atas
         $pengajuanDiterima2025 = Pengajuan::where('status_pengajuan', 'diterima')
-            ->where('tgl_mulai', '>=', '2025-01-01')
+            ->where('created_at', '>=', '2025-01-01')
             ->count();
 
         $aktivitasBelumMulai2025 = Aktivitas::whereIn('status_pelaksanaan', ['belum_mulai', 'persiapan'])
-            ->whereHas('pengajuan', fn($q) => $q->where('tgl_mulai', '>=', '2025-01-01'))
+            ->where('tgl_mulai', '>=', '2025-01-01')
             ->count();
 
         $isDirektur = auth()->user()?->role === 'direktur';
 
-        $recentPengajuan = Pengajuan::with(['user', 'jenisPkm'])
+        $recentPengajuan = Pengajuan::with(['user', 'aktivitas.jenisPkm'])
             ->where('status_pengajuan', $isDirektur ? 'diajukan' : 'diproses')
             ->latest('updated_at')
             ->take(5)
             ->get()
             ->map(fn($p) => [
                 'id_pengajuan' => $p->id_pengajuan,
-                'judul_kegiatan' => $p->judul_kegiatan,
+                'judul_kegiatan' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),
                 'created_at' => $p->updated_at?->format('d M Y') ?? '-',
                 'status_pengajuan' => $p->status_pengajuan,
                 'nama_pengusul' => $p->nama_pengusul ?? $p->user?->name,
@@ -57,30 +57,30 @@ class DashboardController extends Controller
                     'email' => $p->user->email,
                     'role' => $p->user->role,
                 ] : null,
-                'jenis_pkm' => $p->jenisPkm ? [
-                    'nama_jenis' => $p->jenisPkm->nama_jenis,
+                'jenis_pkm' => $p->aktivitas->first()?->jenisPkm->first() ? [
+                    'nama_jenis' => $p->aktivitas->first()->jenisPkm->first()->nama_jenis,
                 ] : null,
             ]);
 
-        $pkmMapData = Pengajuan::with(['jenisPkm', 'aktivitas.testimoni', 'aktivitas.arsip', 'timKegiatan.pegawai'])
+        $pkmMapData = Pengajuan::with(['aktivitas.jenisPkm', 'aktivitas.testimoni', 'aktivitas.arsip', 'aktivitas.timKegiatan.pegawai'])
             ->whereNotNull('latitude')
             ->get()
             ->map(fn($p) => [
                 'id' => $p->id_pengajuan,
-                'nama' => $p->judul_kegiatan,
-                'jenis_nama' => $p->jenisPkm?->nama_jenis ?? 'Jenis Lainnya',
-                'jenis_pkm' => $p->jenisPkm?->nama_jenis ?? '',
-                'warna_icon' => $p->jenisPkm?->warna_icon ?? '#64748b',
-                'deskripsi_jenis' => $p->jenisPkm?->deskripsi ?? '',
-                'tahun' => $p->aktivitas?->tgl_realisasi_mulai?->year ?? $p->tgl_mulai?->year ?? $p->created_at?->year ?? date('Y'),
-                'status' => $p->aktivitas
-                    ? ($p->aktivitas->status_pelaksanaan === 'selesai' ? 'selesai'
-                        : ($p->aktivitas->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
+                'nama' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),
+                'jenis_nama' => $p->aktivitas->first()?->jenisPkm->first()?->nama_jenis ?? 'Jenis Lainnya',
+                'jenis_pkm' => $p->aktivitas->first()?->jenisPkm->first()?->nama_jenis ?? '',
+                'warna_icon' => $p->aktivitas->first()?->jenisPkm->first()?->warna_icon ?? '#64748b',
+                'deskripsi_jenis' => $p->aktivitas->first()?->jenisPkm->first()?->deskripsi ?? '',
+                'tahun' => $p->aktivitas->first()?->tgl_realisasi_mulai?->year ?? $p->created_at?->year ?? date('Y'),
+                'status' => $p->aktivitas->first()
+                    ? ($p->aktivitas->first()->status_pelaksanaan === 'selesai' ? 'selesai'
+                        : ($p->aktivitas->first()->status_pelaksanaan === 'berjalan' ? 'berlangsung' : 'belum_mulai'))
                     : ($p->status_pengajuan === 'diproses' ? 'ada_pengajuan' : ($p->status_pengajuan === 'diterima' ? 'belum_mulai' : 'belum_mulai')),
                 'is_review' => $p->status_pengajuan === 'diproses' && $p->admin_read_at !== null,
                 'status_pengajuan' => $p->status_pengajuan,
                 'deskripsi' => $p->kebutuhan ?? '',
-                'thumbnail' => $p->aktivitas?->url_thumbnail,
+                'thumbnail' => $p->aktivitas->first()?->url_thumbnail,
                 'provinsi' => $p->provinsi ?? '',
                 'kabupaten' => $p->kota_kabupaten ?? '',
                 'kecamatan' => $p->kecamatan ?? '',
@@ -88,15 +88,16 @@ class DashboardController extends Controller
                 'lat' => (float) ($p->latitude ?? 0),
                 'lng' => (float) ($p->longitude ?? 0),
                 'lokasi_tambahan' => is_string($p->lokasi_tambahan) ? json_decode($p->lokasi_tambahan, true) : (is_array($p->lokasi_tambahan) ? $p->lokasi_tambahan : []),
-                'total_anggaran' => (float) ($p->total_anggaran ?? 0),
-                'tim_kegiatan' => $p->timKegiatan
+                'total_anggaran' => (float) ($p->aktivitas->sum('total_anggaran') ?? 0),
+                'tim_kegiatan' => $p->aktivitas->flatMap(fn($a) => $a->timKegiatan)
                     ->map(fn($tim) => [
                         'nama' => $tim->pegawai ? $tim->pegawai->nama_pegawai : $tim->nama_mahasiswa,
                         'peran' => $tim->peran_tim,
                     ])
+                    ->unique('nama')
                     ->values()
                     ->toArray(),
-                'testimoni' => ($p->aktivitas?->testimoni ?? collect())
+                'testimoni' => $p->aktivitas->flatMap(fn($a) => $a->testimoni)
                     ->map(fn($testimoni) => [
                         'nama_pemberi' => $testimoni->nama_pemberi,
                         'rating' => (int) $testimoni->rating,
@@ -104,9 +105,9 @@ class DashboardController extends Controller
                     ])
                     ->values()
                     ->toArray(),
-                'arsip_laporan' => $p->aktivitas?->arsip?->where('jenis_arsip', 'laporan_akhir')->first()?->url_dokumen ?? null,
-                'dokumentasi' => $p->aktivitas?->arsip?->where('jenis_arsip', 'foto_kegiatan')->first()?->url_dokumen ?? null,
-                'tambahan' => ($p->aktivitas?->arsip?->where('jenis_arsip', 'dokumen_lain') ?? collect())
+                'arsip_laporan' => $p->aktivitas->first()?->arsip?->where('jenis_arsip', 'laporan_akhir')->first()?->url_dokumen ?? null,
+                'dokumentasi' => $p->aktivitas->first()?->arsip?->where('jenis_arsip', 'foto_kegiatan')->first()?->url_dokumen ?? null,
+                'tambahan' => ($p->aktivitas->first()?->arsip?->where('jenis_arsip', 'dokumen_lain') ?? collect())
                     ->map(fn($a) => [
                         'nama' => $a->nama_dokumen ?? 'Dokumen Lainnya',
                         'url' => $a->url_dokumen,
@@ -118,57 +119,63 @@ class DashboardController extends Controller
             ->toArray();
 
         // ── Pie Chart: Sebaran Berdasarkan Jenis PKM ──
-        $pieChartData = Pengajuan::with('jenisPkm')
-            ->whereNotNull('id_jenis_pkm')
-            ->selectRaw('id_jenis_pkm, COUNT(*) as total')
-            ->groupBy('id_jenis_pkm')
+        $pieChartData = \Illuminate\Support\Facades\DB::table('pengajuan')
+            ->join('aktivitas', 'pengajuan.id_pengajuan', '=', 'aktivitas.id_pengajuan')
+            ->join('aktivitas_jenis_pkm', 'aktivitas.id_aktivitas', '=', 'aktivitas_jenis_pkm.id_aktivitas')
+            ->join('jenis_pkm', 'aktivitas_jenis_pkm.id_jenis_pkm', '=', 'jenis_pkm.id_jenis_pkm')
+            ->whereNull('pengajuan.deleted_at')
+            ->selectRaw('jenis_pkm.id_jenis_pkm, jenis_pkm.nama_jenis, jenis_pkm.warna_icon, COUNT(DISTINCT pengajuan.id_pengajuan) as total')
+            ->groupBy('jenis_pkm.id_jenis_pkm', 'jenis_pkm.nama_jenis', 'jenis_pkm.warna_icon')
             ->get()
             ->map(fn($item) => [
-                'label' => $item->jenisPkm?->nama_jenis ?? 'Lainnya',
-                'color' => $item->jenisPkm?->warna_icon ?? '#cbd5e1',
+                'label' => $item->nama_jenis,
+                'color' => $item->warna_icon,
                 'count' => $item->total,
             ])
             ->values()
             ->toArray();
 
         // ── Bar Chart: Tren Pertahun per Jenis PKM ──
-        $yearlyRaw = Pengajuan::with('jenisPkm')
-            ->whereNotNull('id_jenis_pkm')
-            ->selectRaw('YEAR(created_at) as year, id_jenis_pkm, COUNT(*) as total')
-            ->groupBy('year', 'id_jenis_pkm')
-            ->get();
+        $yearlyRaw = \Illuminate\Support\Facades\DB::table('pengajuan')
+                ->join('aktivitas', 'pengajuan.id_pengajuan', '=', 'aktivitas.id_pengajuan')
+                ->join('aktivitas_jenis_pkm', 'aktivitas.id_aktivitas', '=', 'aktivitas_jenis_pkm.id_aktivitas')
+                ->join('jenis_pkm', 'aktivitas_jenis_pkm.id_jenis_pkm', '=', 'jenis_pkm.id_jenis_pkm')
+                ->whereNull('pengajuan.deleted_at')
+                ->selectRaw('YEAR(pengajuan.created_at) as year, jenis_pkm.id_jenis_pkm, jenis_pkm.nama_jenis, jenis_pkm.warna_icon, COUNT(DISTINCT pengajuan.id_pengajuan) as total')
+                ->groupBy('year', 'jenis_pkm.id_jenis_pkm', 'jenis_pkm.nama_jenis', 'jenis_pkm.warna_icon')
+                ->get();
 
-        $allYears = $yearlyRaw->pluck('year')->unique()->sort()->values()->toArray();
-        if (empty($allYears)) {
-            $allYears = [(int) date('Y')];
-        }
+            $allYears = $yearlyRaw->pluck('year')->unique()->sort()->values()->toArray();
+            if (empty($allYears)) {
+                $allYears = [(int) date('Y')];
+            }
 
-        // Hash-map lookup O(1) menggantikan nested firstWhere() yang O(n²)
-        $lookup = $yearlyRaw->keyBy(fn($r) => "{$r->year}_{$r->id_jenis_pkm}");
+            // Hash-map lookup O(1) menggantikan nested firstWhere() yang O(n²)
+            $lookup = $yearlyRaw->keyBy(fn($r) => "{$r->year}_{$r->id_jenis_pkm}");
 
-        $uniqueJenis = $yearlyRaw
-            ->map(fn($item) => [
-                'id_jenis_pkm' => $item->id_jenis_pkm,
-                'nama_jenis' => $item->jenisPkm?->nama_jenis ?? 'Lainnya',
-                'warna_icon' => $item->jenisPkm?->warna_icon ?? '#cbd5e1',
-            ])
-            ->unique('id_jenis_pkm')
-            ->values();
+            $uniqueJenis = $yearlyRaw
+                ->map(fn($item) => [
+                    'id_jenis_pkm' => $item->id_jenis_pkm,
+                    'nama_jenis' => $item->nama_jenis,
+                    'warna_icon' => $item->warna_icon,
+                ])
+                ->unique('id_jenis_pkm')
+                ->values();
 
-        $barChartDatasets = $uniqueJenis->map(function ($jenis) use ($allYears, $lookup) {
-            return [
-                'name' => $jenis['nama_jenis'], // Change label to name to match frontend expectations if needed, but 'label' is usually standard for Chart.js
-                'label' => $jenis['nama_jenis'],
-                'data' => array_map(
-                    fn($y) => (int) ($lookup->get("{$y}_{$jenis['id_jenis_pkm']}")?->total ?? 0),
-                    $allYears
-                ),
-                'backgroundColor' => $jenis['warna_icon'],
-                'borderRadius' => 6,
-                'barPercentage' => 0.55,
-                'categoryPercentage' => 0.7,
-            ];
-        })->values()->toArray();
+            $barChartDatasets = $uniqueJenis->map(function ($jenis) use ($allYears, $lookup) {
+                return [
+                    'name' => $jenis['nama_jenis'],
+                    'label' => $jenis['nama_jenis'],
+                    'data' => array_map(
+                        fn($y) => (int) ($lookup->get("{$y}_{$jenis['id_jenis_pkm']}")?->total ?? 0),
+                        $allYears
+                    ),
+                    'backgroundColor' => $jenis['warna_icon'],
+                    'borderRadius' => 6,
+                    'barPercentage' => 0.55,
+                    'categoryPercentage' => 0.7,
+                ];
+            })->values()->toArray();
 
         $barChartData = [
             'labels' => $allYears,

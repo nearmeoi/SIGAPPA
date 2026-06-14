@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { router, Link } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import ConfirmDialog from '../../../Components/ConfirmDialog';
-import Toast from '../../../Components/Toast';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import Toast from '@/Components/ui/Toast';
 import {
     Activity, ArrowLeft, Image, CheckCircle, Save,
     MapPin, FileText, Trash2, Search, X, ChevronRight
@@ -201,7 +201,7 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
     const fullAddress = [pengajuan.alamat_lengkap, pengajuan.kelurahan_desa, pengajuan.kecamatan, pengajuan.kota_kabupaten, pengajuan.provinsi].filter(Boolean).join(', ');
 
     return (
-        <AdminLayout title="">
+        <>
             <div className="flex items-center gap-4 mb-8">
                 <Link href="/admin/aktivitas" className="w-9 h-9 flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-sm">
                     <ArrowLeft size={16} />
@@ -548,8 +548,11 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
                 onCancel={() => setConfirmOpen(false)}
                 variant="danger"
             />
-        </AdminLayout>
+        </>
     );
 };
+
+
+Detail.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 
 export default Detail;

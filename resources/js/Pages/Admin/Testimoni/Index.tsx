@@ -102,7 +102,7 @@ const TestimoniPage: React.FC<Props> = ({ listGroupedTestimoni, filters }) => {
     };
 
     return (
-        <AdminLayout title="Kelola Testimoni">
+        <>
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Kumpulan Ulasan PKM</h1>
@@ -330,8 +330,11 @@ const TestimoniPage: React.FC<Props> = ({ listGroupedTestimoni, filters }) => {
                     </div>
                 </div>
             )}
-        </AdminLayout>
+        </>
     );
 };
+
+
+TestimoniPage.layout = (page: React.ReactNode) => <AdminLayout title="Kelola Testimoni">{page}</AdminLayout>;
 
 export default TestimoniPage;

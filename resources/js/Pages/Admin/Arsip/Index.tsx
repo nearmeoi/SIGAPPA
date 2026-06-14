@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import ConfirmDialog from '../../../Components/ConfirmDialog';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { ExternalLink, Search, Folder, X, FileText, Eye, Plus, Trash2, Edit, Check } from 'lucide-react';
-import BulkActionBar, { CheckboxCell } from '../../../Components/BulkActionBar';
+import BulkActionBar, { CheckboxCell } from '@/Components/ui/BulkActionBar';
 
 interface ArsipItem {
     id_arsip: number;
@@ -173,7 +173,7 @@ const ArsipPage: React.FC<Props> = ({ listGroupedArsip, listAvailableAktivitas, 
     };
 
     return (
-        <AdminLayout title="">
+        <>
             <div className="flex justify-between items-start mb-8">
                 <div>
                     <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Kelola Arsip</h1>
@@ -434,8 +434,11 @@ const ArsipPage: React.FC<Props> = ({ listGroupedArsip, listAvailableAktivitas, 
                 onCancel={() => setDeleteTarget(null)}
                 variant="danger"
             />
-        </AdminLayout>
+        </>
     );
 };
+
+
+ArsipPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 
 export default ArsipPage;

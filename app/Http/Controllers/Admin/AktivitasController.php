@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Mail\UndanganMail;
 use App\Models\Aktivitas;
 use App\Models\JenisPkm;
+use App\Models\Pegawai;
+use App\Models\Pengajuan;
+use App\Models\TimKegiatan;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -22,7 +26,7 @@ class AktivitasController extends Controller
 
         $listAktivitas = Aktivitas::with([
             'pengajuan.user',
-            'pengajuan.jenisPkm',
+            'jenisPkm',
         ])
             ->when($request->status, function ($query, $status) {
                 if ($status === 'belum_mulai') {
@@ -34,12 +38,10 @@ class AktivitasController extends Controller
                 $query->where('status_pelaksanaan', $status);
             })
             ->when($request->tahun, function ($query, $tahun) {
-                $query->whereHas('pengajuan', function($q) use ($tahun) {
-                    $q->whereYear('tgl_mulai', $tahun);
-                });
+                $query->whereYear('tgl_mulai', $tahun);
             })
             ->when($request->jenis_pkm, function ($query, $jenisPkm) {
-                $query->whereHas('pengajuan', fn($q) => $q->where('id_jenis_pkm', $jenisPkm));
+                $query->whereHas('jenisPkm', fn($q) => $q->where('jenis_pkm.id_jenis_pkm', $jenisPkm));
             })
             ->when($sortField === 'status_pelaksanaan', function ($query) use ($sortDir) {
                 $query->orderByRaw("FIELD(status_pelaksanaan, 'belum_mulai', 'persiapan', 'berjalan', 'selesai') ".$sortDir);
@@ -55,17 +57,17 @@ class AktivitasController extends Controller
                 'created_at' => $a->created_at?->format('Y-m-d H:i:s'),
                 'pengajuan' => $a->pengajuan ? [
                     'id_pengajuan' => $a->pengajuan->id_pengajuan,
-                    'judul_kegiatan' => $a->pengajuan->judul_kegiatan,
-                    'tgl_mulai' => $a->pengajuan->tgl_mulai?->format('Y-m-d'),
-                    'tgl_selesai' => $a->pengajuan->tgl_selesai?->format('Y-m-d'),
+                    'judul_kegiatan' => $a->judul_pkm ?? ('Pengajuan PKM #' . $a->pengajuan->id_pengajuan),
+                    'tgl_mulai' => $a->tgl_mulai?->format('Y-m-d'),
+                    'tgl_selesai' => $a->tgl_selesai?->format('Y-m-d'),
                     'user' => $a->pengajuan->user ? [
                         'id_user' => $a->pengajuan->user->id_user,
                         'name' => $a->pengajuan->user->name,
                         'email' => $a->pengajuan->user->email,
                     ] : null,
-                    'jenis_pkm' => $a->pengajuan->jenisPkm ? [
-                        'nama_jenis' => $a->pengajuan->jenisPkm->nama_jenis,
-                        'warna_icon' => $a->pengajuan->jenisPkm->warna_icon,
+                    'jenis_pkm' => $a->jenisPkm->first() ? [
+                        'nama_jenis' => $a->jenisPkm->first()->nama_jenis,
+                        'warna_icon' => $a->jenisPkm->first()->warna_icon,
                     ] : null,
                 ] : null,
             ])
@@ -80,9 +82,8 @@ class AktivitasController extends Controller
                 'tahun' => $request->tahun ?? '',
                 'jenis_pkm' => $request->jenis_pkm ?? '',
             ],
-            'availableYears' => Aktivitas::join('pengajuan', 'aktivitas.id_pengajuan', '=', 'pengajuan.id_pengajuan')
-                                ->selectRaw('YEAR(pengajuan.tgl_mulai) as year')
-                                ->whereNotNull('pengajuan.tgl_mulai')
+            'availableYears' => Aktivitas::selectRaw('YEAR(tgl_mulai) as year')
+                                ->whereNotNull('tgl_mulai')
                                 ->groupBy('year')
                                 ->orderBy('year', 'desc')
                                 ->pluck('year'),
@@ -94,8 +95,8 @@ class AktivitasController extends Controller
     {
         $a = Aktivitas::with([
             'pengajuan.user',
-            'pengajuan.jenisPkm',
-            'pengajuan.timKegiatan.pegawai',
+            'jenisPkm',
+            'timKegiatan.pegawai',
             'arsip',
             'testimoni',
         ])->findOrFail($id);
@@ -108,7 +109,7 @@ class AktivitasController extends Controller
             'created_at' => $a->created_at?->format('Y-m-d H:i:s'),
             'pengajuan' => $a->pengajuan ? [
                 'id_pengajuan' => $a->pengajuan->id_pengajuan,
-                'judul_kegiatan' => $a->pengajuan->judul_kegiatan,
+                'judul_kegiatan' => $a->judul_pkm ?? ('Pengajuan PKM #' . $a->pengajuan->id_pengajuan),
                 'instansi_mitra' => $a->pengajuan->instansi_mitra,
                 'no_telepon' => $a->pengajuan->no_telepon,
                 'provinsi' => $a->pengajuan->provinsi,
@@ -118,19 +119,19 @@ class AktivitasController extends Controller
                 'alamat_lengkap' => $a->pengajuan->alamat_lengkap,
                 'latitude' => $a->pengajuan->latitude,
                 'longitude' => $a->pengajuan->longitude,
-                'tgl_mulai' => $a->pengajuan->tgl_mulai?->format('Y-m-d'),
-                'tgl_selesai' => $a->pengajuan->tgl_selesai?->format('Y-m-d'),
-                'sumber_dana' => $a->pengajuan->sumber_dana,
-                'total_anggaran' => $a->pengajuan->total_anggaran,
+                'tgl_mulai' => $a->tgl_mulai?->format('Y-m-d'),
+                'tgl_selesai' => $a->tgl_selesai?->format('Y-m-d'),
+                'sumber_dana' => $a->sumberDana?->nama_sumber_dana ?? '',
+                'total_anggaran' => $a->total_anggaran,
                 'user' => $a->pengajuan->user ? [
                     'id_user' => $a->pengajuan->user->id_user,
                     'name' => $a->pengajuan->user->name,
                     'email' => $a->pengajuan->user->email,
                 ] : null,
-                'jenis_pkm' => $a->pengajuan->jenisPkm ? [
-                    'nama_jenis' => $a->pengajuan->jenisPkm->nama_jenis,
+                'jenis_pkm' => $a->jenisPkm->first() ? [
+                    'nama_jenis' => $a->jenisPkm->first()->nama_jenis,
                 ] : null,
-                'tim_kegiatan' => $a->pengajuan->timKegiatan->map(fn($t) => [
+                'tim_kegiatan' => $a->timKegiatan->map(fn($t) => [
                     'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
                     'peran' => $t->peran_tim,
                 ]),
@@ -150,49 +151,184 @@ class AktivitasController extends Controller
 
         return Inertia::render('Admin/Aktivitas/Detail', [
             'aktivitas' => $aktivitasMapped,
+            'listPegawai' => Pegawai::orderBy('nama_pegawai')->get(['id_pegawai', 'nama_pegawai', 'nip']),
+            'listJenisPkm' => JenisPkm::orderBy('nama_jenis')->get(['id_jenis_pkm', 'nama_jenis']),
         ]);
+    }
+
+    /**
+     * Membuat Aktivitas baru untuk sebuah Pengajuan yang sudah diterima.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'id_pengajuan'       => 'required|exists:pengajuan,id_pengajuan',
+            'judul_pkm'          => 'required|string|max:255',
+            // Jenis PKM opsional saat buat — bisa diset nanti lewat update/detail aktivitas
+            'id_jenis_pkm'       => 'nullable|array',
+            'id_jenis_pkm.*'     => 'exists:jenis_pkm,id_jenis_pkm',
+            'tgl_mulai'          => 'nullable|date',
+            'tgl_selesai'        => 'nullable|date|after_or_equal:tgl_mulai',
+            'is_tahun_saja'      => 'nullable|boolean',
+            // Lokasi
+            'provinsi'           => 'nullable|string|max:100',
+            'kota_kabupaten'     => 'nullable|string|max:100',
+            'kecamatan'          => 'nullable|string|max:100',
+            'kelurahan_desa'     => 'nullable|string|max:100',
+            'alamat_lengkap'     => 'nullable|string',
+            'latitude'           => 'nullable|numeric|between:-90,90',
+            'longitude'          => 'nullable|numeric|between:-180,180',
+            // RAB
+            'total_anggaran'     => 'nullable|numeric|min:0',
+            'id_sumber_dana'     => 'nullable|exists:jenis_sumber_dana,id_sumber_dana',
+            // Tim
+            'ketua_tim'          => 'nullable|string|max:255',
+            'dosen_terlibat'     => 'nullable|array',
+            'dosen_terlibat.*'   => 'nullable|string|max:255',
+            'staff_terlibat'     => 'nullable|array',
+            'staff_terlibat.*'   => 'nullable|string|max:255',
+            'mahasiswa_terlibat' => 'nullable|array',
+            'mahasiswa_terlibat.*' => 'nullable|string|max:255',
+        ]);
+
+        $pengajuan = Pengajuan::findOrFail($validated['id_pengajuan']);
+
+        // Validasi: pengajuan harus berstatus diterima atau selesai
+        if (! in_array($pengajuan->status_pengajuan, ['diterima', 'selesai'])) {
+            return back()->withErrors(['id_pengajuan' => 'Aktivitas hanya bisa dibuat untuk pengajuan yang sudah diterima.']);
+        }
+
+        DB::transaction(function () use ($validated, $pengajuan) {
+            // 1. Buat Aktivitas
+            $aktivitas = Aktivitas::create([
+                'id_pengajuan'     => $pengajuan->id_pengajuan,
+                'judul_pkm'        => $validated['judul_pkm'],
+                'tgl_mulai'        => $validated['tgl_mulai'] ?? null,
+                'tgl_selesai'      => $validated['tgl_selesai'] ?? null,
+                'provinsi'         => $validated['provinsi'] ?? null,
+                'kota_kabupaten'   => $validated['kota_kabupaten'] ?? null,
+                'kecamatan'        => $validated['kecamatan'] ?? null,
+                'kelurahan_desa'   => $validated['kelurahan_desa'] ?? null,
+                'alamat_lengkap'   => $validated['alamat_lengkap'] ?? null,
+                'latitude'         => $validated['latitude'] ?? null,
+                'longitude'        => $validated['longitude'] ?? null,
+                'total_anggaran'   => $validated['total_anggaran'] ?? 0,
+                'id_sumber_dana'   => $validated['id_sumber_dana'] ?? null,
+                'status_pelaksanaan' => 'belum_mulai',
+            ]);
+
+            // 2. Attach Jenis PKM melalui pivot (jika disertakan)
+            if (! empty($validated['id_jenis_pkm'])) {
+                $aktivitas->jenisPkm()->sync($validated['id_jenis_pkm']);
+            }
+
+            // 3. Simpan Tim Kegiatan
+            $pegawaiMap = Pegawai::pluck('id_pegawai', 'nama_pegawai');
+            $rows = [];
+            $now = now();
+
+            if (! empty($validated['ketua_tim'])) {
+                $name = trim($validated['ketua_tim']);
+                $idPegawai = $pegawaiMap->get($name);
+                $rows[] = [
+                    'id_aktivitas' => $aktivitas->id_aktivitas,
+                    'id_pegawai'   => $idPegawai,
+                    'nama_mahasiswa' => $idPegawai ? null : $name,
+                    'peran_tim'    => 'ketua',
+                    'created_at'   => $now,
+                    'updated_at'   => $now,
+                ];
+            }
+
+            $rolesMap = [
+                'dosen_terlibat'     => 'anggota_dosen',
+                'staff_terlibat'     => 'anggota_staff',
+                'mahasiswa_terlibat' => 'anggota_mahasiswa',
+            ];
+
+            foreach ($rolesMap as $inputKey => $peranTim) {
+                foreach (($validated[$inputKey] ?? []) as $name) {
+                    $name = trim($name);
+                    if (! $name) continue;
+                    $idPegawai = ($peranTim === 'anggota_mahasiswa') ? null : $pegawaiMap->get($name);
+                    $rows[] = [
+                        'id_aktivitas' => $aktivitas->id_aktivitas,
+                        'id_pegawai'   => $idPegawai,
+                        'nama_mahasiswa' => $idPegawai ? null : $name,
+                        'peran_tim'    => $peranTim,
+                        'created_at'   => $now,
+                        'updated_at'   => $now,
+                    ];
+                }
+            }
+
+            if (! empty($rows)) {
+                TimKegiatan::insert($rows);
+            }
+        });
+
+        return redirect()
+            ->to("/admin/pengajuan/{$pengajuan->id_pengajuan}")
+            ->with('success', 'Aktivitas berhasil dibuat.');
     }
 
     public function update(Request $request, int $id)
     {
         $request->validate([
-            'status_pelaksanaan' => 'required|in:belum_mulai,berjalan,selesai',
+            'status_pelaksanaan'  => 'required|in:belum_mulai,persiapan,berjalan,selesai',
             'catatan_pelaksanaan' => 'nullable|string|max:1000',
-            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'judul_pkm'           => 'nullable|string|max:255',
+            'tgl_mulai'           => 'nullable|date',
+            'tgl_selesai'         => 'nullable|date|after_or_equal:tgl_mulai',
+            'total_anggaran'      => 'nullable|numeric|min:0',
+            'id_sumber_dana'      => 'nullable|exists:jenis_sumber_dana,id_sumber_dana',
+            'thumbnail'           => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            // Lokasi — tersimpan di aktivitas, bukan pengajuan
+            'provinsi'            => 'nullable|string|max:100',
+            'kota_kabupaten'      => 'nullable|string|max:100',
+            'kecamatan'           => 'nullable|string|max:100',
+            'kelurahan_desa'      => 'nullable|string|max:100',
+            'alamat_lengkap'      => 'nullable|string',
+            'latitude'            => 'nullable|numeric|between:-90,90',
+            'longitude'           => 'nullable|numeric|between:-180,180',
         ]);
 
-        $aktivitas = Aktivitas::findOrFail($id);
+        $aktivitas = Aktivitas::with('pengajuan.aktivitas')->findOrFail($id);
 
-        $aktivitas->status_pelaksanaan = $request->status_pelaksanaan;
+        $fillable = [
+            'status_pelaksanaan', 'catatan_pelaksanaan', 'judul_pkm',
+            'tgl_mulai', 'tgl_selesai', 'total_anggaran', 'id_sumber_dana',
+            'provinsi', 'kota_kabupaten', 'kecamatan', 'kelurahan_desa',
+            'alamat_lengkap', 'latitude', 'longitude',
+        ];
 
-        if ($request->filled('catatan_pelaksanaan')) {
-            $aktivitas->catatan_pelaksanaan = $request->catatan_pelaksanaan;
-        }
+        $aktivitas->fill($request->only($fillable));
 
         if ($request->hasFile('thumbnail')) {
             $path = $request->file('thumbnail')->store('aktivitas/thumbnails', 'public');
-            $aktivitas->url_thumbnail = '/storage/'.$path;
+            $aktivitas->url_thumbnail = '/storage/' . $path;
         }
 
         $aktivitas->save();
 
-        // Save location data if included in the request
-        if ($request->filled('save_location')) {
-            $aktivitas->pengajuan()->update([
-                'latitude' => $request->input('latitude'),
-                'longitude' => $request->input('longitude'),
-                'provinsi' => $request->input('provinsi'),
-                'kota_kabupaten' => $request->input('kota_kabupaten'),
-                'kecamatan' => $request->input('kecamatan'),
-                'kelurahan_desa' => $request->input('kelurahan_desa'),
-                'alamat_lengkap' => $request->input('alamat_lengkap'),
-            ]);
+        // Update jenis_pkm jika dikirim
+        if ($request->has('id_jenis_pkm')) {
+            $ids = is_array($request->id_jenis_pkm) ? $request->id_jenis_pkm : [$request->id_jenis_pkm];
+            $aktivitas->jenisPkm()->sync($ids);
         }
 
-        if ($aktivitas->status_pelaksanaan === 'selesai') {
-            $aktivitas->pengajuan()->update(['status_pengajuan' => 'selesai']);
-        } else {
-            $aktivitas->pengajuan()->update(['status_pengajuan' => 'diterima']);
+        // --- Logika Status Pengajuan (berdasarkan SEMUA aktivitas) ---
+        $pengajuan = $aktivitas->pengajuan;
+        if ($pengajuan) {
+            $allAktivitas = $pengajuan->aktivitas()->get();
+            $semuaSelesai = $allAktivitas->isNotEmpty() && $allAktivitas->every(fn($a) => $a->status_pelaksanaan === 'selesai');
+
+            if ($semuaSelesai) {
+                $pengajuan->update(['status_pengajuan' => 'selesai']);
+            } elseif (in_array($pengajuan->status_pengajuan, ['selesai'])) {
+                // Jika ada aktivitas yang di-reopen, kembalikan ke diterima
+                $pengajuan->update(['status_pengajuan' => 'diterima']);
+            }
         }
 
         return redirect()->back()->with('success', 'Aktivitas berhasil diperbarui.');
@@ -200,10 +336,128 @@ class AktivitasController extends Controller
 
     public function destroy(int $id)
     {
-        $aktivitas = Aktivitas::findOrFail($id);
-        $aktivitas->delete();
+        $aktivitas = Aktivitas::with(['timKegiatan', 'arsip', 'testimoni'])->findOrFail($id);
+
+        DB::transaction(function () use ($aktivitas) {
+            $aktivitas->timKegiatan()->delete();
+            $aktivitas->arsip()->delete();
+            $aktivitas->testimoni()->delete();
+            $aktivitas->jenisPkm()->detach();
+            $aktivitas->delete();
+        });
 
         return redirect()->back()->with('success', 'Aktivitas berhasil dihapus.');
+    }
+
+    // ─── Tim Kegiatan ────────────────────────────────────────────────────────────
+
+    /**
+     * Sinkronisasi penuh anggota tim untuk sebuah Aktivitas.
+     */
+    public function syncTim(Request $request, int $id)
+    {
+        $request->validate([
+            'ketua_tim'            => 'nullable|string|max:255',
+            'dosen_terlibat'       => 'nullable|array',
+            'dosen_terlibat.*'     => 'nullable|string|max:255',
+            'staff_terlibat'       => 'nullable|array',
+            'staff_terlibat.*'     => 'nullable|string|max:255',
+            'mahasiswa_terlibat'   => 'nullable|array',
+            'mahasiswa_terlibat.*' => 'nullable|string|max:255',
+        ]);
+
+        $aktivitas = Aktivitas::findOrFail($id);
+        $pegawaiMap = Pegawai::pluck('id_pegawai', 'nama_pegawai');
+
+        DB::transaction(function () use ($aktivitas, $request, $pegawaiMap) {
+            // Hapus tim lama (hard delete agar tidak menumpuk)
+            TimKegiatan::where('id_aktivitas', $aktivitas->id_aktivitas)->forceDelete();
+
+            $rows = [];
+            $now  = now();
+
+            // Ketua
+            $ketuaName = trim($request->input('ketua_tim', ''));
+            if ($ketuaName !== '') {
+                $idPegawai = $pegawaiMap->get($ketuaName);
+                $rows[] = [
+                    'id_aktivitas'   => $aktivitas->id_aktivitas,
+                    'id_pegawai'     => $idPegawai,
+                    'nama_mahasiswa' => $idPegawai ? null : $ketuaName,
+                    'peran_tim'      => 'ketua',
+                    'created_at'     => $now,
+                    'updated_at'     => $now,
+                ];
+            }
+
+            $rolesMap = [
+                'dosen_terlibat'     => 'anggota_dosen',
+                'staff_terlibat'     => 'anggota_staff',
+                'mahasiswa_terlibat' => 'anggota_mahasiswa',
+            ];
+
+            foreach ($rolesMap as $inputKey => $peranTim) {
+                $names = collect($request->input($inputKey, []))
+                    ->map(fn($n) => trim((string) $n))
+                    ->filter()
+                    ->values();
+
+                foreach ($names as $name) {
+                    $idPegawai = ($peranTim === 'anggota_mahasiswa') ? null : $pegawaiMap->get($name);
+                    $rows[] = [
+                        'id_aktivitas'   => $aktivitas->id_aktivitas,
+                        'id_pegawai'     => $idPegawai,
+                        'nama_mahasiswa' => $idPegawai ? null : $name,
+                        'peran_tim'      => $peranTim,
+                        'created_at'     => $now,
+                        'updated_at'     => $now,
+                    ];
+                }
+            }
+
+            if (! empty($rows)) {
+                TimKegiatan::insert($rows);
+            }
+        });
+
+        return redirect()->back()->with('success', 'Tim pelaksana berhasil diperbarui.');
+    }
+
+    /**
+     * Tambah satu anggota tim ke Aktivitas.
+     */
+    public function storeTim(Request $request, int $id)
+    {
+        $request->validate([
+            'id_pegawai'     => 'nullable|exists:pegawai,id_pegawai',
+            'nama_mahasiswa' => 'nullable|string|max:255',
+            'peran_tim'      => 'required|string|max:100',
+        ]);
+
+        $aktivitas = Aktivitas::findOrFail($id);
+
+        TimKegiatan::create([
+            'id_aktivitas'   => $aktivitas->id_aktivitas,
+            'id_pegawai'     => $request->id_pegawai,
+            'nama_mahasiswa' => $request->nama_mahasiswa,
+            'peran_tim'      => $request->peran_tim,
+        ]);
+
+        return redirect()->back()->with('success', 'Anggota tim berhasil ditambahkan.');
+    }
+
+    /**
+     * Hapus satu anggota tim dari Aktivitas.
+     */
+    public function destroyTim(int $aktivitasId, int $timId)
+    {
+        $tim = TimKegiatan::where('id_aktivitas', $aktivitasId)
+            ->where('id_tim', $timId)
+            ->firstOrFail();
+
+        $tim->delete();
+
+        return redirect()->back()->with('success', 'Anggota tim berhasil dihapus.');
     }
 
     /**
@@ -228,7 +482,7 @@ class AktivitasController extends Controller
         $sentToday = (int) Cache::get($cacheKey, 0);
         $dailyLimit = 300;
 
-        $aktivitasList = Aktivitas::with(['pengajuan.user', 'pengajuan.jenisPkm'])
+        $aktivitasList = Aktivitas::with(['pengajuan.user', 'jenisPkm'])
             ->whereIn('id_aktivitas', $request->ids)
             ->whereIn('status_pelaksanaan', ['belum_mulai', 'persiapan'])
             ->get();
@@ -255,12 +509,12 @@ class AktivitasController extends Controller
 
             $recipientEmail = $pengajuan->email_pengusul ?? $pengajuan->user?->email;
             $recipientName = $pengajuan->nama_pengusul ?? $pengajuan->user?->name ?? 'Bapak/Ibu';
-            $judulKegiatan = $pengajuan->judul_kegiatan ?? '-';
-            $tglMulai = $pengajuan->tgl_mulai ? Carbon::parse($pengajuan->tgl_mulai)->locale('id')->isoFormat('D MMMM YYYY') : 'Akan ditentukan';
-            $tglSelesai = $pengajuan->tgl_selesai ? Carbon::parse($pengajuan->tgl_selesai)->locale('id')->isoFormat('D MMMM YYYY') : 'Akan ditentukan';
+            $judulKegiatan = $aktivitas->judul_pkm ?? ('Pengajuan PKM #' . $pengajuan->id_pengajuan);
+            $tglMulai = $aktivitas->tgl_mulai ? Carbon::parse($aktivitas->tgl_mulai)->locale('id')->isoFormat('D MMMM YYYY') : 'Akan ditentukan';
+            $tglSelesai = $aktivitas->tgl_selesai ? Carbon::parse($aktivitas->tgl_selesai)->locale('id')->isoFormat('D MMMM YYYY') : 'Akan ditentukan';
             $lokasiParts = array_filter([$pengajuan->kota_kabupaten, $pengajuan->provinsi]);
             $lokasi = ! empty($lokasiParts) ? implode(', ', $lokasiParts) : 'Akan ditentukan';
-            $jenisPkm = $pengajuan->jenisPkm?->nama_jenis ?? 'PKM';
+            $jenisPkm = $aktivitas->jenisPkm->first()?->nama_jenis ?? 'PKM';
 
             if (! $recipientEmail || ! filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
                 $skippedNoEmail++;
@@ -305,21 +559,19 @@ class AktivitasController extends Controller
      */
     public function export(Request $request)
     {
-        $query = Aktivitas::with(['pengajuan.user', 'pengajuan.jenisPkm', 'pengajuan.timKegiatan.pegawai', 'arsip'])
+        $query = Aktivitas::with(['pengajuan.user', 'jenisPkm', 'timKegiatan.pegawai', 'arsip'])
             ->when($request->search, function ($query, $search) {
                 $escaped = addcslashes($search, '\\%_');
-                $query->whereHas('pengajuan', fn ($q) => $q->where('judul_kegiatan', 'like', "%{$escaped}%"));
+                $query->where('judul_pkm', 'like', "%{$escaped}%");
             })
             ->when($request->status, function ($query, $status) {
                 $query->where('status_pelaksanaan', $status);
             })
             ->when($request->tahun, function ($query, $tahun) {
-                $query->whereHas('pengajuan', function($q) use ($tahun) {
-                    $q->whereYear('tgl_mulai', $tahun);
-                });
+                $query->whereYear('tgl_mulai', $tahun);
             })
             ->when($request->jenis_pkm, function ($query, $jenisPkm) {
-                $query->whereHas('pengajuan', fn($q) => $q->where('id_jenis_pkm', $jenisPkm));
+                $query->whereHas('jenisPkm', fn($q) => $q->where('jenis_pkm.id_jenis_pkm', $jenisPkm));
             })
             ->latest();
 
@@ -377,8 +629,8 @@ class AktivitasController extends Controller
                 $staf = [];
                 $mahasiswa = [];
 
-                if ($p) {
-                    foreach ($p->timKegiatan as $anggota) {
+                if ($a->timKegiatan) {
+                    foreach ($a->timKegiatan as $anggota) {
                         $nama = $anggota->pegawai?->nama_pegawai ?? $anggota->nama_mahasiswa ?? '-';
                         match ($anggota->peran_tim) {
                             'anggota_dosen' => $dosen[] = $nama,
@@ -389,18 +641,18 @@ class AktivitasController extends Controller
                     }
                 }
 
-                $totalAnggaran = (float) ($p?->total_anggaran ?? 0);
+                $totalAnggaran = (float) ($a->total_anggaran ?? 0);
 
                 $row = [
                     $no++,
-                    $p?->judul_kegiatan ?? '-',
+                    $a->judul_pkm ?? ('Pengajuan PKM #' . ($p?->id_pengajuan ?? '')),
                     $p?->nama_pengusul ?? $p?->user?->name ?? '-',
                     $p?->email_pengusul ?? $p?->user?->email ?? '-',
                     $p?->no_telepon ?? '-',
-                    $p?->jenisPkm?->nama_jenis ?? '-',
-                    $p?->tgl_mulai ? $p->tgl_mulai->format('Y') : ($p?->created_at ? $p->created_at->format('Y') : '-'),
-                    $p?->tgl_mulai ? $p->tgl_mulai->format('d/m/Y') : '-',
-                    $p?->tgl_selesai ? $p->tgl_selesai->format('d/m/Y') : '-',
+                    $a->jenisPkm->first()?->nama_jenis ?? '-',
+                    $a->tgl_mulai ? $a->tgl_mulai->format('Y') : ($p?->created_at ? $p->created_at->format('Y') : '-'),
+                    $a->tgl_mulai ? $a->tgl_mulai->format('d/m/Y') : '-',
+                    $a->tgl_selesai ? $a->tgl_selesai->format('d/m/Y') : '-',
                     $p?->provinsi ?? '-',
                     $p?->kota_kabupaten ?? '-',
                     $p?->kecamatan ?? '-',
