@@ -303,4 +303,4 @@ export default function AppreciationAdmin({ auth, developers, docs }: any) {
     );
 }
 
-AppreciationAdmin.layout = (page: React.ReactNode) => <AdminLayout title="Secret Panel">{page}</AdminLayout>;
+(AppreciationAdmin as any).layout = (page: React.ReactNode) => <AdminLayout title="Secret Panel">{page}</AdminLayout>;

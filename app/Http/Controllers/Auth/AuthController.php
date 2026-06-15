@@ -21,11 +21,11 @@ class AuthController extends Controller
      */
     private function dashboardUrl(): string
     {
-        $role = Auth::user()?->role;
-        if ($role === 'direktur') {
+        if (Auth::user()?->role === 'direktur') {
             return '/direktur/dashboard';
         }
-        return in_array(Auth::user()?->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda';    }
+        return in_array(Auth::user()?->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda';
+    }
 
     public function showLogin()
     {
@@ -56,7 +56,7 @@ class AuthController extends Controller
             'nip.numeric' => 'NIP harus berupa angka.',
         ]);
 
-        $pegawai = Pegawai::whereRaw("REGEXP_REPLACE(nip, '[^0-9]', '') = ?", [$request->nip])->first();
+        $pegawai = Pegawai::where('nip', $request->nip)->first();
 
         if (!$pegawai) {
             return response()->json([
@@ -92,19 +92,19 @@ class AuthController extends Controller
         }
 
         $user = $request->user();
-        $pkmData = Pengajuan::with(['aktivitas.testimoni', 'aktivitas.timKegiatan.pegawai', 'aktivitas.jenisPkm'])
+        $pkmData = Pengajuan::with(['aktivitas.testimoni', 'timKegiatan.pegawai', 'jenisPkm'])
             ->whereNotNull('latitude')
             ->get()
             ->map(fn($pengajuan) => [
                 'id' => $pengajuan->id_pengajuan,
-                'nama' => $pengajuan->aktivitas->first()?->judul_pkm ?? 'Pengajuan PKM',
+                'nama' => $pengajuan->judul_kegiatan,
                 'tahun' => $pengajuan->created_at?->year ?? date('Y'),
-                'jenis_pkm' => $pengajuan->aktivitas->first()?->jenisPkm->first()?->nama_jenis ?? '',
-                'status' => ($pengajuan->status_pengajuan === 'selesai' || $pengajuan->aktivitas->first()?->status_pelaksanaan === 'selesai')
+                'jenis_pkm' => $pengajuan->jenisPkm?->nama_jenis ?? '',
+                'status' => ($pengajuan->status_pengajuan === 'selesai' || $pengajuan->aktivitas?->status_pelaksanaan === 'selesai')
                     ? 'selesai'
                     : (in_array($pengajuan->status_pengajuan, ['berlangsung', 'diterima']) ? 'berlangsung' : ($pengajuan->status_pengajuan === 'belum_diajukan' ? 'belum_mulai' : 'ada_pengajuan')),
                 'deskripsi' => $pengajuan->kebutuhan ?? '',
-                'thumbnail' => $pengajuan->aktivitas->first()?->url_thumbnail ?? '',
+                'thumbnail' => $pengajuan->aktivitas?->url_thumbnail ?? '',
                 'provinsi' => $pengajuan->provinsi ?? '',
                 'kabupaten' => $pengajuan->kota_kabupaten ?? '',
                 'kecamatan' => $pengajuan->kecamatan ?? '',
@@ -112,15 +112,15 @@ class AuthController extends Controller
                 'lat' => (float) ($pengajuan->latitude ?? 0),
                 'lng' => (float) ($pengajuan->longitude ?? 0),
                 'total_anggaran' => $pengajuan->total_anggaran ?? 0,
-                'tim_kegiatan' => $pengajuan->aktivitas->flatMap(fn($a) => $a->timKegiatan)->map(fn($tim) => [
+                'tim_kegiatan' => $pengajuan->timKegiatan->map(fn($tim) => [
                     'nama' => $tim->pegawai ? $tim->pegawai->nama_pegawai : $tim->nama_mahasiswa,
                     'peran' => $tim->peran_tim,
-                ])->unique('nama')->values()->toArray(),
-                'testimoni' => $pengajuan->aktivitas->flatMap(fn($a) => $a->testimoni)->map(fn($testimoni) => [
+                ])->toArray(),
+                'testimoni' => ($pengajuan->aktivitas?->testimoni ?? collect())->map(fn($testimoni) => [
                     'nama_pemberi' => $testimoni->nama_pemberi,
                     'rating' => (int) $testimoni->rating,
                     'pesan_ulasan' => $testimoni->pesan_ulasan,
-                ])->unique('nama_pemberi')->values()->toArray(),
+                ])->toArray(),
             ]);
 
         return Inertia::render('Auth/LoginMasyarakat', [
@@ -173,6 +173,7 @@ class AuthController extends Controller
             $default = $user->role === 'direktur'
                 ? '/direktur/dashboard'
                 : (in_array($user->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda');
+
             return redirect($default);
         }
 
@@ -213,7 +214,7 @@ class AuthController extends Controller
         $pegawai = null;
 
         if ($request->filled('nip')) {
-            $pegawai = Pegawai::whereRaw("REGEXP_REPLACE(nip, '[^0-9]', '') = ?", [$request->nip])->first();
+            $pegawai = Pegawai::where('nip', $request->nip)->first();
 
             if (!$pegawai) {
                 return back()->withErrors([
@@ -244,17 +245,22 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($portalDosenFlow && $role === 'dosen') {
+            return redirect()
+                ->route('login.dosen', [
+                    'nip' => $request->nip,
+                    'autocheck' => 1,
+                ])
+                ->with('success', 'Akun dosen berhasil terdaftar. Silakan lanjut masuk dengan kata sandi yang baru dibuat.');
+        }
+
         Auth::login($user);
 
         $redirectTo = $user->role === 'direktur'
             ? '/direktur/dashboard'
             : (in_array($user->role, self::ADMIN_ROLES, true) ? '/admin/dashboard' : '/beranda');
-        return redirect($redirectTo);
-    }
 
-    public function verifyEmail()
-    {
-        return Inertia::render('Auth/VerifyEmail');
+        return redirect($redirectTo);
     }
 
     public function logout(Request $request)

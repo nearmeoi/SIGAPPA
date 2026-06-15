@@ -1,66 +1,46 @@
 import React, { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
 
-type LoadPhase = 'hidden' | 'entering' | 'visible' | 'leaving';
-
+/**
+ * Floating "Memuat" spinner badge — shown on every Inertia navigation.
+ * Appears instantly on start, disappears immediately on finish (no artificial delay).
+ */
 export default function PageLoadingScreen() {
-    const [phase, setPhase] = useState<LoadPhase>('hidden');
+    const [visible, setVisible] = useState(false);
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        if (document.readyState !== 'complete') {
-            setPhase('entering');
-            setTimeout(() => setPhase('visible'), 40);
-
-            const onLoad = () => {
-                setPhase('leaving');
-                setTimeout(() => setPhase('hidden'), 160);
-            };
-            window.addEventListener('load', onLoad, { once: true });
-            return () => window.removeEventListener('load', onLoad);
-        }
-    }, []);
-
-    useEffect(() => {
-        let visibleTimer: ReturnType<typeof setTimeout>;
         let hideTimer: ReturnType<typeof setTimeout>;
 
-        const onStart = () => {
-            clearTimeout(visibleTimer);
+        const show = () => {
             clearTimeout(hideTimer);
-            setPhase('entering');
-            visibleTimer = setTimeout(() => setPhase('visible'), 40);
+            setVisible(true);
         };
 
-        const onFinish = () => {
-            clearTimeout(visibleTimer);
-            setPhase('leaving');
-            hideTimer = setTimeout(() => setPhase('hidden'), 160);
+        const hide = () => {
+            clearTimeout(hideTimer);
+            // Tiny delay so it doesn't flash on very fast navigations
+            hideTimer = setTimeout(() => setVisible(false), 80);
         };
 
-        const removeStart = router.on('start', onStart);
-        const removeFinish = router.on('finish', onFinish);
+        const removeStart = router.on('start', show);
+        const removeFinish = router.on('finish', hide);
 
         return () => {
-            clearTimeout(visibleTimer);
             clearTimeout(hideTimer);
             removeStart();
             removeFinish();
         };
     }, []);
 
-    if (phase === 'hidden') return null;
-
-    const isVisible = phase === 'visible' || phase === 'entering';
+    if (!visible) return null;
 
     return (
         <div
             className="pointer-events-none fixed right-5 top-5 z-[9999]"
             style={{
-                opacity: isVisible ? 1 : 0,
-                transform: isVisible ? 'translateY(0)' : 'translateY(-6px)',
-                transition: 'opacity 0.18s ease, transform 0.18s ease',
+                opacity: visible ? 1 : 0,
+                transform: visible ? 'translateY(0)' : 'translateY(-6px)',
+                transition: 'opacity 0.15s ease, transform 0.15s ease',
             }}
             aria-hidden="true"
             role="status"

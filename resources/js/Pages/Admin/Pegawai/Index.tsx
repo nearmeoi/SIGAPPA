@@ -345,5 +345,5 @@ const PegawaiPage: React.FC<Props> = ({ listPegawai, filters }) => {
 };
 
 
-PegawaiPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(PegawaiPage as any).layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 export default PegawaiPage;

@@ -1450,6 +1450,7 @@ h6 {
     z-index: 5;
     transform-origin: bottom left; /* Point of the pin */
     transition: transform 0.2s ease;
+    will-change: transform;
 }
 
 .pkm-map-marker-wrap {
@@ -1458,6 +1459,7 @@ h6 {
     height: 40px;
     cursor: pointer;
     transform-origin: bottom center;
+    will-change: transform;
 }
 
 .pkm-map-marker__inner {

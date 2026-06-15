@@ -89,4 +89,4 @@ export default function Profile({ user }: Props) {
     );
 }
 
-Profile.layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Akun">{page}</AdminLayout>;
+(Profile as any).layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Akun">{page}</AdminLayout>;

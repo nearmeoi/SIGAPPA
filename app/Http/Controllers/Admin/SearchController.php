@@ -19,7 +19,7 @@ class SearchController extends Controller
     {
         $q = trim($request->input('q', ''));
 
-        $fmtPengajuan = fn ($p) => ['id' => $p->id_pengajuan, 'title' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),  'subtitle' => ucfirst($p->status_pengajuan),                             'url' => '/admin/pengajuan/'.$p->id_pengajuan];
+        $fmtPengajuan = fn ($p) => ['id' => $p->id_pengajuan, 'title' => $p->judul_kegiatan ?? ('Pengajuan PKM #' . $p->id_pengajuan),  'subtitle' => ucfirst($p->status_pengajuan),                             'url' => '/admin/pengajuan/'.$p->id_pengajuan];
         $fmtUser = fn ($u) => ['id' => $u->id_user,      'title' => $u->name,             'subtitle' => $u->email.' ('.$u->role.')',                               'url' => '/admin/users'];
         $fmtPegawai = fn ($p) => ['id' => $p->id_pegawai,   'title' => $p->nama_pegawai,     'subtitle' => 'NIP: '.($p->nip ?? '-'),                                  'url' => '/admin/pegawai'];
         $fmtAktivitas = fn ($a) => ['id' => $a->id_aktivitas, 'title' => $a->judul_pkm ?? ('Pengajuan PKM #' . ($a->pengajuan?->id_pengajuan ?? '')), 'subtitle' => ucfirst($a->status_pelaksanaan), 'url' => '/admin/aktivitas/'.$a->id_aktivitas];

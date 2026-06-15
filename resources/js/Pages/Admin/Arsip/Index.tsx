@@ -443,5 +443,5 @@ const ArsipPage: React.FC<Props> = ({ listGroupedArsip, listAvailableAktivitas, 
 };
 
 
-ArsipPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(ArsipPage as any).layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 export default ArsipPage;

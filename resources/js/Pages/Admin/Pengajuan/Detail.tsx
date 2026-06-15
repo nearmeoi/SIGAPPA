@@ -837,15 +837,30 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
     };
 
     return (
-        <>
-            <div className="mb-8 flex items-center gap-4">
-                <Link href="/admin/pengajuan" className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900"><ArrowLeft size={16} /></Link>
-                <div className="min-w-0 flex-1">
-                    <h1 className="truncate text-xl font-bold text-slate-900">{pengajuan.judul_kegiatan || 'Detail Pengajuan'}</h1>
-                    <p className="mt-1 text-[13px] text-slate-500">Format tampilan mengikuti form {isDosen ? 'pengajuan dosen' : 'pengajuan masyarakat'} dan hanya menampilkan data yang sudah diisi.</p>
-                    <p className="mt-1 text-[13px] text-slate-500">Diajukan oleh <span className="font-medium text-slate-700">{submitterName}</span>{pengajuan.created_at && ` pada ${fmtDate(pengajuan.created_at)}`}<span className="mx-2 text-slate-300">•</span><span className="font-mono">#{pengajuan.id_pengajuan.toString().padStart(2, '0')}</span></p>
+        <div className="max-w-[1200px] mx-auto w-full pb-10 space-y-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200/60 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                    <File size={120} />
                 </div>
-                <div className={`flex flex-shrink-0 items-center gap-2 rounded-md border border-zinc-200 px-3 py-1.5 text-[13px] font-semibold uppercase tracking-wider shadow-sm ${st.bg} ${st.text}`}><span className={`h-2 w-2 rounded-full ${st.dot}`}></span>{st.label}</div>
+                <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <Link href="/admin/pengajuan" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-900 hover:scale-105 active:scale-95">
+                            <ArrowLeft size={18} />
+                        </Link>
+                        <div>
+                            <h1 className="text-2xl font-black text-zinc-900 tracking-tight truncate max-w-[600px]">{pengajuan.judul_kegiatan || 'Detail Pengajuan'}</h1>
+                            <p className="text-sm text-zinc-500 font-medium mt-1 flex items-center gap-2 flex-wrap">
+                                Diajukan oleh <span className="font-bold text-zinc-700">{submitterName}</span>
+                                {pengajuan.created_at && ` pada ${fmtDate(pengajuan.created_at)}`}
+                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-300"></span>
+                                <span className="font-mono bg-zinc-100 px-1.5 py-0.5 rounded text-xs">#{pengajuan.id_pengajuan.toString().padStart(2, '0')}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div className={`flex flex-shrink-0 items-center gap-2 rounded-lg border border-zinc-200 px-4 py-2 text-sm font-bold shadow-sm ${st.bg} ${st.text}`}>
+                        <span className={`h-2.5 w-2.5 rounded-full ${st.dot}`}></span>{st.label}
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -1487,8 +1502,9 @@ export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) 
             </div>
 
             <ConfirmDialog open={confirmDialog.open} title={confirmDialog.title} message={confirmDialog.message} confirmLabel={confirmDialog.confirmLabel} cancelLabel={confirmDialog.cancelLabel} onConfirm={() => { confirmDialog.action(); setConfirmDialog((prev) => ({ ...prev, open: false })); }} onCancel={() => setConfirmDialog((prev) => ({ ...prev, open: false }))} variant={confirmDialog.variant} />
-        </>
+        </div>
     );
-}
+};
 
-Detail.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(Detail as any).layout = (page: React.ReactNode) => <AdminLayout title="Detail Pengajuan">{page}</AdminLayout>;
+export default Detail;

@@ -353,5 +353,5 @@ const JenisPkmPage: React.FC<Props> = ({ listJenisPkm, filters }) => {
 };
 
 
-JenisPkmPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(JenisPkmPage as any).layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 export default JenisPkmPage;

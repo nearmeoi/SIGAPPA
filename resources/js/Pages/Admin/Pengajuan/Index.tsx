@@ -308,14 +308,14 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears, l
             </div>
 
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <div className="flex flex-col gap-4 mb-4">
                 {/* Tabs */}
-                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg">
+                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full">
                     {TABS.map(t => (
                         <button
                             key={t.id}
                             onClick={() => handleTabChange(t.id)}
-                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all ${tab === t.id
+                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${tab === t.id
                                     ? 'bg-white text-zinc-900 shadow-sm'
                                     : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
                                 }`}
@@ -325,53 +325,53 @@ const Index: React.FC<IndexProps> = ({ listPengajuan, filters, availableYears, l
                     ))}
                 </div>
 
-                <div className="flex w-full flex-col gap-2 sm:w-[360px] lg:w-[400px] xl:w-[430px] sm:items-end">
-                    <div className="flex w-full items-center gap-2">
-                        {/* Search */}
-                        <div className="relative min-w-0 flex-1">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                            <input
-                                type="text"
-                                placeholder="Cari proposal..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && applyFilters()}
-                                className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-full shadow-sm transition-all"
-                            />
-                        </div>
-                        <select
-                            value={tahun}
-                            onChange={e => {
-                                setTahun(e.target.value);
-                                applyFilters(sortField, sortDir, e.target.value);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer w-[120px] shrink-0"
-                        >
-                            <option value="">Semua Tahun</option>
-                            {availableYears.map(y => (
-                                <option key={y} value={y}>{y}</option>
-                            ))}
-                        </select>
+                {/* Search & Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
+                    <div className="relative w-full">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        <input
+                            type="text"
+                            placeholder="Cari proposal..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && applyFilters()}
+                            className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-full shadow-sm transition-all"
+                        />
                     </div>
 
-                    <div className="flex w-full items-center gap-2">
+                    <select
+                        value={tahun}
+                        onChange={e => {
+                            setTahun(e.target.value);
+                            applyFilters(sortField, sortDir, e.target.value);
+                        }}
+                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer w-full"
+                    >
+                        <option value="">Semua Tahun</option>
+                        {availableYears.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+
+                    <div className="flex items-center gap-2 w-full">
                         <select
                             value={filterJenisPkm}
                             onChange={e => {
                                 setFilterJenisPkm(e.target.value);
                                 applyFilters(sortField, sortDir, tahun, e.target.value);
                             }}
-                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-0 flex-1"
+                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer w-full"
                         >
                             <option value="">Semua Jenis PKM</option>
                             {listJenisPkm.map(j => (
                                 <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
                             ))}
                         </select>
+
                         {hasFilters && (
                             <button
                                 onClick={clearFilters}
-                                className="inline-flex h-10 w-10 shrink-0 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600"
+                                className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0"
                                 title="Hapus filter"
                             >
                                 <X size={14} />

@@ -26,7 +26,8 @@ const DEFAULT_CENTER: [number, number] = [-5.1866, 119.4311]; // Default to Maka
 const DEFAULT_ZOOM = 13;
 
 const toCoordinate = (value: unknown): number | null => {
-  const parsed = typeof value === 'number' ? value : Number(String(value ?? '').trim());
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(String(value).trim());
   return Number.isFinite(parsed) ? parsed : null;
 };
 
@@ -86,9 +87,19 @@ class MapPickerErrorBoundary extends React.Component<
 function LocationMarker({ position, setPosition }: { position: L.LatLng | null, setPosition: (pos: L.LatLng) => void }) {
   const markerRef = useRef<L.Marker>(null);
 
+  const enforceBounds = (latlng: L.LatLng) => {
+    let lat = latlng.lat;
+    let lng = latlng.lng;
+    if (lat < -11.0) lat = -11.0;
+    if (lat > 6.0) lat = 6.0;
+    if (lng < 94.0) lng = 94.0;
+    if (lng > 141.0) lng = 141.0;
+    return new L.LatLng(lat, lng);
+  };
+
   useMapEvents({
     click(e) {
-      setPosition(e.latlng);
+      setPosition(enforceBounds(e.latlng));
     },
   });
 
@@ -97,7 +108,7 @@ function LocationMarker({ position, setPosition }: { position: L.LatLng | null, 
       dragend() {
         const marker = markerRef.current;
         if (marker != null) {
-          setPosition(marker.getLatLng());
+          setPosition(enforceBounds(marker.getLatLng()));
         }
       },
     }),
@@ -123,7 +134,7 @@ function MapUpdater({ center }: { center: L.LatLng }) {
   return null;
 }
 
-export default function MapLocationPicker({ latitude, longitude, onChange, className = "h-64 w-full rounded-xl overflow-hidden shadow-inner border border-slate-200" }: MapLocationPickerProps) {
+export default function MapLocationPicker({ latitude, longitude, onChange, className = "h-[550px] w-full rounded-xl overflow-hidden shadow-inner border border-slate-200" }: MapLocationPickerProps) {
   const initialLatLng = toLatLng(latitude, longitude);
   const [position, setPosition] = useState<L.LatLng | null>(initialLatLng);
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,7 +183,7 @@ export default function MapLocationPicker({ latitude, longitude, onChange, class
     const timeout = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(searchQuery)}`);
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(searchQuery + ', Indonesia')}`);
         const data = await res.json();
         setSearchResults(data || []);
         setShowResults(true);
@@ -237,7 +248,16 @@ export default function MapLocationPicker({ latitude, longitude, onChange, class
 
       <div className={`relative ${className}`}>
         <MapPickerErrorBoundary onRetry={() => setMapInstanceKey((value) => value + 1)}>
-          <MapContainer key={mapInstanceKey} center={center} zoom={DEFAULT_ZOOM} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 10 }}>
+          <MapContainer 
+            key={mapInstanceKey} 
+            center={center} 
+            zoom={DEFAULT_ZOOM} 
+            scrollWheelZoom={true} 
+            style={{ height: '100%', width: '100%', zIndex: 10 }}
+            maxBounds={[[-11.0, 94.0], [6.0, 141.0]]}
+            maxBoundsViscosity={1.0}
+            minZoom={4}
+          >
             <TileLayer
               attribution='&copy; OpenStreetMap'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

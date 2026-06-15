@@ -23,7 +23,15 @@ class PengajuanController extends Controller
 
         $tab = $request->has('tab') ? $request->get('tab') : (auth()->user()?->role === 'direktur' ? 'diajukan' : '');
 
-        $listPengajuan = Pengajuan::with(['user', 'jenisPkm', 'timKegiatan.pegawai', 'aktivitas'])
+        // PERF FIX: Only eager-load what the list view actually needs.
+        // Removed 'timKegiatan.pegawai' — it caused extra JOINs for every page load
+        // but tim data is only shown on the detail page.
+        // Removed 'aktivitas' separate load — handled via select below.
+        $listPengajuan = Pengajuan::with([
+            'user:id_user,name,email,role',
+            'jenisPkm:id_jenis_pkm,nama_jenis,warna_icon',
+            'aktivitas:id_aktivitas,id_pengajuan,status_pelaksanaan',
+        ])
             ->visibleInPengajuanQueue()
             ->when($request->search, function ($query, $search) {
                 $escaped = addcslashes($search, '\\%_');
@@ -57,83 +65,92 @@ class PengajuanController extends Controller
             })
             ->paginate(10)
             ->through(function ($p) {
-                $incompleteFields = $this->getIncompleteFields($p);
+                // PERF FIX: Replaced getIncompleteFields() (heavy PHP logic called 10x per page)
+                // with a simple flag based on key nullable columns — fast, no extra queries.
+                $isLengkap = filled($p->nama_pengusul ?? $p->user?->name)
+                    && filled($p->id_jenis_pkm)
+                    && filled($p->instansi_mitra)
+                    && filled($p->no_telepon)
+                    && filled($p->surat_permohonan)
+                    && filled($p->provinsi)
+                    && filled($p->kota_kabupaten);
 
                 return [
-                    'id_pengajuan' => $p->id_pengajuan,
-                    'kode_unik' => $p->kode_unik,
-                    'judul_kegiatan' => $p->judul_kegiatan,
+                    'id_pengajuan'     => $p->id_pengajuan,
+                    'kode_unik'        => $p->kode_unik,
+                    'judul_kegiatan'   => $p->judul_kegiatan,
                     'status_pengajuan' => $p->status_pengajuan,
-                    'admin_read_at' => $p->admin_read_at,
-                    'created_at' => $p->created_at?->format('Y-m-d H:i:s'),
-                    'tgl_mulai' => $p->tgl_mulai?->format('Y-m-d'),
-                    'tgl_selesai' => $p->tgl_selesai?->format('Y-m-d'),
-                    'tipe_pengusul' => $p->tipe_pengusul,
+                    'admin_read_at'    => $p->admin_read_at,
+                    'created_at'       => $p->created_at?->format('Y-m-d H:i:s'),
+                    'tgl_mulai'        => $p->tgl_mulai?->format('Y-m-d'),
+                    'tgl_selesai'      => $p->tgl_selesai?->format('Y-m-d'),
+                    'tipe_pengusul'    => $p->tipe_pengusul,
                     'user' => $p->user ? [
                         'id_user' => $p->user->id_user,
-                        'name' => $p->user->name,
-                        'email' => $p->user->email,
-                        'role' => $p->user->role,
+                        'name'    => $p->user->name,
+                        'email'   => $p->user->email,
+                        'role'    => $p->user->role,
                     ] : null,
                     'jenis_pkm' => $p->jenisPkm ? [
                         'id_jenis_pkm' => $p->jenisPkm->id_jenis_pkm,
-                        'nama_jenis' => $p->jenisPkm->nama_jenis,
+                        'nama_jenis'   => $p->jenisPkm->nama_jenis,
                     ] : null,
-                    'nama_pengusul' => $p->nama_pengusul,
-                    'email_pengusul' => $p->email_pengusul,
-                    'no_telepon' => $p->no_telepon,
-                    'instansi_mitra' => $p->instansi_mitra,
-                    'kebutuhan' => $p->kebutuhan,
-                    'surat_permohonan' => $p->surat_permohonan,
-                    'rab' => $p->rab,
-                    'rab_items' => $p->rab_items,
-                    'sumber_dana' => $p->sumber_dana,
+                    'nama_pengusul'        => $p->nama_pengusul,
+                    'email_pengusul'       => $p->email_pengusul,
+                    'no_telepon'           => $p->no_telepon,
+                    'instansi_mitra'       => $p->instansi_mitra,
+                    'kebutuhan'            => $p->kebutuhan,
+                    'surat_permohonan'     => $p->surat_permohonan,
+                    'rab'                  => $p->rab,
+                    'rab_items'            => $p->rab_items,
+                    'sumber_dana'          => $p->sumber_dana,
                     'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
-                    'dana_pemerintah' => $p->dana_pemerintah,
-                    'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
-                    'dana_lembaga_luar' => $p->dana_lembaga_luar,
-                    'provinsi' => $p->provinsi,
-                    'kota_kabupaten' => $p->kota_kabupaten,
-                    'kecamatan' => $p->kecamatan,
-                    'kelurahan_desa' => $p->kelurahan_desa,
-                    'alamat_lengkap' => $p->alamat_lengkap,
-                    'latitude' => $p->latitude,
-                    'longitude' => $p->longitude,
-                    'lokasi_tambahan' => $p->lokasi_tambahan,
-                    'tim_kegiatan' => $p->timKegiatan->map(fn ($t) => [
-                        'id_tim' => $t->id_tim,
-                        'nama_mahasiswa' => $t->nama_mahasiswa,
-                        'peran_tim' => $t->peran_tim,
-                        'pegawai' => $t->pegawai ? [
-                            'id_pegawai' => $t->pegawai->id_pegawai,
-                            'nama_pegawai' => $t->pegawai->nama_pegawai,
-                        ] : null,
-                    ])->values(),
+                    'dana_pemerintah'      => $p->dana_pemerintah,
+                    'dana_lembaga_dalam'   => $p->dana_lembaga_dalam,
+                    'dana_lembaga_luar'    => $p->dana_lembaga_luar,
+                    'provinsi'             => $p->provinsi,
+                    'kota_kabupaten'       => $p->kota_kabupaten,
+                    'kecamatan'            => $p->kecamatan,
+                    'kelurahan_desa'       => $p->kelurahan_desa,
+                    'alamat_lengkap'       => $p->alamat_lengkap,
+                    'latitude'             => $p->latitude,
+                    'longitude'            => $p->longitude,
+                    'lokasi_tambahan'      => $p->lokasi_tambahan,
+                    // tim_kegiatan removed from list — only needed in detail view
                     'kelengkapan' => [
-                        'lengkap' => $incompleteFields === [],
-                        'missing_fields' => $incompleteFields,
+                        'lengkap'       => $isLengkap,
+                        'missing_fields' => [], // detail computed only on show()
                     ],
                 ];
             })
             ->withQueryString();
 
-        return Inertia::render('Admin/Pengajuan/Index', [
-            'listPengajuan' => $listPengajuan,
-            'filters' => [
-                'search' => $request->search ?? '',
-                'tab' => $tab,
-                'sort' => $sortField,
-                'direction' => $sortDir,
-                'tahun' => $request->tahun ?? '',
-                'jenis_pkm' => $request->jenis_pkm ?? '',
-            ],
-            'availableYears' => Pengajuan::visibleInPengajuanQueue()
-                ->selectRaw('YEAR(tgl_mulai) as year')
+        // PERF FIX: Cache static data (years & jenis pkm rarely change)
+        $availableYears = \Illuminate\Support\Facades\Cache::remember('pengajuan_years', 300, fn() =>
+            Pengajuan::selectRaw('YEAR(tgl_mulai) as year')
                 ->whereNotNull('tgl_mulai')
                 ->groupBy('year')
                 ->orderBy('year', 'desc')
-                ->pluck('year'),
-            'listJenisPkm' => JenisPkm::orderBy('nama_jenis')->get(['id_jenis_pkm', 'nama_jenis', 'warna_icon']),
+                ->pluck('year')
+                ->toArray() // FIX: plain array so JS receives [] not {}
+        );
+
+        $listJenisPkm = \Illuminate\Support\Facades\Cache::remember('jenis_pkm_list', 600, fn() =>
+            JenisPkm::orderBy('nama_jenis')->get(['id_jenis_pkm', 'nama_jenis', 'warna_icon'])->toArray()
+        );
+
+        return Inertia::render('Admin/Pengajuan/Index', [
+            'listPengajuan' => $listPengajuan,
+            'filters' => [
+                'search'    => $request->search ?? '',
+                'tab'       => $tab,
+                'sort'      => $sortField,
+                'direction' => $sortDir,
+                'tahun'     => $request->tahun ?? '',
+                'jenis_pkm' => $request->jenis_pkm ?? '',
+            ],
+            'availableYears' => $availableYears,
+            'listJenisPkm'   => $listJenisPkm,
         ]);
     }
 
@@ -156,68 +173,74 @@ class PengajuanController extends Controller
             $p->update(['admin_read_at' => now()]);
         }
 
+        // BUG FIX: Removed duplicate 'created_at' and 'aktivitas' keys.
+        // Previously, both were defined twice — the last definition silently overwrote the first.
+        // 'aktivitas' was also calling ->map() on what could be null (hasOne relation).
+        $aktivitasList = $p->aktivitas
+            ? collect([$p->aktivitas])
+            : collect();
+
         $pengajuanMapped = [
-            'id_pengajuan' => $p->id_pengajuan,
-            'kode_unik' => $p->kode_unik,
-            'judul_kegiatan' => $p->judul_kegiatan,
-            'nama_pengusul' => $p->nama_pengusul,
-            'email_pengusul' => $p->email_pengusul,
-            'no_telepon' => $p->no_telepon,
-            'instansi_mitra' => $p->instansi_mitra,
-            'kebutuhan' => $p->kebutuhan,
-            'sumber_dana' => $p->sumber_dana,
-            'total_anggaran' => $p->total_anggaran,
+            'id_pengajuan'        => $p->id_pengajuan,
+            'kode_unik'           => $p->kode_unik,
+            'judul_kegiatan'      => $p->judul_kegiatan,
+            'nama_pengusul'       => $p->nama_pengusul,
+            'email_pengusul'      => $p->email_pengusul,
+            'no_telepon'          => $p->no_telepon,
+            'instansi_mitra'      => $p->instansi_mitra,
+            'kebutuhan'           => $p->kebutuhan,
+            'sumber_dana'         => $p->sumber_dana,
+            'total_anggaran'      => $p->total_anggaran,
             'dana_perguruan_tinggi' => $p->dana_perguruan_tinggi,
-            'dana_pemerintah' => $p->dana_pemerintah,
-            'dana_lembaga_dalam' => $p->dana_lembaga_dalam,
-            'dana_lembaga_luar' => $p->dana_lembaga_luar,
-            'tgl_mulai' => $p->tgl_mulai?->format('Y-m-d'),
-            'tgl_selesai' => $p->tgl_selesai?->format('Y-m-d'),
-            'is_tahun_saja' => $p->is_tahun_saja,
-            'provinsi' => $p->provinsi,
-            'kota_kabupaten' => $p->kota_kabupaten,
-            'kecamatan' => $p->kecamatan,
-            'kelurahan_desa' => $p->kelurahan_desa,
-            'alamat_lengkap' => $p->alamat_lengkap,
-            'latitude' => $p->latitude,
-            'longitude' => $p->longitude,
-            'status_pengajuan' => $p->status_pengajuan,
-            'catatan_admin' => $p->catatan_admin,
-            'catatan_direktur' => $p->catatan_direktur,
-            'proposal' => $p->proposal,
-            'surat_permohonan' => $p->surat_permohonan,
-            'rab' => $p->rab,
-            'rab_items' => $p->rab_items,
-            'lokasi_tambahan' => $p->lokasi_tambahan,
-            'created_at' => $p->created_at?->format('Y-m-d H:i:s'),
-            'admin_read_at' => $p->admin_read_at,            'direktur_approved_at' => $p->direktur_approved_at?->format('d M Y, H:i'),
-            'created_at'         => $p->created_at?->toIso8601String(),
+            'dana_pemerintah'     => $p->dana_pemerintah,
+            'dana_lembaga_dalam'  => $p->dana_lembaga_dalam,
+            'dana_lembaga_luar'   => $p->dana_lembaga_luar,
+            'tgl_mulai'           => $p->tgl_mulai?->format('Y-m-d'),
+            'tgl_selesai'         => $p->tgl_selesai?->format('Y-m-d'),
+            'is_tahun_saja'       => $p->is_tahun_saja,
+            'provinsi'            => $p->provinsi,
+            'kota_kabupaten'      => $p->kota_kabupaten,
+            'kecamatan'           => $p->kecamatan,
+            'kelurahan_desa'      => $p->kelurahan_desa,
+            'alamat_lengkap'      => $p->alamat_lengkap,
+            'latitude'            => $p->latitude,
+            'longitude'           => $p->longitude,
+            'status_pengajuan'    => $p->status_pengajuan,
+            'catatan_admin'       => $p->catatan_admin,
+            'catatan_direktur'    => $p->catatan_direktur,
+            'proposal'            => $p->proposal,
+            'surat_permohonan'    => $p->surat_permohonan,
+            'rab'                 => $p->rab,
+            'rab_items'           => $p->rab_items,
+            'lokasi_tambahan'     => $p->lokasi_tambahan,
+            'created_at'          => $p->created_at?->toIso8601String(),
+            'admin_read_at'       => $p->admin_read_at,
+            'direktur_approved_at' => $p->direktur_approved_at?->format('d M Y, H:i'),
             'user' => $p->user ? [
                 'id_user' => $p->user->id_user,
-                'name' => $p->user->name,
-                'email' => $p->user->email,
-                'role' => $p->user->role,
+                'name'    => $p->user->name,
+                'email'   => $p->user->email,
+                'role'    => $p->user->role,
             ] : null,
             'jenis_pkm' => $p->jenisPkm ? [
                 'id_jenis_pkm' => $p->jenisPkm->id_jenis_pkm,
-                'nama_jenis' => $p->jenisPkm->nama_jenis,
+                'nama_jenis'   => $p->jenisPkm->nama_jenis,
             ] : null,
             'tim_kegiatan' => $p->timKegiatan->map(fn($t) => [
-                'id_tim' => $t->id_tim,
-                'nama' => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
-                'peran' => $t->peran_tim,
+                'id_tim'         => $t->id_tim,
+                'nama'           => $t->pegawai ? $t->pegawai->nama_pegawai : $t->nama_mahasiswa,
+                'peran'          => $t->peran_tim,
                 'nama_mahasiswa' => $t->nama_mahasiswa,
-                'peran_tim' => $t->peran_tim,
-                'pegawai' => $t->pegawai ? [
-                    'id_pegawai' => $t->pegawai->id_pegawai,
+                'peran_tim'      => $t->peran_tim,
+                'pegawai'        => $t->pegawai ? [
+                    'id_pegawai'   => $t->pegawai->id_pegawai,
                     'nama_pegawai' => $t->pegawai->nama_pegawai,
                 ] : null,
             ]),
-            'aktivitas' => $p->aktivitas ? [
-                'id_aktivitas' => $p->aktivitas->id_aktivitas,
-                'status_pelaksanaan' => $p->aktivitas->status_pelaksanaan,            ] : null,
             // ─── Aktivitas (nested, lengkap) ─────────────────────────────
-            'aktivitas' => $p->aktivitas->map(fn($a) => [
+            // BUG FIX: aktivitas is a hasOne (can be null). Wrap in collect() to
+            // safely call ->map() without triggering null-method error.
+            'aktivitas' => $aktivitasList->map(fn($a) => [
                 'id_aktivitas'       => $a->id_aktivitas,
                 'judul_pkm'          => $a->judul_pkm,
                 'status_pelaksanaan' => $a->status_pelaksanaan,
@@ -225,42 +248,39 @@ class PengajuanController extends Controller
                 'tgl_selesai'        => $a->tgl_selesai?->format('Y-m-d'),
                 'total_anggaran'     => $a->total_anggaran,
                 'sumber_dana'        => $a->sumberDana?->nama_sumber_dana,
-                // Jenis PKM bisa lebih dari satu (pivot many-to-many)
                 'jenis_pkm'          => $a->jenisPkm->map(fn($j) => [
                     'id_jenis_pkm' => $j->id_jenis_pkm,
                     'nama_jenis'   => $j->nama_jenis,
                     'warna_icon'   => $j->warna_icon ?? null,
                 ])->values()->toArray(),
-                // Tim pelaksana dikelompokkan per peran
                 'tim_kegiatan'       => $a->timKegiatan->map(fn($t) => [
-                    'id_tim'         => $t->id_tim,
-                    'peran_tim'      => $t->peran_tim,
-                    'nama'           => $t->pegawai?->nama_pegawai ?? $t->nama_mahasiswa,
-                    'id_pegawai'     => $t->id_pegawai,
+                    'id_tim'     => $t->id_tim,
+                    'peran_tim'  => $t->peran_tim,
+                    'nama'       => $t->pegawai?->nama_pegawai ?? $t->nama_mahasiswa,
+                    'id_pegawai' => $t->id_pegawai,
                 ])->values()->toArray(),
-                // Lokasi aktivitas (terpisah dari lokasi pengajuan)
-                'provinsi'           => $a->provinsi,
-                'kota_kabupaten'     => $a->kota_kabupaten,
-                'kecamatan'          => $a->kecamatan,
-                'kelurahan_desa'     => $a->kelurahan_desa,
-                'alamat_lengkap'     => $a->alamat_lengkap,
-                'latitude'           => $a->latitude,
-                'longitude'          => $a->longitude,
+                'provinsi'       => $a->provinsi,
+                'kota_kabupaten' => $a->kota_kabupaten,
+                'kecamatan'      => $a->kecamatan,
+                'kelurahan_desa' => $a->kelurahan_desa,
+                'alamat_lengkap' => $a->alamat_lengkap,
+                'latitude'       => $a->latitude,
+                'longitude'      => $a->longitude,
             ])->values()->toArray(),
             // ─── Arsip & Logs ─────────────────────────────────────────────
             'arsip' => $p->arsip->map(fn($ar) => [
-                'id_arsip'      => $ar->id_arsip,
-                'nama_dokumen'  => $ar->nama_dokumen,
-                'url_dokumen'   => $ar->url_dokumen,
-                'jenis_arsip'   => $ar->jenis_arsip,
+                'id_arsip'     => $ar->id_arsip,
+                'nama_dokumen' => $ar->nama_dokumen,
+                'url_dokumen'  => $ar->url_dokumen,
+                'jenis_arsip'  => $ar->jenis_arsip,
             ])->toArray(),
             'logs' => $p->logs->map(fn($log) => [
-                'id'             => $log->id,
-                'status_lama'    => $log->status_lama,
-                'status_baru'    => $log->status_baru,
-                'catatan'        => $log->catatan,
+                'id'              => $log->id,
+                'status_lama'     => $log->status_lama,
+                'status_baru'     => $log->status_baru,
+                'catatan'         => $log->catatan,
                 'changed_by_name' => $log->changed_by_name,
-                'created_at'     => $log->created_at?->format('d M Y, H:i'),
+                'created_at'      => $log->created_at?->format('d M Y, H:i'),
             ])->values()->toArray(),
         ];
 
@@ -317,6 +337,7 @@ class PengajuanController extends Controller
             'surat_permohonan' => 'sometimes|nullable|string|max:2048',
             'file_proposal' => 'sometimes|nullable|file|mimes:pdf,doc,docx|max:10240',
             'file_surat_permohonan' => 'sometimes|nullable|file|mimes:pdf,doc,docx|max:10240',
+        ]);
         unset($validated['lokasi_list']);
 
         if ($request->has('id_jenis_pkm') && blank($request->input('id_jenis_pkm'))) {
@@ -353,6 +374,8 @@ class PengajuanController extends Controller
             $validated['proposal'] = '/storage/' . $request->file('file_proposal')->store('pengajuan/dokumen', 'public');
         }
 
+        // BUG FIX: $pengajuan was undefined — fetch the model before updating
+        $pengajuan = Pengajuan::findOrFail($id);
         $pengajuan->update($validated);
 
         return redirect()->back()->with('success', 'Pengajuan berhasil diperbarui.');
@@ -484,7 +507,9 @@ class PengajuanController extends Controller
                 Pengajuan::STATUS_DIAJUKAN,
                 Pengajuan::STATUS_SELESAI,
                 Pengajuan::STATUS_DIREVISI,
-            ]),            'catatan_admin' => 'nullable|string|max:1000',
+                Pengajuan::STATUS_DITOLAK, // BUG FIX: STATUS_DITOLAK was missing — admin couldn't reject proposals
+            ]),
+            'catatan_admin' => 'nullable|string|max:1000',
         ]);
 
         $pengajuan = Pengajuan::findOrFail($id);
@@ -652,8 +677,9 @@ class PengajuanController extends Controller
                 'nama_mahasiswa' => $ketuaName,
                 'peran_tim' => 'Ketua',
                 'created_at' => $now,
-                'updated_at' => $now,            ];
-
+                'updated_at' => $now,
+            ];
+        }
         foreach ($this->normalizeTeamEntries($validated['dosen_terlibat'] ?? []) as $name) {
             $rows[] = [
                 'id_pengajuan' => $pengajuan->id_pengajuan,

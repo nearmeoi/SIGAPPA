@@ -26,8 +26,10 @@ class AktivitasController extends Controller
         $sortDir = $request->get('direction') === 'asc' ? 'asc' : 'desc';
 
         $listAktivitas = Aktivitas::with([
-            'pengajuan.user',
-            'jenisPkm',
+            // PERF FIX: Constrain eager load columns — only fetch what the list card needs
+            'pengajuan:id_pengajuan,id_user,judul_kegiatan,tgl_mulai,tgl_selesai,provinsi,kota_kabupaten,kecamatan,kelurahan_desa,alamat_lengkap,latitude,longitude,lokasi_tambahan',
+            'pengajuan.user:id_user,name,email',
+            'jenisPkm:id_jenis_pkm,nama_jenis,warna_icon',
         ])
             ->when($request->search, fn ($query, $search) => $this->applySearchFilter($query, $search))
             ->when($request->status, function ($query, $status) {
@@ -92,12 +94,18 @@ class AktivitasController extends Controller
                 'tahun' => $request->tahun ?? '',
                 'jenis_pkm' => $request->jenis_pkm ?? '',
             ],
-            'availableYears' => Aktivitas::selectRaw('YEAR(tgl_mulai) as year')
-                                ->whereNotNull('tgl_mulai')
-                                ->groupBy('year')
-                                ->orderBy('year', 'desc')
-                                ->pluck('year'),
-            'listJenisPkm' => JenisPkm::orderBy('nama_jenis')->get(['id_jenis_pkm', 'nama_jenis', 'warna_icon']),
+            // PERF FIX: Cache static dropdown data — these rarely change
+            'availableYears' => \Illuminate\Support\Facades\Cache::remember('aktivitas_years', 300, fn() =>
+                Aktivitas::selectRaw('YEAR(tgl_mulai) as year')
+                    ->whereNotNull('tgl_mulai')
+                    ->groupBy('year')
+                    ->orderBy('year', 'desc')
+                    ->pluck('year')
+                    ->toArray() // FIX: plain array so JS receives [] not {}
+            ),
+            'listJenisPkm' => \Illuminate\Support\Facades\Cache::remember('jenis_pkm_list', 600, fn() =>
+                JenisPkm::orderBy('nama_jenis')->get(['id_jenis_pkm', 'nama_jenis', 'warna_icon'])->toArray()
+            ),
         ]);
     }
 
@@ -350,23 +358,27 @@ class AktivitasController extends Controller
                 $additionalIndex = $lokasiIndex - 1;
                 $lokasiTambahan[$additionalIndex] = array_merge($lokasiTambahan[$additionalIndex] ?? [], $lokasiData);
                 $pengajuan->update(['lokasi_tambahan' => $lokasiTambahan]);
-            }        }
+            }
+        }
 
         // --- Logika Status Pengajuan (berdasarkan SEMUA aktivitas) ---
-        $pengajuan = $aktivitas->pengajuan;
+        // Always re-query fresh to reflect the just-saved status change
+        $pengajuan = $pengajuan ?? $aktivitas->pengajuan;
         if ($pengajuan) {
             $allAktivitas = $pengajuan->aktivitas()->get();
             $semuaSelesai = $allAktivitas->isNotEmpty() && $allAktivitas->every(fn($a) => $a->status_pelaksanaan === 'selesai');
 
             if ($semuaSelesai) {
                 $pengajuan->update(['status_pengajuan' => 'selesai']);
-            } elseif (in_array($pengajuan->status_pengajuan, ['selesai'])) {
+            } elseif ($pengajuan->status_pengajuan === 'selesai') {
                 // Jika ada aktivitas yang di-reopen, kembalikan ke diterima
                 $pengajuan->update(['status_pengajuan' => 'diterima']);
             }
         }
 
         return redirect()->back()->with('success', 'Aktivitas berhasil diperbarui.');
+
+
     }
 
     public function destroy(int $id)

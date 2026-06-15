@@ -14,6 +14,7 @@ class TimKegiatan extends Model
     protected $primaryKey = 'id_tim';
 
     protected $fillable = [
+        'id_pengajuan',
         'id_aktivitas',
         'id_pegawai',
         'nama_mahasiswa',

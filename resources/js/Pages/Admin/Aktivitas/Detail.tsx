@@ -300,17 +300,22 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
     });
 
     return (
-        <>
-            <div className="flex items-center gap-4 mb-8">
-                <Link href="/admin/aktivitas" className="w-9 h-9 flex items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 transition-colors shadow-sm">
-                    <ArrowLeft size={16} />
-                </Link>
-                <div className="flex-1 min-w-0">
-                    <h1 className="text-[20px] font-bold text-zinc-900 leading-tight truncate">Detail Aktivitas</h1>
-                    <p className="text-[13px] text-zinc-500 mt-1">
-                        Pengajuan dari <span className="font-medium text-zinc-700">{pengajuan.user?.name || '—'}</span>
-                        {pengajuan.created_at && ` pada tanggal ${formatDate(pengajuan.created_at)}`}
-                    </p>
+        <div className="max-w-[1200px] mx-auto w-full pb-10 space-y-6">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-zinc-200/60 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-8 opacity-5">
+                    <Activity size={120} />
+                </div>
+                <div className="relative z-10 flex items-center gap-4">
+                    <Link href="/admin/aktivitas" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 shadow-sm transition-all hover:bg-zinc-50 hover:text-zinc-900 hover:scale-105 active:scale-95">
+                        <ArrowLeft size={18} />
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Detail Aktivitas</h1>
+                        <p className="text-sm text-zinc-500 font-medium mt-1 flex items-center gap-2">
+                            Pengajuan dari <span className="font-bold text-zinc-700">{pengajuan.user?.name || '—'}</span>
+                            {pengajuan.created_at && ` pada tanggal ${formatDate(pengajuan.created_at)}`}
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -730,10 +735,9 @@ const Detail: React.FC<Props> = ({ aktivitas }) => {
                 onCancel={() => setConfirmOpen(false)}
                 variant="danger"
             />
-        </>
+        </div>
     );
 };
 
-
-Detail.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(Detail as any).layout = (page: React.ReactNode) => <AdminLayout title="Detail Aktivitas">{page}</AdminLayout>;
 export default Detail;

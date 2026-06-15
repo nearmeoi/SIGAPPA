@@ -78,30 +78,30 @@ Route::get('/api/geocode', function (Request $request) {
         return response()->json([]);
     }
 
-    $params = http_build_query([
-        'q' => $query . ', Indonesia',
-        'format' => 'json',
-        'limit' => '8',
-        'countrycodes' => 'id',
-        'addressdetails' => '1',
-    ]);
+    // PERF FIX: Replaced blocking file_get_contents (10s timeout) with Laravel Http facade
+    // This prevents worker processes from hanging when Nominatim is slow.
+    try {
+        $response = \Illuminate\Support\Facades\Http::timeout(5)
+            ->withHeaders([
+                'User-Agent'      => 'SIGAP-PKM/1.0',
+                'Accept-Language' => 'id',
+            ])
+            ->get('https://nominatim.openstreetmap.org/search', [
+                'q'             => $query . ', Indonesia',
+                'format'        => 'json',
+                'limit'         => '8',
+                'countrycodes'  => 'id',
+                'addressdetails' => '1',
+            ]);
 
-    $url = "https://nominatim.openstreetmap.org/search?{$params}";
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'header' => "User-Agent: SIGAP-PKM/1.0\r\nAccept-Language: id\r\n",
-            'timeout' => 10,
-        ],
-    ]);
+        if ($response->failed()) {
+            return response()->json([]);
+        }
 
-    $response = @file_get_contents($url, false, $context);
-
-    if ($response === false) {
+        return response($response->body())->header('Content-Type', 'application/json');
+    } catch (\Throwable) {
         return response()->json([]);
     }
-
-    return response($response)->header('Content-Type', 'application/json');
 })->middleware('throttle:30,1')->name('api.geocode');
 
 // Reverse geocode — lat/lng → address
@@ -112,29 +112,28 @@ Route::get('/api/reverse-geocode', function (Request $request) {
         return response()->json([]);
     }
 
-    $params = http_build_query([
-        'lat' => $lat,
-        'lon' => $lon,
-        'format' => 'json',
-        'addressdetails' => '1',
-    ]);
+    // PERF FIX: Replaced blocking file_get_contents with Laravel Http facade
+    try {
+        $response = \Illuminate\Support\Facades\Http::timeout(5)
+            ->withHeaders([
+                'User-Agent'      => 'SIGAP-PKM/1.0',
+                'Accept-Language' => 'id',
+            ])
+            ->get('https://nominatim.openstreetmap.org/reverse', [
+                'lat'            => $lat,
+                'lon'            => $lon,
+                'format'         => 'json',
+                'addressdetails' => '1',
+            ]);
 
-    $url = "https://nominatim.openstreetmap.org/reverse?{$params}";
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'header' => "User-Agent: SIGAP-PKM/1.0\r\nAccept-Language: id\r\n",
-            'timeout' => 10,
-        ],
-    ]);
+        if ($response->failed()) {
+            return response()->json([]);
+        }
 
-    $response = @file_get_contents($url, false, $context);
-
-    if ($response === false) {
+        return response($response->body())->header('Content-Type', 'application/json');
+    } catch (\Throwable) {
         return response()->json([]);
     }
-
-    return response($response)->header('Content-Type', 'application/json');
 })->middleware('throttle:30,1')->name('api.reverse-geocode');
 
 // ─────────────────────────────────────────────
@@ -416,23 +415,25 @@ Route::middleware('auth')->group(function () {
         })->name('api.notifications.mark-all-read');
 
         // (Import History routes merged into /historis)
-        // Test email route (development only)
-        Route::get('/test-email/{email}', function (string $email) {
-            $mail = new UndanganMail(
-                'Akmal Rijal',
-                'PKM Pemberdayaan Masyarakat Desa Telling',
-                'Undangan Kegiatan PKM - Politeknik Tourism Makassar',
-                'Dengan hormat, kami mengundang Anda untuk menghadiri kegiatan Program Kreativitas Masyarakat (PKM) yang akan segera dilaksanakan. Mohon persiapan dan konfirmasi kehadiran Anda sebelum tanggal pelaksanaan.',
-                $email,
-                '15 April 2026',
-                '30 April 2026',
-                'Makassar, Sulawesi Selatan',
-                'PKM Pengabdian'
-            );
+        // SECURITY FIX: Test email route only available in non-production environments
+        if (app()->environment('local', 'staging')) {
+            Route::get('/test-email/{email}', function (string $email) {
+                $mail = new UndanganMail(
+                    'Akmal Rijal',
+                    'PKM Pemberdayaan Masyarakat Desa Telling',
+                    'Undangan Kegiatan PKM - Politeknik Tourism Makassar',
+                    'Dengan hormat, kami mengundang Anda untuk menghadiri kegiatan Program Kreativitas Masyarakat (PKM) yang akan segera dilaksanakan. Mohon persiapan dan konfirmasi kehadiran Anda sebelum tanggal pelaksanaan.',
+                    $email,
+                    '15 April 2026',
+                    '30 April 2026',
+                    'Makassar, Sulawesi Selatan',
+                    'PKM Pengabdian'
+                );
 
-            Mail::to($email)->send($mail);
+                Mail::to($email)->send($mail);
 
-            return response()->json(['success' => true, 'message' => 'Test email sent to ' . $email]);
-        });
+                return response()->json(['success' => true, 'message' => 'Test email sent to ' . $email]);
+            });
+        }
     });
 });

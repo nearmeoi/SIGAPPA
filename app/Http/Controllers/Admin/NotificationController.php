@@ -46,13 +46,13 @@ class NotificationController extends Controller
         }
 
         $items = $query->with('aktivitas')
-            ->select('id_pengajuan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'updated_at', 'admin_read_at')
+            ->select('id_pengajuan', 'judul_kegiatan', 'status_pengajuan', 'catatan_admin', 'catatan_direktur', 'updated_at', 'admin_read_at') // BUG FIX: judul_kegiatan was missing from select
             ->orderBy('updated_at', 'desc')
             ->limit(15)
             ->get()
             ->map(fn($p) => [
                 'id_pengajuan' => $p->id_pengajuan,
-                'judul_kegiatan' => $p->aktivitas->first()?->judul_pkm ?? ('Pengajuan PKM #' . $p->id_pengajuan),
+                'judul_kegiatan' => $p->judul_kegiatan ?? ('Pengajuan PKM #' . $p->id_pengajuan),
                 'status_pengajuan' => $p->status_pengajuan,
                 'catatan_admin' => ($isAdmin && in_array($p->status_pengajuan, ['diterima', 'ditolak', 'direvisi'])) ? $p->catatan_direktur : $p->catatan_admin,
                 'created_at' => $p->updated_at->toISOString(),

@@ -355,5 +355,5 @@ const ManajemenUser: React.FC<Props> = ({ users, filters, errors }) => {
 };
 
 
-ManajemenUser.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(ManajemenUser as any).layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 export default ManajemenUser;

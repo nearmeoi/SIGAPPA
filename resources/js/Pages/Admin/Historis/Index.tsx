@@ -181,16 +181,16 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                     </div>
 
                     {activeTab === 'manual' && (
-                        <form onSubmit={submitManual} className="max-w-4xl space-y-6 pb-20">
+                        <form onSubmit={submitManual} className="w-full space-y-6 pb-20">
                             <FormHistoris data={manualData} setData={setManualData} listPegawai={listPegawai} listJenisPkm={listJenisPkm} />
-                            <div className="flex justify-end gap-3 sticky bottom-6 z-20">
-                                <button type="submit" className="px-8 py-3 rounded-xl bg-poltekpar-navy hover:bg-poltekpar-primary text-white font-black text-[14px] shadow-lg shadow-poltekpar-navy/20 flex items-center gap-2"><Save size={18}/> Kirim Data Ke Database</button>
+                            <div className="flex justify-center w-full sticky bottom-6 z-20">
+                                <button type="submit" className="w-full py-4 rounded-xl bg-poltekpar-navy hover:bg-poltekpar-primary text-white font-black text-[15px] shadow-lg shadow-poltekpar-navy/20 flex items-center justify-center gap-2"><Save size={20}/> Kirim Data Ke Database</button>
                             </div>
                         </form>
                     )}
 
                     {activeTab === 'excel' && (
-                        <div className="max-w-4xl space-y-6">
+                        <div className="w-full space-y-6">
                             <div className="bg-gradient-to-br from-indigo-900 to-poltekpar-navy text-white rounded-2xl p-8 shadow-lg flex flex-col md:flex-row justify-between items-center gap-6">
                                 <div>
                                     <h2 className="text-[20px] font-black tracking-tight mb-2 flex items-center gap-2"><History /> Hub Import Historis</h2>
@@ -204,9 +204,9 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                             </div>
 
                             <div className="bg-white rounded-2xl p-8 shadow-sm border border-zinc-200">
-                                <form onSubmit={handlePreview} className="flex flex-col items-center">
+                                <form onSubmit={handlePreview} className="flex flex-col items-center w-full">
                                     <div 
-                                        className={`w-full max-w-2xl h-64 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 transition-all cursor-pointer relative
+                                        className={`w-full h-64 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-6 transition-all cursor-pointer relative
                                         ${dragActive ? 'border-poltekpar-primary bg-indigo-50/50' : 'border-zinc-300 bg-zinc-50 hover:bg-zinc-100'}`}
                                         onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
                                     >
@@ -220,7 +220,7 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
                                             <div className="text-center"><p className="font-bold text-zinc-700">Tarik File Excel ke Area Ini</p><p className="text-[12px] text-zinc-500 mt-2">Atau klik untuk membuka file explorer</p></div>
                                         )}
                                     </div>
-                                    <div className="mt-8 flex justify-center w-full max-w-2xl">
+                                    <div className="mt-8 flex justify-center w-full">
                                         <button type="submit" disabled={!file || isProcessing} className="w-full bg-poltekpar-navy hover:bg-poltekpar-primary text-white border-2 border-poltekpar-navy hover:border-poltekpar-primary hover:shadow-xl hover:shadow-poltekpar-primary/20 transition-all rounded-xl py-4 flex justify-center items-center gap-3 font-bold disabled:opacity-50 text-[15px]">
                                             {isProcessing ? <Loader2 size={20} className="animate-spin" /> : <Eye size={20} />} Review Hasil Parsing Data
                                         </button>
@@ -361,4 +361,4 @@ export default function HistorisIndex({ listPegawai, listJenisPkm }: any) {
     );
 }
 
-HistorisIndex.layout = (page: React.ReactNode) => <AdminLayout title="Kelola Data Historis">{page}</AdminLayout>;
+(HistorisIndex as any).layout = (page: React.ReactNode) => <AdminLayout title="Kelola Data Historis">{page}</AdminLayout>;

@@ -185,10 +185,7 @@ export default function NotificationBell() {
                 });
         }
 
-        // Polling setiap 5 detik sebagai fallback jika WebSocket tidak aktif
-        const interval = setInterval(fetchNotifications, 5000);
         return () => {
-            clearInterval(interval);
             if ((window as any).Echo) (window as any).Echo.leave('notifications');
         };
     }, [fetchNotifications]);

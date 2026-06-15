@@ -328,4 +328,4 @@ export default function KontakIndex({ auth, kontaks, visitorData }: KontakIndexP
     );
 }
 
-KontakIndex.layout = (page: React.ReactNode) => <AdminLayout title="Manajemen Kontak">{page}</AdminLayout>;
+(KontakIndex as any).layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;

@@ -262,83 +262,86 @@ Politeknik Pariwisata Makassar`;
     return (
         <>
             {/* Page Header */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-8">
-                <div className="shrink-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                <div>
                     <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Aktivitas</h1>
                     <p className="text-[14px] text-zinc-500 mt-1">Pantau seluruh status pelaksanaan kegiatan PKM.</p>
                 </div>
+            </div>
 
-                {/* Toolbar */}
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full lg:w-auto lg:flex-1 lg:justify-end">
-                    {/* Tabs */}
-                    <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full shrink-0">
-                        {STATUS_OPTIONS.map(opt => (
-                            <button
-                                key={opt.value}
-                                onClick={() => handleStatusChange(opt.value)}
-                                className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${filterStatus === opt.value
-                                        ? 'bg-white text-zinc-900 shadow-sm'
-                                        : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
-                                    }`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
+            {/* Toolbar */}
+            <div className="flex flex-col gap-4 mb-4">
+                {/* Tabs */}
+                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-lg overflow-x-auto max-w-full">
+                    {STATUS_OPTIONS.map(opt => (
+                        <button
+                            key={opt.value}
+                            onClick={() => handleStatusChange(opt.value)}
+                            className={`px-4 py-1.5 rounded-md text-[13px] font-medium transition-all whitespace-nowrap ${filterStatus === opt.value
+                                    ? 'bg-white text-zinc-900 shadow-sm'
+                                    : 'text-zinc-500 hover:text-zinc-700 hover:bg-zinc-200/50'
+                                }`}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Search & Filters */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+                    <div className="relative w-full">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        <input
+                            type="text"
+                            placeholder="Cari kegiatan..."
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && applyFilters(sortField, sortDir, tahun, filterJenisPkm, filterStatus, search)}
+                            className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-full shadow-sm transition-all"
+                        />
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="relative">
-                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-                            <input
-                                type="text"
-                                placeholder="Cari kegiatan..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && applyFilters(sortField, sortDir, tahun, filterJenisPkm, filterStatus, search)}
-                                className="bg-white border border-zinc-200 rounded-md py-2 pl-9 pr-4 text-[13px] text-zinc-700 placeholder-zinc-400 focus:ring-2 focus:ring-zinc-200 focus:border-zinc-400 outline-none w-56 shadow-sm transition-all"
-                            />
-                        </div>
+                    <select
+                        value={tahun}
+                        onChange={e => {
+                            setTahun(e.target.value);
+                            applyFilters(sortField, sortDir, e.target.value);
+                        }}
+                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer w-full"
+                    >
+                        <option value="">Semua Tahun</option>
+                        {(availableYears || []).map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
 
-                        <select
-                            value={tahun}
-                            onChange={e => {
-                                setTahun(e.target.value);
-                                applyFilters(sortField, sortDir, e.target.value);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[120px]"
-                        >
-                            <option value="">Semua Tahun</option>
-                            {(availableYears || []).map(y => (
-                                <option key={y} value={y}>{y}</option>
-                            ))}
-                        </select>
+                    <select
+                        value={filterJenisPkm}
+                        onChange={e => {
+                            setFilterJenisPkm(e.target.value);
+                            applyFilters(sortField, sortDir, tahun, e.target.value);
+                        }}
+                        className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer w-full"
+                    >
+                        <option value="">Semua Jenis PKM</option>
+                        {(listJenisPkm || []).map(j => (
+                            <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
+                        ))}
+                    </select>
 
-                        <select
-                            value={filterJenisPkm}
-                            onChange={e => {
-                                setFilterJenisPkm(e.target.value);
-                                applyFilters(sortField, sortDir, tahun, e.target.value);
-                            }}
-                            className="bg-white border border-zinc-200 rounded-md py-2 px-3 text-[13px] text-zinc-700 outline-none shadow-sm cursor-pointer min-w-[140px]"
-                        >
-                            <option value="">Semua Jenis PKM</option>
-                            {(listJenisPkm || []).map(j => (
-                                <option key={j.id_jenis_pkm} value={j.id_jenis_pkm}>{j.nama_jenis}</option>
-                            ))}
-                        </select>
-
-                        {hasFilters && (
-                            <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors" title="Hapus filter">
-                                <X size={14} />
-                            </button>
-                        )}
-
+                    <div className="flex items-center gap-2 w-full">
                         <button
                             onClick={handleExport}
-                            className="flex items-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-md text-[13px] font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-zinc-200 shadow-sm rounded-md text-[13px] font-medium text-zinc-600 hover:bg-zinc-50 transition-colors w-full"
                         >
                             <Download size={14} /> Export
                         </button>
+
+                        {hasFilters && (
+                            <button onClick={clearFilters} className="p-2 text-zinc-400 hover:text-zinc-600 transition-colors shrink-0" title="Hapus filter">
+                                <X size={14} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -757,5 +760,5 @@ Politeknik Pariwisata Makassar`;
 };
 
 
-AktivitasPage.layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
+(AktivitasPage as any).layout = (page: React.ReactNode) => <AdminLayout title="">{page}</AdminLayout>;
 export default AktivitasPage;

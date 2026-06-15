@@ -561,13 +561,14 @@ class HistorisController extends Controller
 
             // 1. Create Pengajuan (Status: Selesai)
             $pengajuan = Pengajuan::create([
-                'id_user' => $adminUser->id_user,
-                'kode_unik' => strtoupper(Str::random(10)),
+                // BUG FIX: was hardcoded 'Superadmin (Import Historis)' — now uses resolved ketua tim name
+                'id_user'        => $pengajuanUserId,
+                'kode_unik'      => strtoupper(Str::random(10)),
                 'judul_kegiatan' => $validated['judul_kegiatan'],
-                'id_jenis_pkm' => $validated['id_jenis_pkm'],
-                'nama_pengusul' => 'Superadmin (Import Historis)',
-                'tipe_pengusul' => $validated['tipe_pengusul'] ?? 'dosen',
-                'kebutuhan' => $validated['kebutuhan'] ?? null,
+                'id_jenis_pkm'   => $validated['id_jenis_pkm'],
+                'nama_pengusul'  => $namaPengusul,
+                'tipe_pengusul'  => $validated['tipe_pengusul'] ?? 'dosen',
+                'kebutuhan'      => $validated['kebutuhan'] ?? null,
                 
                 'tgl_mulai' => $validated['tgl_mulai'] ?? null,
                 'tgl_selesai' => $validated['tgl_selesai'] ?? null,
@@ -581,6 +582,11 @@ class HistorisController extends Controller
                 'latitude' => $lokasiUtama['latitude'] ?? null,
                 'longitude' => $lokasiUtama['longitude'] ?? null,
                 'lokasi_tambahan' => $lokasiTambahan,
+                'status_pengajuan' => 'selesai',
+                'created_at' => $createdDate,
+                'updated_at' => $createdDate,
+            ]);
+
         // 2. Create Aktivitas (Status: Selesai)
         $aktivitas = Aktivitas::create([
             'id_pengajuan' => $pengajuan->id_pengajuan,

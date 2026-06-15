@@ -2,12 +2,14 @@ import React, { useState, useMemo } from "react";
 import { Head } from "@inertiajs/react";
 import { Eye } from "lucide-react";
 import Layout from "@/Layouts/DefaultLayout";
-import CTABanner from "@/Components/CTABanner";
-import PkmMapDashboardCard from "@/Components/PkmMapDashboardCard";
-import TestimonialSection from "@/Components/TestimonialSection";
+import LandingCharts from '@/Components/dashboard/LandingCharts';
+import { usePkmData } from '@/hooks/usePkmData';
+import CTABanner from "@/Components/pkm/CTABanner";
+import PkmMapDashboardCard from "@/Components/map/PkmMapDashboardCard";
+import TestimonialSection from "@/Components/testimonial/TestimonialSection";
 
-import { resolvePublicPkmData } from "@/data/sigapData";
-import { PkmData, TestimoniItem } from "@/types";
+
+import { PkmData, TestimoniItem, VisitorStats } from "@/types";
 import "../../css/landing.css";
 
 interface TestimoniStats {
@@ -21,13 +23,7 @@ interface LandingPageProps {
   publicPkmData?: PkmData[] | null;
   testimonials?: TestimoniItem[] | null;
   testimoniStats?: TestimoniStats | null;
-  visitorStats?: {
-    today_views: number;
-    today_visitors: number;
-    last_7_days_views: number;
-    last_30_days_views: number;
-    total_visitors: number;
-  } | null;
+  visitorStats?: VisitorStats | null;
 }
 
 export default function LandingPage({
@@ -37,10 +33,10 @@ export default function LandingPage({
   testimoniStats = null,
   visitorStats = null,
 }: LandingPageProps) {
-  const pkmData = useMemo(
-    () => resolvePublicPkmData(publicPkmData ?? serverPkmData),
-    [publicPkmData, serverPkmData],
-  );
+  const { data: pkmData } = usePkmData({ 
+    type: 'public', 
+    serverData: publicPkmData ?? serverPkmData 
+  });
 
   return (
     <Layout

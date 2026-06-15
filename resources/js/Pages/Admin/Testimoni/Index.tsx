@@ -105,7 +105,7 @@ const TestimoniPage: React.FC<Props> = ({ listGroupedTestimoni, filters }) => {
         <>
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Kumpulan Ulasan PKM</h1>
+                    <h1 className="text-[24px] font-bold text-zinc-900 tracking-tight">Kelola Testimoni</h1>
                     <p className="text-zinc-500 text-[14px] mt-1">Ulasan disatukan berdasarkan Judul Kegiatan PKM.</p>
                 </div>
                 <div>
@@ -335,5 +335,5 @@ const TestimoniPage: React.FC<Props> = ({ listGroupedTestimoni, filters }) => {
 };
 
 
-TestimoniPage.layout = (page: React.ReactNode) => <AdminLayout title="Kelola Testimoni">{page}</AdminLayout>;
+TestimoniPage.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;
 export default TestimoniPage;

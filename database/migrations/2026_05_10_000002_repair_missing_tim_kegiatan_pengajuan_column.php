@@ -28,12 +28,23 @@ return new class extends Migration
             && Schema::hasTable('aktivitas')
             && Schema::hasColumn('aktivitas', 'id_pengajuan')
         ) {
-            DB::statement('
-                update tim_kegiatan tk
-                join aktivitas a on a.id_aktivitas = tk.id_aktivitas
-                set tk.id_pengajuan = a.id_pengajuan
-                where tk.id_pengajuan is null
-            ');
+            if (DB::connection()->getDriverName() === 'mysql') {
+                DB::statement('
+                    update tim_kegiatan tk
+                    join aktivitas a on a.id_aktivitas = tk.id_aktivitas
+                    set tk.id_pengajuan = a.id_pengajuan
+                    where tk.id_pengajuan is null
+                ');
+            } else {
+                $missing = DB::table('tim_kegiatan')
+                    ->join('aktivitas', 'aktivitas.id_aktivitas', '=', 'tim_kegiatan.id_aktivitas')
+                    ->whereNull('tim_kegiatan.id_pengajuan')
+                    ->select('tim_kegiatan.id_tim', 'aktivitas.id_pengajuan')
+                    ->get();
+                foreach ($missing as $row) {
+                    DB::table('tim_kegiatan')->where('id_tim', $row->id_tim)->update(['id_pengajuan' => $row->id_pengajuan]);
+                }
+            }
         }
     }
 

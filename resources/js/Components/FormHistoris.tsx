@@ -258,7 +258,7 @@ export default function FormHistoris({ data, setData, listPegawai, listJenisPkm 
                             )}
                         </div>
 
-                        <div className="rounded-xl overflow-hidden border border-zinc-200 h-80 relative bg-white">
+                        <div className="rounded-xl overflow-hidden border border-zinc-200 h-[550px] relative bg-white">
                             <MapLocationPicker
                                 latitude={lokasi.latitude}
                                 longitude={lokasi.longitude}

@@ -66,6 +66,24 @@ function MapClickHandler({ onClick }: { onClick: () => void }) {
     return null;
 }
 
+function MapResetViewButton() {
+    const map = useMap();
+    return (
+        <div className="absolute top-[80px] right-3 md:top-[90px] md:right-6 z-[1000] pointer-events-none transition-all duration-300">
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    map.flyTo([-2.5, 118], 5, { duration: 1.5, easeLinearity: 0.25 });
+                }}
+                className="w-10 h-10 md:w-12 md:h-12 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-slate-900/10 border border-slate-100 flex items-center justify-center text-slate-500 hover:text-poltekpar-primary hover:scale-105 active:scale-95 transition-all outline-none pointer-events-auto group"
+                title="Kembali ke Tampilan Awal"
+            >
+                <i className="fa-solid fa-crosshairs group-hover:rotate-90 transition-transform duration-500 text-lg"></i>
+            </button>
+        </div>
+    );
+}
+
 function MapSummaryOverlay({
     total,
     selesai,
@@ -142,6 +160,35 @@ function MapSummaryOverlay({
     );
 }
 
+export interface FlyToTarget {
+    lat: number;
+    lng: number;
+    trigger: number;
+}
+
+const MapMarkersList = React.memo(({ data, typesMeta, onMarkerClick }: { data: any[], typesMeta: PkmTypeMeta[], onMarkerClick: (pkm: any, pointIndex: number, lat: number, lng: number) => void }) => {
+    return (
+        <>
+            {data.map(({ pkm, lat, lng, pointIndex }) => {
+                const typeMeta = typesMeta.find((t: any) => t.key === normalizeTypeKey(pkm?.jenis_pkm));
+                const markerColor = typeMeta ? typeMeta.color : '#15325F';
+                return (
+                    <Marker
+                        key={`${pkm.id ?? pkm.nama_kegiatan}-${pointIndex}`}
+                        position={[lat, lng]}
+                        icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review)}
+                        eventHandlers={{
+                            click: () => onMarkerClick(pkm, pointIndex, lat, lng),
+                        }}
+                    />
+                );
+            })}
+        </>
+    );
+}, (prevProps, nextProps) => {
+    return prevProps.data === nextProps.data && prevProps.typesMeta === nextProps.typesMeta;
+});
+
 export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isAdmin = false, showTitle = true }: { pkmData: PkmData[]; watchKey?: string; isAdmin?: boolean; showTitle?: boolean }) {
     const [isListSidebarOpen, setIsListSidebarOpen] = useState(false);
     const [searchKeyword, setSearchKeyword] = useState('');
@@ -176,6 +223,12 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
             setFlyToTarget({ lat: nLat, lng: nLng, trigger: Date.now() });
         }
     };
+
+    const handleMarkerClick = React.useCallback((pkm: PkmData, pointIndex: number, lat: number, lng: number) => {
+        setSelectedPkm(pkm);
+        setActiveLocationIndex(pointIndex);
+        setFlyToTarget({ lat, lng, trigger: Date.now() });
+    }, []);
 
     const filteredPkmData = useMemo(() => {
         const keyword = searchKeyword.toLowerCase();
@@ -291,27 +344,19 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
             )}
             <div className="bg-white rounded-2xl sm:rounded-[32px] lg:rounded-[40px] shadow-2xl shadow-sigappa-navy/5 border border-slate-100 overflow-hidden mb-6 sm:mb-8 p-3 sm:p-4 md:p-6">
                 <div className="relative w-full h-[380px] sm:h-[500px] md:h-[650px] lg:h-[75vh] min-h-[380px] rounded-2xl sm:rounded-[24px] lg:rounded-[32px] border border-slate-100 overflow-hidden z-10 shadow-inner">
-                    <MapContainer center={[-2.5, 118]} zoom={5} className="w-full h-full" zoomControl={false}>
+                    <MapContainer 
+                        center={[-2.5, 118]} 
+                        zoom={5} 
+                        className="w-full h-full" 
+                        zoomControl={false}
+                        minZoom={4}
+                        maxBounds={[[-15.0, 90.0], [10.0, 145.0]]}
+                        maxBoundsViscosity={1.0}
+                    >
+                        <MapResetViewButton />
                         <MapClickHandler onClick={() => { setSelectedPkm(null); setFlyToTarget(null); setActiveLocationIndex(null); }} />
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
-                        {mappablePkmData.map(({ pkm, lat, lng, pointIndex }) => {
-                            const typeMeta = typesMeta.find(t => t.key === normalizeTypeKey(pkm?.jenis_pkm));
-                            const markerColor = typeMeta ? typeMeta.color : '#15325F';
-                            return (
-                                <Marker
-                                    key={`${pkm.id}-${pointIndex}`}
-                                    position={[lat, lng]}
-                                    icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review)}
-                                    eventHandlers={{
-                                        click: () => {
-                                            setSelectedPkm(pkm);
-                                            setActiveLocationIndex(pointIndex);
-                                            setFlyToTarget({ lat, lng, trigger: Date.now() });
-                                        },
-                                    }}
-                                />
-                            );
-                        })}
+                        <MapMarkersList data={mappablePkmData} typesMeta={typesMeta} onMarkerClick={handleMarkerClick} />
                         <MapSizeInvalidator watchKey={watchKey} />
                         <FlyToMarker 
                             lat={flyToTarget?.lat ?? selectedLat} 

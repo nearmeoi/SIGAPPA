@@ -260,7 +260,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                                                     <Link
                                                         key={child.label}
                                                         href={child.href}
-                                                        prefetch="hover"
+                                                        prefetch="mount"
                                                         onClick={() => setSidebarOpen(false)}
                                                         className={`block px-4 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${childIsActive
                                                             ? 'text-poltekpar-gold bg-white/5'
@@ -281,11 +281,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
                             <Link
                                 key={item.label}
                                 href={item.href || '#'}
-                                prefetch="hover"
+                                prefetch
                                 onClick={() => setSidebarOpen(false)}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-bold transition-all duration-300 relative group ${active
-                                    ? 'bg-poltekpar-primary text-white shadow-lg shadow-poltekpar-primary/20 translate-x-1'
-                                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-bold transition-all duration-300 relative group border ${active
+                                    ? 'bg-poltekpar-primary text-white shadow-lg shadow-poltekpar-primary/20 translate-x-1 border-white/50'
+                                    : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent'
                                     }`}
                             >
                                 <Icon size={18} className={active ? 'text-white' : 'text-white/40 group-hover:text-white transition-colors'} />

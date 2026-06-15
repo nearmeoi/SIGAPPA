@@ -25,6 +25,7 @@ class PengajuanUserController extends Controller
 
         // Ambil pengajuan milik user dari database dengan pagination dan search
         $submissionsPaginator = null;
+        $userSubmissions = [];
         if ($user) {
             $query = Pengajuan::query();
 
@@ -59,8 +60,9 @@ class PengajuanUserController extends Controller
 
             $submissionsPaginator = $query->with(['user', 'aktivitas.jenisPkm', 'aktivitas.timKegiatan.pegawai', 'logs'])
                 ->latest()
-                ->get()
-                ->map(fn($p) => [
+                ->paginate(5);
+
+            $userSubmissions = $submissionsPaginator ? collect($submissionsPaginator->items())->map(fn($p) => [
                     'id' => $p->id_pengajuan,
                     'kode_unik' => $p->kode_unik,
                     'judul' => $p->judul_kegiatan,
@@ -109,6 +111,8 @@ class PengajuanUserController extends Controller
                 ->values()
                 ->toArray()
             : [];
+        }
+
         $jenisPkmOptions = JenisPkm::select('id_jenis_pkm', 'nama_jenis')
             ->get()
             ->map(fn($j) => ['value' => $j->id_jenis_pkm, 'label' => $j->nama_jenis]);

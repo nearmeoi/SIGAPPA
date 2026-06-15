@@ -84,7 +84,7 @@ export default function EvaluasiSistemIndex({ auth, evaluasi }: any) {
 
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Feedback</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Supervisi Feedback</h1>
           <p className="text-sm text-slate-500 mt-1">
             Umpan balik dan penilaian dari masyarakat dan stakeholder
           </p>
@@ -412,4 +412,4 @@ export default function EvaluasiSistemIndex({ auth, evaluasi }: any) {
   );
 }
 
-EvaluasiSistemIndex.layout = (page: React.ReactNode) => <AdminLayout title="Supervisi Feedback">{page}</AdminLayout>;
+EvaluasiSistemIndex.layout = (page: React.ReactNode) => <AdminLayout>{page}</AdminLayout>;

@@ -78,4 +78,4 @@ export default function SiteSettings({ settings }: Props) {
     );
 }
 
-SiteSettings.layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Situs">{page}</AdminLayout>;
+(SiteSettings as any).layout = (page: React.ReactNode) => <AdminLayout title="Pengaturan Situs">{page}</AdminLayout>;

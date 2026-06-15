@@ -202,4 +202,4 @@ function TemplateUploaderCard({ title, jenis, templateData, description }: { tit
     );
 }
 
-Index.layout = (page: React.ReactNode) => <AdminLayout title="Atur Template Dokumen">{page}</AdminLayout>;
+(Index as any).layout = (page: React.ReactNode) => <AdminLayout title="Atur Template Dokumen">{page}</AdminLayout>;

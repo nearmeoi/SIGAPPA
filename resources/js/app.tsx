@@ -1,5 +1,4 @@
 import '../css/app.css';
-import './echo';
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -9,6 +8,18 @@ import PageLoadingScreen from '@/Components/ui/PageLoadingScreen';
 
 const rawAppName = import.meta.env.VITE_APP_NAME || 'SIGAPPA';
 const appName = rawAppName.includes('${') ? 'SIGAPPA' : rawAppName;
+
+// PERF FIX: Echo (Pusher/WebSocket) was imported synchronously at the top,
+// blocking React hydration. Lazy-load it after the page is interactive
+// so it doesn't delay the first render or any subsequent navigation.
+if (typeof window !== 'undefined') {
+    const initEcho = () => import('./echo');
+    if (document.readyState === 'complete') {
+        initEcho();
+    } else {
+        window.addEventListener('load', initEcho, { once: true });
+    }
+}
 
 createInertiaApp({
     title: (title) => title ? `${title} - ${appName}` : appName,
@@ -22,5 +33,6 @@ createInertiaApp({
             </>
         );
     },
+    // progress: false — handled by our custom PageLoadingScreen top bar
     progress: false,
 });

@@ -52,6 +52,18 @@ class Pengajuan extends Model
         'catatan_direktur',
         'admin_read_at',
         'direktur_approved_at',
+        'id_jenis_pkm',
+        'judul_kegiatan',
+        'rab',
+        'rab_items',
+        'total_anggaran',
+        'sumber_dana',
+        'dana_perguruan_tinggi',
+        'dana_pemerintah',
+        'dana_lembaga_dalam',
+        'dana_lembaga_luar',
+        'tgl_mulai',
+        'tgl_selesai',
     ];
 
     const STATUS_DIPROSES = 'diproses';
@@ -61,9 +73,6 @@ class Pengajuan extends Model
     const STATUS_REVISI_DIREKTUR = 'revisi_direktur';
 
     const STATUS_DIREVISI = 'direvisi';
-
-    const STATUS_REVISI_DIREKTUR = 'revisi_direktur';
-
     const STATUS_DITERIMA = 'diterima';
 
     const STATUS_DITOLAK = 'ditolak';
@@ -81,6 +90,9 @@ class Pengajuan extends Model
             'updated_at' => 'datetime',
             'admin_read_at' => 'datetime',
             'direktur_approved_at' => 'datetime',
+            'rab_items' => 'array',
+            'tgl_mulai' => 'date',
+            'tgl_selesai' => 'date',
         ];
     }
 
@@ -95,9 +107,19 @@ class Pengajuan extends Model
         return $this->belongsTo(User::class, 'id_user');
     }
 
+    public function jenisPkm()
+    {
+        return $this->belongsTo(JenisPkm::class, 'id_jenis_pkm', 'id_jenis_pkm');
+    }
+
+    public function timKegiatan()
+    {
+        return $this->hasMany(TimKegiatan::class, 'id_pengajuan', 'id_pengajuan');
+    }
+
     public function aktivitas()
     {
-        return $this->hasMany(Aktivitas::class, 'id_pengajuan', 'id_pengajuan');
+        return $this->hasOne(Aktivitas::class, 'id_pengajuan', 'id_pengajuan');
     }
 
     public function arsip()
