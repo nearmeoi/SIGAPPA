@@ -230,10 +230,19 @@ export default function DosenPortal({ initialNip = null, autoCheck = false }: Do
                                         </button>
                                     )}
                                 </div>
-                                {nipStatus.message && (
-                                    <div className={`nip-check-badge mt-2 ${nipStatus.status === 'error' || nipStatus.status === 'not_found' ? 'error' : ''}`}>
-                                        <i className={`fa-solid ${nipStatus.status === 'error' || nipStatus.status === 'not_found' ? 'fa-circle-xmark' : 'fa-circle-check'}`}></i>
+                                {nipStatus.message && nipStatus.status !== 'error' && (
+                                    <div className={`nip-check-badge mt-2 ${nipStatus.status === 'not_found' ? 'error' : ''}`}>
+                                        <i className={`fa-solid ${nipStatus.status === 'not_found' ? 'fa-circle-xmark' : 'fa-circle-check'}`}></i>
                                         {nipStatus.message}
+                                    </div>
+                                )}
+                                {nipStatus.message && nipStatus.status === 'error' && (
+                                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[12.5px] text-red-800">
+                                        <div className="font-semibold flex items-center gap-2">
+                                            <i className="fa-solid fa-triangle-exclamation"></i>
+                                            Perhatian
+                                        </div>
+                                        <div className="mt-1 text-red-700 leading-relaxed">{nipStatus.message}</div>
                                     </div>
                                 )}
                                 {errors.nip && <span className="invalid-feedback">{errors.nip}</span>}

@@ -61,7 +61,7 @@ class AuthController extends Controller
         if (!$pegawai) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'NIP tidak ditemukan dalam data pegawai. Tidak dapat mendaftar sebagai Dosen.',
+                'message' => 'NIP tidak masuk dalam data pegawai, segera hubungi admin untuk penginputan data.',
             ]);
         }
 
@@ -218,7 +218,7 @@ class AuthController extends Controller
 
             if (!$pegawai) {
                 return back()->withErrors([
-                    'nip' => 'NIP tidak ditemukan dalam data pegawai. Tidak dapat mendaftar sebagai Dosen.',
+                    'nip' => 'NIP tidak masuk dalam data pegawai, segera hubungi admin untuk penginputan data.',
                 ])->withInput();
             }
 
