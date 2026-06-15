@@ -30,7 +30,7 @@ function TypeItemWithTooltip({
                     className="w-3 h-3 mr-2 rounded-full shadow-sm shrink-0"
                     style={{ backgroundColor: type.color }}
                 ></span>
-                <span className="text-[11px] sm:text-sm text-slate-600 font-bold sm:font-medium leading-none">{type.label}</span>
+                <span className="text-[10px] sm:text-[11px] text-slate-600 font-bold leading-tight line-clamp-2" title={type.label}>{type.label}</span>
                 {type.deskripsi && (
                     <div className="relative ml-1">
                         <button
@@ -103,8 +103,8 @@ export default function MapLegend({
 }: MapLegendProps) {
     return (
         <div
-            className={`bg-white rounded-xl shadow-soft border border-slate-100 p-4 flex flex-col ${compact ? 'p-2' : ''} ${className}`}
-            style={{ maxHeight: compact ? 'min(46vh, 320px)' : 'max(40vh, 300px)' }}
+            className={`bg-white rounded-xl shadow-soft border border-slate-100 flex flex-col ${compact ? 'p-1.5 max-w-[240px]' : 'p-4'} ${className}`}
+            style={{ maxHeight: compact ? 'min(40vh, 280px)' : 'max(40vh, 300px)' }}
             aria-label="Legenda visual peta PKM"
         >
             {/* Header - Fixed (Hidden in compact mode for mobile) */}
@@ -119,7 +119,7 @@ export default function MapLegend({
             <div className={`overflow-y-auto custom-scrollbar flex-1 ${compact ? 'pr-1 space-y-3' : 'pr-2 space-y-6'}`}>
                 {/* PKM Types Section */}
                 <div>
-                    <span className={`font-bold text-slate-400 uppercase tracking-widest block flex justify-between items-center sticky top-0 bg-white z-10 ${compact ? 'text-[9px] mb-1.5 py-0.5' : 'text-sm mb-2.5 py-1'}`}>
+                    <span className={`font-bold text-slate-400 uppercase tracking-widest block flex justify-between items-center sticky top-0 z-10 bg-white ${compact ? 'text-[8px] mb-1 py-1' : 'text-sm mb-2.5 py-1'}`}>
                         Jenis PKM
                     </span>
                     <div className="space-y-1">
@@ -155,7 +155,7 @@ export default function MapLegend({
                                 <span className={`mr-2 flex items-center justify-center w-4 h-4 rounded-full shrink-0 ${status.key === 'berlangsung' ? 'bg-amber-100' : 'bg-emerald-100'}`}>
                                     <i className={`fa-solid ${status.markerIcon} text-[8px] ${status.key === 'berlangsung' ? 'text-amber-600' : 'text-emerald-600'}`}></i>
                                 </span>
-                                <span className="text-[10px] sm:text-sm text-slate-600 font-bold sm:font-medium leading-none">{status.label}</span>
+                                <span className="text-[10px] sm:text-[11px] text-slate-600 font-bold leading-none">{status.label}</span>
                             </div>
                         ))}
                     </div>

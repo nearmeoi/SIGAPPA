@@ -124,34 +124,34 @@ function MapSummaryOverlay({
             </button>
             <div className={`flex flex-col items-stretch md:flex-row md:items-end gap-2 md:gap-3 transition-all duration-500 origin-bottom md:origin-left flex-1 ${panelClass}`}>
                 {!isMobile && (
-                    <div className="bg-white/90 backdrop-blur-xl rounded-[20px] md:rounded-[24px] p-1.5 md:p-2 shadow-2xl border border-white/40 whitespace-nowrap pointer-events-auto" style={{ overflow: 'visible' }}>
+                    <div className="bg-white/90 backdrop-blur-xl rounded-[20px] md:rounded-[24px] p-1.5 md:p-2 shadow-2xl border border-white/40 pointer-events-auto" style={{ overflow: 'visible' }}>
                         <MapLegend className="bg-transparent border-none shadow-none" compact typesMeta={typesMeta} selectedTypes={selectedTypes} onToggleType={onToggleType} selectedStatuses={selectedStatuses} onToggleStatus={onToggleStatus} />
                     </div>
                 )}
 
-                <div className="bg-white/90 backdrop-blur-xl rounded-[18px] md:rounded-[28px] p-2 md:p-4 shadow-2xl border border-white/40 mb-1 pointer-events-auto">
-                    <div className="grid grid-cols-2 md:flex md:items-center gap-2 md:gap-8">
+                <div className="bg-white/90 backdrop-blur-xl rounded-[16px] md:rounded-[20px] p-2 md:p-2.5 shadow-2xl border border-white/40 mb-1 pointer-events-auto">
+                    <div className="grid grid-cols-2 md:flex md:items-center gap-2 md:gap-5">
                         <div className="text-center md:text-left px-1 md:px-0">
-                            <div className="text-sm md:text-lg font-black text-slate-900 leading-none">{total}</div>
-                            <div className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Total PKM</div>
+                            <div className="text-sm md:text-base font-black text-slate-900 leading-none">{total}</div>
+                            <div className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Total PKM</div>
                         </div>
-                        <div className="hidden md:block w-px h-8 bg-slate-200/50"></div>
+                        <div className="hidden md:block w-px h-6 bg-slate-200/50"></div>
 
                         <div className="text-center md:text-left px-1 md:px-0">
-                            <div className="text-sm md:text-lg font-black text-emerald-600 leading-none">{selesai}</div>
-                            <div className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Selesai</div>
+                            <div className="text-sm md:text-base font-black text-emerald-600 leading-none">{selesai}</div>
+                            <div className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Selesai</div>
                         </div>
-                        <div className="hidden md:block w-px h-8 bg-slate-200/50"></div>
+                        <div className="hidden md:block w-px h-6 bg-slate-200/50"></div>
 
                         <div className="text-center md:text-left px-1 md:px-0">
-                            <div className="text-sm md:text-lg font-black text-amber-500 leading-none">{berlangsung}</div>
-                            <div className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Berjalan</div>
+                            <div className="text-sm md:text-base font-black text-amber-500 leading-none">{berlangsung}</div>
+                            <div className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Berjalan</div>
                         </div>
-                        <div className="hidden md:block w-px h-8 bg-slate-200/50"></div>
+                        <div className="hidden md:block w-px h-6 bg-slate-200/50"></div>
 
                         <div className="text-center md:text-left px-1 md:px-0">
-                            <div className="text-sm md:text-lg font-black text-slate-400 leading-none">{belumMulai}</div>
-                            <div className="text-[7px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Rencana</div>
+                            <div className="text-sm md:text-base font-black text-slate-400 leading-none">{belumMulai}</div>
+                            <div className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Rencana</div>
                         </div>
                     </div>
                 </div>
@@ -166,7 +166,7 @@ export interface FlyToTarget {
     trigger: number;
 }
 
-const MapMarkersList = React.memo(({ data, typesMeta, onMarkerClick }: { data: any[], typesMeta: PkmTypeMeta[], onMarkerClick: (pkm: any, pointIndex: number, lat: number, lng: number) => void }) => {
+const MapMarkersList = React.memo(({ data, typesMeta, isAdmin, onMarkerClick }: { data: any[], typesMeta: PkmTypeMeta[], isAdmin: boolean, onMarkerClick: (pkm: any, pointIndex: number, lat: number, lng: number) => void }) => {
     return (
         <>
             {data.map(({ pkm, lat, lng, pointIndex }) => {
@@ -176,7 +176,7 @@ const MapMarkersList = React.memo(({ data, typesMeta, onMarkerClick }: { data: a
                     <Marker
                         key={`${pkm.id ?? pkm.nama_kegiatan}-${pointIndex}`}
                         position={[lat, lng]}
-                        icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review)}
+                        icon={createPkmMarkerIcon(pkm.status, markerColor, (pkm as any).is_review, isAdmin)}
                         eventHandlers={{
                             click: () => onMarkerClick(pkm, pointIndex, lat, lng),
                         }}
@@ -186,7 +186,7 @@ const MapMarkersList = React.memo(({ data, typesMeta, onMarkerClick }: { data: a
         </>
     );
 }, (prevProps, nextProps) => {
-    return prevProps.data === nextProps.data && prevProps.typesMeta === nextProps.typesMeta;
+    return prevProps.data === nextProps.data && prevProps.typesMeta === nextProps.typesMeta && prevProps.isAdmin === nextProps.isAdmin;
 });
 
 export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isAdmin = false, showTitle = true }: { pkmData: PkmData[]; watchKey?: string; isAdmin?: boolean; showTitle?: boolean }) {
@@ -242,42 +242,58 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
     }, [pkmData, searchKeyword, selectedStatuses, selectedTypes, selectedYear]);
 
     const mappablePkmData = useMemo(() => {
-        return filteredPkmData
-            .flatMap((pkm) => {
-                const results: PkmMapPoint[] = [];
-                const hasAdditionalLocations = Array.isArray(pkm.lokasi_tambahan) && pkm.lokasi_tambahan.length > 0;
-                const mainLat = parseCoordinate(pkm.lat);
-                const mainLng = parseCoordinate(pkm.lng);
-                if (mainLat !== null && mainLng !== null) {
+        const results: PkmMapPoint[] = [];
+        const coordCounts = new Map<string, number>();
+
+        filteredPkmData.forEach((pkm) => {
+            const processLocation = (lat: number | null, lng: number | null, label: string, address: string, pointIndex: number) => {
+                if (lat !== null && lng !== null) {
+                    // Group markers by roughly exact coordinates (rounded to 3 decimal places ~100m)
+                    const coordKey = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+                    const count = coordCounts.get(coordKey) || 0;
+                    coordCounts.set(coordKey, count + 1);
+
+                    let offsetLat = lat;
+                    let offsetLng = lng;
+
+                    // If multiple pins share the exact same spot, spread them in a beautiful Golden Spiral (Vogel's model)
+                    if (count > 0) {
+                        const scalingFactor = 0.02; // Jarak sebaran antar pin
+                        const radius = scalingFactor * Math.sqrt(count);
+                        const theta = count * 2.39996322972865332; // Sudut emas (137.5 derajat)
+                        
+                        offsetLat += radius * Math.cos(theta);
+                        offsetLng += radius * Math.sin(theta);
+                    }
+
                     results.push({
                         pkm,
-                        lat: mainLat,
-                        lng: mainLng,
-                        pointIndex: 0,
-                        locationLabel: hasAdditionalLocations ? 'Lokasi 1' : 'Lokasi',
-                        locationAddress: buildLocationAddress(pkm.desa, pkm.kecamatan, pkm.kabupaten, pkm.provinsi),
+                        lat: offsetLat,
+                        lng: offsetLng,
+                        pointIndex,
+                        locationLabel: label,
+                        locationAddress: address,
                     });
                 }
+            };
 
-                if (pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
-                    pkm.lokasi_tambahan.forEach((loc: any, index: number) => {
-                        const lat = parseCoordinate(loc.latitude);
-                        const lng = parseCoordinate(loc.longitude);
-                        if (lat !== null && lng !== null) {
-                            results.push({
-                                pkm,
-                                lat,
-                                lng,
-                                pointIndex: index + 1,
-                                locationLabel: `Lokasi ${index + 2}`,
-                                locationAddress: buildLocationAddress(loc.kelurahan_desa || loc.desa, loc.kecamatan, loc.kota_kabupaten || loc.kabupaten, loc.provinsi),
-                            });
-                        }
-                    });
-                }
+            const mainLat = parseCoordinate(pkm.lat);
+            const mainLng = parseCoordinate(pkm.lng);
+            const hasAdditionalLocations = Array.isArray(pkm.lokasi_tambahan) && pkm.lokasi_tambahan.length > 0;
+            
+            processLocation(mainLat, mainLng, hasAdditionalLocations ? 'Lokasi Utama' : 'Lokasi', buildLocationAddress(pkm.desa, pkm.kecamatan, pkm.kabupaten, pkm.provinsi), 0);
 
-                return results;
-            });
+            if (pkm.lokasi_tambahan && Array.isArray(pkm.lokasi_tambahan)) {
+                pkm.lokasi_tambahan.forEach((loc: any, index: number) => {
+                    const lat = parseCoordinate(loc.latitude);
+                    const lng = parseCoordinate(loc.longitude);
+                    processLocation(lat, lng, `Lokasi ${index + 2}`, buildLocationAddress(loc.kelurahan_desa || loc.desa, loc.kecamatan, loc.kota_kabupaten || loc.kabupaten, loc.provinsi), index + 1);
+                });
+            }
+        });
+
+        // Urutkan supaya marker yang ada di luar (radius besar) di-render duluan (z-index lebih rendah)
+        return results.reverse();
     }, [filteredPkmData]);
 
     const typesMeta = useMemo(() => extractDynamicPkmTypes(pkmData), [pkmData]);
@@ -356,7 +372,7 @@ export default function PkmMapDashboardCard({ pkmData, watchKey = 'pkm-map', isA
                         <MapResetViewButton />
                         <MapClickHandler onClick={() => { setSelectedPkm(null); setFlyToTarget(null); setActiveLocationIndex(null); }} />
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
-                        <MapMarkersList data={mappablePkmData} typesMeta={typesMeta} onMarkerClick={handleMarkerClick} />
+                        <MapMarkersList data={mappablePkmData} typesMeta={typesMeta} isAdmin={isAdmin} onMarkerClick={handleMarkerClick} />
                         <MapSizeInvalidator watchKey={watchKey} />
                         <FlyToMarker 
                             lat={flyToTarget?.lat ?? selectedLat} 

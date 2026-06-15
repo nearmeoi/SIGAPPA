@@ -155,15 +155,15 @@ export const getPkmStatusMeta = (status: any): PkmStatusMeta => {
 const iconCache = new Map<string, L.DivIcon>();
 
 // Menggunakan tipe meta statis bila hanya 1 elemen (fallback), tapi lebih baik kirim color statis override dari caller
-export const createPkmMarkerIcon = (status: string, color: string, isReview: boolean = false) => {
-    const cacheKey = `${status}-${color}-${isReview}`;
+export const createPkmMarkerIcon = (status: string, color: string, isReview: boolean = false, isAdmin: boolean = false) => {
+    const cacheKey = `${status}-${color}-${isReview}-${isAdmin}`;
     if (iconCache.has(cacheKey)) {
         return iconCache.get(cacheKey)!;
     }
 
     const statusMeta = getPkmStatusMeta(status);
     const isNew = status === 'ada_pengajuan' || status === 'diproses' || status === 'direvisi' || status === 'revisi_direktur';
-    const shouldJump = isNew && !isReview;
+    const shouldJump = isNew && !isReview && isAdmin;
 
     const icon = L.divIcon({
         className: `custom-leaflet-marker${shouldJump ? ' pkm-marker--new' : ''}`,
@@ -183,6 +183,24 @@ export const createPkmMarkerIcon = (status: string, color: string, isReview: boo
 
     iconCache.set(cacheKey, icon);
     return icon;
+};
+
+export const createClusterPinIcon = (clusterCount: number) => {
+    return L.divIcon({
+        className: 'custom-leaflet-marker',
+        html: `
+            <div class="pkm-map-marker-wrap" style="--pkm-marker-color: #0f172a">
+                <div class="pkm-map-marker pkm-map-marker--cluster">
+                    <span class="pkm-map-marker__inner text-[10px] font-black tracking-tighter" style="color: #0f172a; padding-top: 1px;">
+                        ${clusterCount}
+                    </span>
+                </div>
+            </div>
+        `,
+        iconSize: [34, 44],
+        iconAnchor: [17, 38],
+        popupAnchor: [0, -32],
+    });
 };
 
 export const PKM_LEGEND_STATUSES = Object.values(PKM_STATUS_META);

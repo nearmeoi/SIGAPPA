@@ -587,7 +587,7 @@ const EditField = ({
     );
 };
 
-export default function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) {
+function Detail({ pengajuan, listPegawai, listJenisPkm }: Props) {
     const { props } = usePage();
     const user = (props as any).auth?.user;
     const isDirektur = user?.role === 'direktur';
